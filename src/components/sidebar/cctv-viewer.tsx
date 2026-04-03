@@ -103,7 +103,7 @@ function CameraImage({ src, alt, className, style }: { src: string; alt: string;
 }
 
 // Mobile gets 8 cameras per batch to keep payload under ~4MB
-const MOBILE_LIMIT = 8;
+const MOBILE_LIMIT = 4;
 function isMobileDevice() {
   return typeof window !== "undefined" && window.innerWidth < 1024;
 }

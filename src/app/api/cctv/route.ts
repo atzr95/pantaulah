@@ -77,8 +77,13 @@ export async function GET(request: Request) {
       });
     }
 
+    // Support ?limit=N to reduce payload size for mobile
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Math.max(1, parseInt(limitParam, 10)) : cameras.length;
+    const limited = cameras.slice(0, limit);
+
     return NextResponse.json(
-      { highway, cameras },
+      { highway, cameras: limited, total: cameras.length },
       { headers: { "Cache-Control": "public, max-age=60" } }
     );
   } catch {

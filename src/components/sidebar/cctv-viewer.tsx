@@ -102,24 +102,36 @@ function CameraImage({ src, alt, className, style }: { src: string; alt: string;
   );
 }
 
+// Mobile gets 8 cameras per batch to keep payload under ~4MB
+const MOBILE_LIMIT = 8;
+function isMobileDevice() {
+  return typeof window !== "undefined" && window.innerWidth < 1024;
+}
+
 export default function CCTVViewer() {
   const [expanded, setExpanded] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [selectedHighway, setSelectedHighway] = useState<string | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
+  const [totalCameras, setTotalCameras] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [fullscreenImg, setFullscreenImg] = useState<Camera | null>(null);
   const [zoom, setZoom] = useState(1);
   const [refreshCooldown, setRefreshCooldown] = useState(false);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const fetchCameras = useCallback(async (code: string) => {
+  const fetchCameras = useCallback(async (code: string, limit?: number) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/cctv?h=${code}`, { cache: "no-store" });
+      const mobile = isMobileDevice();
+      const fetchLimit = limit ?? (mobile ? MOBILE_LIMIT : undefined);
+      const url = fetchLimit ? `/api/cctv?h=${code}&limit=${fetchLimit}` : `/api/cctv?h=${code}`;
+      const res = await fetch(url, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setCameras(data.cameras || []);
+        setTotalCameras(data.total || data.cameras?.length || 0);
         return data.cameras || [];
       }
     } catch {
@@ -129,21 +141,41 @@ export default function CCTVViewer() {
     return null;
   }, []);
 
+  const loadMoreCameras = useCallback(async () => {
+    if (!selectedHighway || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const nextLimit = cameras.length + MOBILE_LIMIT;
+      const url = `/api/cctv?h=${selectedHighway}&limit=${nextLimit}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setCameras(data.cameras || []);
+        setTotalCameras(data.total || data.cameras?.length || 0);
+      }
+    } catch {
+      // silently fail
+    }
+    setLoadingMore(false);
+  }, [selectedHighway, cameras.length, loadingMore]);
+
   const loadCameras = useCallback(async (code: string) => {
     if (selectedHighway === code) {
       setSelectedHighway(null);
       setCameras([]);
+      setTotalCameras(0);
       return;
     }
     setSelectedHighway(code);
     setCameras([]);
+    setTotalCameras(0);
     const cams = await fetchCameras(code);
     if (cams) setLoading(false);
   }, [selectedHighway, fetchCameras]);
 
   const refreshCameras = useCallback(async () => {
     if (!selectedHighway || loading || refreshCooldown) return;
-    const cams = await fetchCameras(selectedHighway);
+    const cams = await fetchCameras(selectedHighway, cameras.length);
     if (cams && fullscreenImg) {
       const updated = cams.find((c: Camera) => c.name === fullscreenImg.name);
       if (updated) setFullscreenImg(updated);
@@ -243,7 +275,7 @@ export default function CCTVViewer() {
                 {cameras.length > 0 && (
                   <>
                     <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] mb-1.5 flex items-center justify-between">
-                      <span>{cameras.length} CAMERAS · TAP TO ENLARGE</span>
+                      <span>{cameras.length}{totalCameras > cameras.length ? `/${totalCameras}` : ""} CAMERAS · TAP TO ENLARGE</span>
                       <button
                         onClick={refreshCameras}
                         disabled={refreshDisabled}
@@ -276,6 +308,15 @@ export default function CCTVViewer() {
                         );
                       })}
                     </div>
+                    {totalCameras > cameras.length && (
+                      <button
+                        onClick={loadMoreCameras}
+                        disabled={loadingMore}
+                        className="w-full mt-2 py-2 text-[10px] tracking-wider border border-[rgba(0,212,255,0.25)] rounded text-[var(--color-cyan)] hover:border-[rgba(0,212,255,0.5)] transition-all disabled:opacity-40"
+                      >
+                        {loadingMore ? "LOADING..." : `LOAD MORE (${totalCameras - cameras.length} remaining)`}
+                      </button>
+                    )}
                   </>
                 )}
               </div>

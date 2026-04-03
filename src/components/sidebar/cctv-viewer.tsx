@@ -222,7 +222,7 @@ export default function CCTVViewer() {
                       title="Highway CCTV"
                       className="w-full border-0"
                       style={{ height: "500px" }}
-                      sandbox="allow-same-origin"
+                      sandbox="allow-scripts allow-same-origin"
                     />
                   </div>
                   <div className="text-[8px] tracking-wider text-[var(--color-text-dim)] mt-1 text-center opacity-50">

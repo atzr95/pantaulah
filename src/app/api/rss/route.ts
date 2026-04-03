@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const runtime = "edge";
+
 // ── Malaysian news RSS feeds ──
 
 const RSS_FEEDS = [

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const runtime = "edge";
+
 /** Available highway CCTV feeds from LLM (Lembaga Lebuhraya Malaysia) */
 const HIGHWAYS = [
   { code: "PLS", name: "PLUS Utara (North)", operator: "PLUS" },

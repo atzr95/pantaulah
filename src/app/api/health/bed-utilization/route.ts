@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { parquetRead } from "hyparquet";
 import { compressors } from "hyparquet-compressors";
 
+export const runtime = "edge";
+
 /**
  * Fetches hospital bed & ICU utilization from KKMNow (data.gov.my).
  * Source: daily Parquet snapshot with 17 rows (16 states + Malaysia national).

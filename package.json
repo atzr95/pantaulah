@@ -25,11 +25,13 @@
     "next": "^16.2.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-is": "^19.2.4",
     "recharts": "^3.8.1",
     "topojson-client": "^3.1.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
     "@tailwindcss/postcss": "^4.2.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -44,6 +46,7 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2",
+    "wrangler": "^4.80.0",
     "xlsx": "^0.18.5"
   }
 }

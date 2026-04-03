@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+
+export const runtime = "edge";
+
 import {
   STATE_COORDINATES,
   type CurrentWeather,

@@ -44,11 +44,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid highway code" }, { status: 400 });
   }
 
+  // Test mode: just fetch the signature to check if llm.gov.my is reachable
+  if (searchParams.get("test") === "sig") {
+    try {
+      const sigRes = await fetch(
+        `https://www.llm.gov.my/assets/ajax.get_sig.php?h=${highway}`,
+        { signal: AbortSignal.timeout(10_000) }
+      );
+      const body = await sigRes.text();
+      return NextResponse.json({ status: sigRes.status, body: body.slice(0, 500) });
+    } catch (err) {
+      return NextResponse.json({ error: `Sig test failed: ${String(err)}` });
+    }
+  }
+
   try {
     // Step 1: Get signature
     const sigRes = await fetch(
       `https://www.llm.gov.my/assets/ajax.get_sig.php?h=${highway}`,
-      { signal: AbortSignal.timeout(5_000) }
+      { signal: AbortSignal.timeout(10_000) }
     );
     if (!sigRes.ok) {
       return NextResponse.json({ error: `Signature failed: HTTP ${sigRes.status}` }, { status: 502 });

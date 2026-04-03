@@ -30,13 +30,6 @@ const HIGHWAYS = [
   { code: "CKH", name: "GRANDSAGA (Cheras-Kajang)", operator: "GRANDSAGA" },
 ];
 
-/**
- * Returns a signed URL for the CCTV iframe.
- *
- * The vigroot endpoint returns 30MB+ HTML with base64 images which exceeds
- * Cloudflare edge worker limits. Instead, we only proxy the tiny signature
- * request and let the user's browser load images directly via iframe.
- */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const highway = searchParams.get("h");
@@ -52,27 +45,43 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Fetch signature — small JSON, works from Cloudflare edge
+    // Step 1: Get signature
     const sigRes = await fetch(
       `https://www.llm.gov.my/assets/ajax.get_sig.php?h=${highway}`,
-      { signal: AbortSignal.timeout(10_000) }
+      { signal: AbortSignal.timeout(5_000) }
     );
     if (!sigRes.ok) {
       return NextResponse.json({ error: "Failed to get signature" }, { status: 502 });
     }
     const { t, sig } = await sigRes.json();
 
-    // Return the signed URL — the client's browser loads this in an iframe
-    const iframeUrl = `https://www.llm.gov.my/assets/ajax.vigroot.php?h=${highway}&t=${t}&sig=${sig}`;
+    // Step 2: Get camera images (immediately, before token expires)
+    const imgRes = await fetch(
+      `https://www.llm.gov.my/assets/ajax.vigroot.php?h=${highway}&t=${t}&sig=${sig}`,
+      { signal: AbortSignal.timeout(15_000) }
+    );
+    if (!imgRes.ok) {
+      return NextResponse.json({ error: "Failed to get images" }, { status: 502 });
+    }
+
+    const html = await imgRes.text();
+
+    // Parse HTML — images have src='data:image/...' title='CAM-NAME'
+    const cameras: Array<{ name: string; image: string }> = [];
+    const regex = /src='(data:image\/[^']+)'\s*title='([^']+)'/g;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      cameras.push({
+        name: match[2],
+        image: match[1],
+      });
+    }
 
     return NextResponse.json(
-      { highway, iframeUrl },
-      { headers: { "Cache-Control": "no-cache" } }
+      { highway, cameras },
+      { headers: { "Cache-Control": "public, max-age=60" } }
     );
-  } catch (err) {
-    return NextResponse.json(
-      { error: `CCTV failed: ${String(err)}` },
-      { status: 502 }
-    );
+  } catch {
+    return NextResponse.json({ error: "CCTV fetch failed" }, { status: 502 });
   }
 }

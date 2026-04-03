@@ -1,4 +1,12 @@
-# PANTAULAH
+<p align="center">
+  <img src="public/logo-256.png" alt="Pantaulah logo" width="128" />
+</p>
+
+<h1 align="center">PANTAULAH</h1>
+
+<p align="center">
+  <a href="https://pantaulah.com">pantaulah.com</a>
+</p>
 
 A fun side project, vibecoded into existence. Real-time intelligence dashboard for Malaysia — synthesizes government data across all 16 states and federal territories into an interactive choropleth map with 50+ metrics spanning economy, crime, health, transport, education, and energy.
 

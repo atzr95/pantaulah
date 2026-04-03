@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 interface Highway {
   code: string;
@@ -57,6 +57,34 @@ const HIGHWAY_GROUPS: Record<string, { label: string; highways: Highway[] }> = {
 interface Camera {
   name: string;
   image: string;
+}
+
+function LazyImage({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} style={style}>
+      {visible ? (
+        <img src={src} alt={alt} className={className} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <div className="w-full h-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[8px] text-[var(--color-text-dim)] tracking-wider">
+          LOADING...
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function CCTVViewer() {
@@ -220,11 +248,11 @@ export default function CCTVViewer() {
                             className="relative text-left cursor-pointer"
                             onClick={() => setFullscreenImg(cam)}
                           >
-                            <img
+                            <LazyImage
                               src={cam.image}
                               alt={cam.name}
-                              className="w-full rounded-sm border border-[rgba(255,255,255,0.08)] hover:border-[rgba(0,212,255,0.3)] transition-all"
-                              style={{ aspectRatio: "16/9", objectFit: "cover" }}
+                              className="rounded-sm border border-[rgba(255,255,255,0.08)] hover:border-[rgba(0,212,255,0.3)] transition-all"
+                              style={{ aspectRatio: "16/9" }}
                             />
                             <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 text-[7px] tracking-wider text-white bg-[rgba(0,0,0,0.7)]">
                               {shortName}

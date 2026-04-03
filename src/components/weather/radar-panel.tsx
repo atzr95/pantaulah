@@ -192,10 +192,10 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
       </div>
 
       {/* Image display */}
+      {/* Desktop: absolute fill; Mobile: scrollable with natural image sizing */}
       <div
-        className="flex-1 relative overflow-hidden"
+        className="flex-1 relative overflow-hidden lg:block hidden"
         style={{ background: "rgba(13, 13, 20, 0.8)" }}
-        onClick={() => isMobile && !imageError && setZoomOpen(true)}
       >
         {imageError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -235,7 +235,7 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
         <div className="absolute bottom-3 right-3 w-5 h-5 border-b border-r border-[var(--color-cyan)] opacity-40" />
 
         {/* Description overlay */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[10px] lg:text-[10px] tracking-[2px] text-[var(--color-text-dim)] bg-[rgba(10,10,15,0.7)] px-3 py-1 rounded backdrop-blur-sm text-center">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[10px] tracking-[2px] text-[var(--color-text-dim)] bg-[rgba(10,10,15,0.7)] px-3 py-1 rounded backdrop-blur-sm text-center">
           {currentConfig.description.toUpperCase()}
         </div>
 
@@ -248,13 +248,63 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
           })}{" "}
           MYT
         </div>
+      </div>
 
-        {/* Mobile: tap to zoom hint */}
-        {isMobile && !imageError && (
-          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 text-[10px] tracking-[1.5px] text-[var(--color-cyan)] bg-[rgba(10,10,15,0.8)] px-2.5 py-1 rounded backdrop-blur-sm opacity-60">
-            TAP TO ZOOM
+      {/* Mobile: scrollable layout */}
+      <div
+        className="flex-1 overflow-y-auto lg:hidden"
+        style={{ background: "rgba(13, 13, 20, 0.8)" }}
+      >
+        {/* Description */}
+        <div className="text-center text-[10px] tracking-[2px] text-[var(--color-text-dim)] px-3 py-2">
+          {currentConfig.description.toUpperCase()}
+        </div>
+
+        {imageError ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="text-[var(--color-text-dim)] text-sm mb-2">
+              IMAGE UNAVAILABLE
+            </div>
+            <div className="text-[10px] text-[var(--color-text-dim)]">
+              MetMalaysia image endpoint may be temporarily down
+            </div>
+          </div>
+        ) : (
+          <div
+            className="relative px-2"
+            onClick={() => !imageError && setZoomOpen(true)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt={`MetMalaysia ${currentConfig.label}`}
+              className="w-full h-auto rounded"
+              onError={() => setImageError(true)}
+            />
+            {/* Corner decorations */}
+            <div className="absolute top-2 left-4 w-4 h-4 border-t border-l border-[var(--color-cyan)] opacity-40" />
+            <div className="absolute top-2 right-4 w-4 h-4 border-t border-r border-[var(--color-cyan)] opacity-40" />
+            <div className="absolute bottom-2 left-4 w-4 h-4 border-b border-l border-[var(--color-cyan)] opacity-40" />
+            <div className="absolute bottom-2 right-4 w-4 h-4 border-b border-r border-[var(--color-cyan)] opacity-40" />
           </div>
         )}
+
+        {/* Updated time + tap hint */}
+        <div className="flex flex-col items-center gap-1 py-3 pb-48">
+          <div className="text-[10px] text-[var(--color-text-dim)] bg-[rgba(10,10,15,0.7)] px-3 py-1 rounded">
+            UPDATED: {new Date(radar.updatedAt).toLocaleTimeString("en-MY", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}{" "}
+            MYT
+          </div>
+          {!imageError && (
+            <div className="text-[10px] tracking-[1.5px] text-[var(--color-cyan)] opacity-60">
+              TAP IMAGE TO ZOOM
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Mobile: fullscreen zoom viewer */}

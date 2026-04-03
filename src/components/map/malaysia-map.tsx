@@ -639,7 +639,7 @@ export default function MalaysiaMap({
         style={{
           paddingBottom: sheetSnap === "full" ? "92vh"
             : sheetSnap === "half" ? "52vh"
-            : "130px",
+            : "180px",
         }}
       >
         {/* West Malaysia */}

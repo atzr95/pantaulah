@@ -168,7 +168,7 @@ export default function ResponsiveMapLayout({
         style={{
           paddingBottom: sheetSnap === "full" ? "92vh"
             : sheetSnap === "half" ? "52vh"
-            : "130px",
+            : "180px",
         }}
       >
         <div className="px-1">

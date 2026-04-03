@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback, useEffect, useMemo } from "react";
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import LoadingScreen from "@/components/ui/loading-screen";
@@ -85,6 +85,7 @@ function Home() {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>(initialMetric);
   const [selectedYear, setSelectedYear] = useState<number>(2023);
   const [sheetSnap, setSheetSnap] = useState<"peek" | "half" | "full">("half");
+  const bedUtilFetched = useRef(false);
 
   // Sync state changes to URL search params
   const updateURL = useCallback(
@@ -123,57 +124,54 @@ function Home() {
 
   // Fetch live bed/ICU utilization from KKMNow when health category is active
   useEffect(() => {
-    if (selectedCategory !== "health" || !data) return;
-    // Only fetch once — check if already injected
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anyState = Object.values(data.states)[0] as any;
-    const currentYear = new Date().getFullYear();
-    if (anyState?.years[currentYear]?.bedUtilization) return;
+    if (selectedCategory !== "health" || !data || bedUtilFetched.current) return;
+    bedUtilFetched.current = true;
 
+    let cancelled = false;
+    const currentYear = new Date().getFullYear();
     fetch("/api/health/bed-utilization")
       .then((r) => (r.ok ? r.json() : null))
       .then((bedUtil) => {
-        if (!bedUtil) return;
-        // Inject utilization into each state's current year
-        for (const [topoName, entry] of Object.entries(
-          bedUtil.states as Record<string, { bedUtil: number; icuUtil: number }>
-        )) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const stateYears = (data.states[topoName] as any)?.years;
-          if (!stateYears) continue;
-          if (!stateYears[currentYear]) stateYears[currentYear] = {};
-          stateYears[currentYear].bedUtilization = {
-            value: entry.bedUtil,
-            year: currentYear,
-          };
-          stateYears[currentYear].icuUtilization = {
-            value: entry.icuUtil,
-            year: currentYear,
-          };
-        }
-        // Inject national
-        if (bedUtil.national) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const natYears = (data.national as any).years;
-          if (!natYears[currentYear]) natYears[currentYear] = {};
-          natYears[currentYear].bedUtilization = {
-            value: bedUtil.national.bedUtil,
-            year: currentYear,
-          };
-          natYears[currentYear].icuUtilization = {
-            value: bedUtil.national.icuUtil,
-            year: currentYear,
-          };
-        }
-        // Ensure current year is in availableYears
-        if (!data.availableYears.includes(currentYear)) {
-          data.availableYears.push(currentYear);
-          data.availableYears.sort((a, b) => a - b);
-        }
-        // Trigger re-render
-        setData({ ...data });
+        if (!bedUtil || cancelled) return;
+        setData((prev) => {
+          if (!prev) return prev;
+          // Deep-clone to avoid mutating current state
+          const next = { ...prev, states: { ...prev.states }, national: { ...prev.national } };
+
+          // Inject utilization into each state's current year
+          for (const [topoName, entry] of Object.entries(
+            bedUtil.states as Record<string, { bedUtil: number; icuUtil: number }>
+          )) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const old = next.states[topoName] as any;
+            if (!old) continue;
+            const stateYears = { ...old.years };
+            if (!stateYears[currentYear]) stateYears[currentYear] = {};
+            else stateYears[currentYear] = { ...stateYears[currentYear] };
+            stateYears[currentYear].bedUtilization = { value: entry.bedUtil, year: currentYear };
+            stateYears[currentYear].icuUtilization = { value: entry.icuUtil, year: currentYear };
+            next.states[topoName] = { ...old, years: stateYears };
+          }
+          // Inject national
+          if (bedUtil.national) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const oldNat = next.national as any;
+            const natYears = { ...oldNat.years };
+            if (!natYears[currentYear]) natYears[currentYear] = {};
+            else natYears[currentYear] = { ...natYears[currentYear] };
+            natYears[currentYear].bedUtilization = { value: bedUtil.national.bedUtil, year: currentYear };
+            natYears[currentYear].icuUtilization = { value: bedUtil.national.icuUtil, year: currentYear };
+            next.national = { ...oldNat, years: natYears };
+          }
+          // Ensure current year is in availableYears
+          if (!next.availableYears.includes(currentYear)) {
+            next.availableYears = [...next.availableYears, currentYear].sort((a, b) => a - b);
+          }
+          return next;
+        });
       })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [selectedCategory, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When metric changes, clamp year to the metric's data range
@@ -351,7 +349,7 @@ function Home() {
                 onStateSelect={setSelectedState}
                 sheetSnap={sheetSnap}
                 mobileSlider={
-                  data.availableYears.length > 1 ? (
+                  data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" ? (
                     <TimeSlider
                       availableYears={data.availableYears}
                       selectedYear={selectedYear}
@@ -386,7 +384,7 @@ function Home() {
 
               {/* Desktop: absolute-positioned time slider */}
               <div className="hidden lg:block">
-                {data.availableYears.length > 1 && (
+                {data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" && (
                   <TimeSlider
                     availableYears={data.availableYears}
                     selectedYear={selectedYear}

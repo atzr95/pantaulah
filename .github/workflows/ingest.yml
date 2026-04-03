@@ -1,0 +1,51 @@
+name: Data Ingest
+
+on:
+  schedule:
+    # Run daily at 4:00 AM MYT (8:00 PM UTC previous day)
+    - cron: "0 20 * * *"
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run data ingest
+        run: npm run ingest
+
+      - name: Run energy ingest
+        run: npm run ingest:energy
+
+      - name: Minify cache JSON
+        run: |
+          for f in src/lib/data/cache/data.json src/lib/data/cache/energy-data.json; do
+            if [ -f "$f" ]; then
+              node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('$f','utf8')); fs.writeFileSync('$f',JSON.stringify(d));"
+            fi
+          done
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/lib/data/cache/
+          if git diff --cached --quiet; then
+            echo "No data changes"
+          else
+            git commit -m "chore(data): automated ingest $(date -u +%Y-%m-%d)"
+            git push
+          fi

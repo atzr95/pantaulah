@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       { signal: AbortSignal.timeout(5_000) }
     );
     if (!sigRes.ok) {
-      return NextResponse.json({ error: "Failed to get signature" }, { status: 502 });
+      return NextResponse.json({ error: `Signature failed: HTTP ${sigRes.status}` }, { status: 502 });
     }
     const { t, sig } = await sigRes.json();
 
@@ -59,58 +59,35 @@ export async function GET(request: Request) {
     const limitParam = searchParams.get("limit");
     const maxCameras = limitParam ? Math.max(1, parseInt(limitParam, 10)) : 200;
 
-    // Step 2: Get camera images — stream to avoid buffering 30MB+ in memory
+    // Step 2: Get camera images
     const imgRes = await fetch(
       `https://www.llm.gov.my/assets/ajax.vigroot.php?h=${highway}&t=${t}&sig=${sig}`,
-      { signal: AbortSignal.timeout(30_000) }
+      { signal: AbortSignal.timeout(15_000) }
     );
     if (!imgRes.ok) {
-      return NextResponse.json({ error: "Failed to get images" }, { status: 502 });
+      return NextResponse.json({ error: `Images failed: HTTP ${imgRes.status}` }, { status: 502 });
     }
 
-    // Stream-parse: read chunks, match cameras, stop early when we have enough
+    const html = await imgRes.text();
+
+    // Parse HTML — images have src='data:image/...' title='CAM-NAME'
     const cameras: Array<{ name: string; image: string }> = [];
-    let buffer = "";
-    let totalFound = 0;
-    const reader = imgRes.body?.getReader();
-    const decoder = new TextDecoder();
-
-    if (reader) {
-      const regex = /src='(data:image\/[^']+)'\s*title='([^']+)'/g;
-      let done = false;
-      while (!done) {
-        const { value, done: streamDone } = await reader.read();
-        done = streamDone;
-        if (value) buffer += decoder.decode(value, { stream: !done });
-
-        // Extract matches from buffer
-        let match;
-        let lastIndex = 0;
-        regex.lastIndex = 0;
-        while ((match = regex.exec(buffer)) !== null) {
-          totalFound++;
-          if (cameras.length < maxCameras) {
-            cameras.push({ name: match[2], image: match[1] });
-          }
-          lastIndex = regex.lastIndex;
-        }
-        // Keep only unmatched tail (last potential partial match)
-        // Keep enough buffer to not break partial matches at chunk boundary
-        if (lastIndex > 0) {
-          buffer = buffer.slice(Math.max(0, lastIndex - 200));
-        } else if (buffer.length > 500_000) {
-          // Safety: trim buffer if no matches found and it's growing too large
-          buffer = buffer.slice(-200_000);
-        }
-      }
-      reader.releaseLock();
+    const regex = /src='(data:image\/[^']+)'\s*title='([^']+)'/g;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      cameras.push({ name: match[2], image: match[1] });
+      if (cameras.length >= maxCameras) break;
     }
+
+    // Count remaining matches for total without storing image data
+    let total = cameras.length;
+    while (regex.exec(html) !== null) total++;
 
     return NextResponse.json(
-      { highway, cameras, total: totalFound },
+      { highway, cameras, total },
       { headers: { "Cache-Control": "public, max-age=60" } }
     );
   } catch {
-    return NextResponse.json({ error: "CCTV fetch failed" }, { status: 502 });
+    return NextResponse.json({ error: `CCTV exception: ${String(err)}` }, { status: 502 });
   }
 }

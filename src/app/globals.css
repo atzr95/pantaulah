@@ -60,6 +60,7 @@ body {
 
 .pulse-dot {
   animation: pulse-glow 2s infinite;
+  border-radius: 50%;
 }
 
 /* Remove default focus outline on all SVG elements */

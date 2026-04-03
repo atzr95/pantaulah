@@ -53,7 +53,13 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
     <div className="fixed inset-0 z-[9999] bg-[var(--color-bg)] flex flex-col items-center justify-center transition-opacity duration-500">
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center">
-        <img src="/logo-128.png" alt="PANTAULAH" className="w-16 h-16 mb-4 pulse-dot" />
+        <svg viewBox="0 0 512 512" className="w-16 h-16 mb-4 pulse-dot" aria-label="PANTAULAH">
+          <circle cx="256" cy="256" r="240" fill="#00d4ff" />
+          <circle cx="256" cy="256" r="195" fill="#0d1520" />
+          <circle cx="256" cy="256" r="150" fill="#00d4ff" />
+          <circle cx="256" cy="256" r="105" fill="#0d1520" />
+          <circle cx="256" cy="256" r="55" fill="#00d4ff" />
+        </svg>
         <div className="text-[var(--color-cyan)] text-xl tracking-[6px] font-bold">
           PANTAULAH
         </div>

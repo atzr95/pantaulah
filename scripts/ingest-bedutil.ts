@@ -57,7 +57,8 @@ async function main() {
     file: buf,
     compressors,
     rowFormat: "object",
-    onComplete: (data: BedUtilRow[]) => rows.push(...data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onComplete: (data: any[]) => rows.push(...(data as BedUtilRow[])),
   });
 
   console.log(`Parsed ${rows.length} rows`);

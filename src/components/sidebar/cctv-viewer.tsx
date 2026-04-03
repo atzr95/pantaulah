@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 
 interface Highway {
   code: string;
@@ -59,31 +59,25 @@ interface Camera {
   image: string;
 }
 
-function LazyImage({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+function CameraImage({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
-      { rootMargin: "200px" },
+  if (error) {
+    return (
+      <div style={style} className="bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[8px] text-[var(--color-text-dim)] tracking-wider">
+        FEED OFFLINE
+      </div>
     );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  }
 
   return (
-    <div ref={ref} style={style}>
-      {visible ? (
-        <img src={src} alt={alt} className={className} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      ) : (
-        <div className="w-full h-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[8px] text-[var(--color-text-dim)] tracking-wider">
-          LOADING...
-        </div>
-      )}
-    </div>
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      style={{ ...style, objectFit: "cover" }}
+      onError={() => setError(true)}
+    />
   );
 }
 
@@ -248,10 +242,10 @@ export default function CCTVViewer() {
                             className="relative text-left cursor-pointer"
                             onClick={() => setFullscreenImg(cam)}
                           >
-                            <LazyImage
+                            <CameraImage
                               src={cam.image}
                               alt={cam.name}
-                              className="rounded-sm border border-[rgba(255,255,255,0.08)] hover:border-[rgba(0,212,255,0.3)] transition-all"
+                              className="w-full rounded-sm border border-[rgba(255,255,255,0.08)] hover:border-[rgba(0,212,255,0.3)] transition-all"
                               style={{ aspectRatio: "16/9" }}
                             />
                             <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 text-[7px] tracking-wider text-white bg-[rgba(0,0,0,0.7)]">

@@ -18,7 +18,7 @@ export interface Flight {
   squawk: string | null;
 }
 
-const REFRESH_MS = 30_000; // 30 seconds
+const REFRESH_MS = 60_000; // 60 seconds
 
 export function useFlights(enabled: boolean) {
   const [flights, setFlights] = useState<Flight[]>([]);

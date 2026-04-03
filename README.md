@@ -43,7 +43,7 @@ All data is sourced from official Malaysian government APIs — no API keys requ
 | [BNM API](https://api.bnm.gov.my) | Exchange rates, OPR | Live |
 | [Open-Meteo](https://open-meteo.com) | Current weather, air quality | Live (15min cache) |
 | [MET Malaysia](https://api.met.gov.my) | Radar/satellite imagery | Live |
-| [OpenSky Network](https://opensky-network.org) | Flight tracking | Live (15s cache) |
+| [OpenSky Network](https://opensky-network.org) / [adsb.lol](https://adsb.lol) | Flight tracking | Live (60s refresh) |
 | [AISStream](https://aisstream.io) | Vessel tracking (AIS) | Live (WebSocket) |
 | [LLM.gov.my](https://www.llm.gov.my) | Highway CCTV feeds | Live (60s cache) |
 | [MyEnergyStats](https://myenergystats.st.gov.my) | Electricity, generation, capacity | Annual |
@@ -57,7 +57,7 @@ Not all metrics update at the same pace — government datasets publish on diffe
 | Metric | Source | Notes |
 |--------|--------|-------|
 | Weather & air quality | Open-Meteo, MET Malaysia | 15-min cache |
-| Flight tracking | OpenSky Network | 15s cache, coverage gaps over sea/rural areas |
+| Flight tracking | OpenSky Network / adsb.lol | 60s refresh, OpenSky primary with adsb.lol fallback |
 | Vessel tracking (AIS) | AISStream | WebSocket, live |
 | Highway CCTV | LLM.gov.my | 60s cache |
 | Exchange rates, OPR | BNM API | Live |
@@ -150,7 +150,7 @@ npm start
 All environment variables are **optional**. The dashboard works fully without any keys — live government APIs require no authentication.
 
 ```bash
-# Flight tracking (higher rate limits with auth)
+# Flight tracking — OpenSky auth is optional (falls back to adsb.lol)
 OPENSKY_CLIENT_ID=
 OPENSKY_CLIENT_SECRET=
 
@@ -171,7 +171,7 @@ src/
 │   ├── page.tsx                          # Main dashboard
 │   └── api/
 │       ├── weather/                      # Forecasts, warnings, current conditions
-│       ├── flights/                      # OpenSky airspace proxy
+│       ├── flights/                      # Flight data (OpenSky → adsb.lol fallback)
 │       ├── cctv/                         # Highway camera feeds
 │       ├── ticker/                       # News, exchange rates, fuel prices
 │       ├── health/bed-utilization/       # Hospital bed/ICU utilization
@@ -216,7 +216,7 @@ npm run test:watch   # Watch mode
 
 | Current API | Limitation | Recommended Upgrade |
 |-------------|-----------|-------------------|
-| **OpenSky Network** (flights) | Sparse ADS-B ground receiver coverage in Southeast Asia — significant gaps over northern peninsular Malaysia, the South China Sea, and rural East Malaysia. No satellite-based ADS-B. | [ADS-B Exchange](https://www.adsbexchange.com/data/) (paid, denser receivers) or [FlightRadar24](https://www.flightradar24.com) (paid, satellite ADS-B via Aireon for oceanic coverage). OpenSky is the best free option for live positions — coverage gaps are inherent to its volunteer receiver network. |
+| **OpenSky Network / adsb.lol** (flights) | OpenSky times out from cloud IPs; adsb.lol has sparse feeder coverage in East Malaysia. Both are community-driven with no SLA. | [ADS-B Exchange](https://www.adsbexchange.com/data/) (paid, denser receivers) or [FlightRadar24](https://www.flightradar24.com) (paid, satellite ADS-B via Aireon for oceanic coverage). |
 | **AISStream** (vessels) | Free tier may have message rate limits and limited historical playback. | [MarineTraffic API](https://www.marinetraffic.com/en/ais-api-services) for commercial-grade vessel tracking with richer metadata (vessel type, cargo, port calls). |
 | **Open-Meteo** (weather) | Community-driven; no SLA, occasional gaps in Malaysian station data. | [MET Malaysia API](https://api.met.gov.my) (already partially integrated) for authoritative local forecasts, or [OpenWeatherMap](https://openweathermap.org/api) for global coverage with paid tiers. |
 

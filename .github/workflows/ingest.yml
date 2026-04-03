@@ -30,9 +30,12 @@ jobs:
       - name: Run energy ingest
         run: npm run ingest:energy
 
+      - name: Run bed utilization ingest
+        run: npm run ingest:bedutil
+
       - name: Minify cache JSON
         run: |
-          for f in src/lib/data/cache/data.json src/lib/data/cache/energy-data.json; do
+          for f in src/lib/data/cache/data.json src/lib/data/cache/energy-data.json src/lib/data/cache/bedutil.json; do
             if [ -f "$f" ]; then
               node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('$f','utf8')); fs.writeFileSync('$f',JSON.stringify(d));"
             fi

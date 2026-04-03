@@ -27,125 +27,66 @@ function decodeCallsign(callsign: string): { airline: string | null; flightNum: 
   return { airline, flightNum };
 }
 
-// ── OAuth2 token cache ──────────────────────────────────
-const TOKEN_URL =
-  "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
+// Centre of Malaysia, 250 NM radius covers Peninsular + most of East Malaysia
+const ADSB_LOL_URL = "https://api.adsb.lol/v2/lat/4.0/lon/109.5/dist/250";
 
-let cachedToken: string | null = null;
-let tokenExpiresAt = 0;
-
-async function getAccessToken(): Promise<string | null> {
-  const clientId = process.env.OPENSKY_CLIENT_ID;
-  const clientSecret = process.env.OPENSKY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
-
-  // Reuse token if still valid (with 60s buffer)
-  if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
-    return cachedToken;
-  }
-
-  try {
-    const res = await fetch(TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`,
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    cachedToken = data.access_token;
-    tokenExpiresAt = Date.now() + data.expires_in * 1000;
-    return cachedToken;
-  } catch {
-    return cachedToken; // return stale token if refresh fails
-  }
-}
-
-// ── Response cache (serves stale data during rate-limit windows) ─
-interface FlightCache {
-  body: string;
-  time: number;
-}
-let lastGoodResponse: FlightCache | null = null;
-const CACHE_MAX_AGE_MS = 60_000; // serve cached response for up to 60s
-
-/** Proxy OpenSky Network API for Malaysia airspace */
+/** Proxy adsb.lol API for Malaysia airspace */
 export async function GET() {
-  // Return cached response if fresh enough
-  if (lastGoodResponse && Date.now() - lastGoodResponse.time < CACHE_MAX_AGE_MS) {
-    return new NextResponse(lastGoodResponse.body, {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
-      },
-    });
-  }
-
   try {
-    // Malaysia bounding box (wide): lat 0-8, lon 98-120
-    const url =
-      "https://opensky-network.org/api/states/all?lamin=0&lamax=8&lomin=98&lomax=120";
-
-    const headers: Record<string, string> = { Accept: "application/json" };
-    const token = await getAccessToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const res = await fetch(url, {
+    const res = await fetch(ADSB_LOL_URL, {
       signal: AbortSignal.timeout(10_000),
-      headers,
+      headers: { Accept: "application/json" },
     });
 
     if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      // Rate-limited or error — return last good response if available
-      if (lastGoodResponse) {
-        return new NextResponse(lastGoodResponse.body, {
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
-          },
-        });
-      }
-      return NextResponse.json(
-        { flights: [], _debug: { error: "opensky_http", status: res.status, body: errorBody.slice(0, 500) } },
-        { status: 200 },
-      );
+      return NextResponse.json({ flights: [] }, { status: 200 });
     }
 
     const data = await res.json();
-    const states = data.states || [];
+    const ac = data.ac || [];
 
-    const flights = states
+    interface AcState {
+      hex?: string;
+      flight?: string;
+      lat?: number;
+      lon?: number;
+      alt_baro?: number | string;
+      alt_geom?: number;
+      gs?: number;
+      track?: number;
+      baro_rate?: number;
+      squawk?: string;
+    }
+
+    const flights = ac
       .filter(
-        (s: unknown[]) =>
-          s[5] != null && s[6] != null && !s[8] // has lon, lat, and not on ground
+        (a: AcState) =>
+          a.lat != null &&
+          a.lon != null &&
+          a.alt_baro !== "ground" &&
+          typeof a.alt_baro === "number"
       )
-      .map((s: unknown[]) => {
-        const callsign = ((s[1] as string) || "").trim();
+      .map((a: AcState) => {
+        const callsign = (a.flight || "").trim();
         const { airline, flightNum } = decodeCallsign(callsign);
         return {
-          icao24: s[0] as string,
+          icao24: a.hex || "",
           callsign,
           airline,
           flightNum,
-          origin: s[2] as string,
-          lon: s[5] as number,
-          lat: s[6] as number,
-          altitude: Math.round((s[7] as number) || 0),
-          geoAltitude: Math.round((s[13] as number) || 0),
-          velocity: Math.round(((s[9] as number) || 0) * 3.6), // m/s to km/h
-          heading: s[10] as number,
-          verticalRate: Math.round(((s[11] as number) || 0) * 60), // m/s to m/min
-          squawk: s[14] as string | null,
+          origin: "",
+          lon: a.lon as number,
+          lat: a.lat as number,
+          altitude: Math.round(a.alt_baro as number * 0.3048), // ft → m
+          geoAltitude: Math.round((a.alt_geom || 0) * 0.3048),
+          velocity: Math.round((a.gs || 0) * 1.852), // knots → km/h
+          heading: a.track || 0,
+          verticalRate: Math.round((a.baro_rate || 0) * 0.3048), // ft/min → m/min
+          squawk: a.squawk || null,
         };
       });
 
-    const body = JSON.stringify({ flights, time: data.time });
-
-    // Cache this successful response
-    lastGoodResponse = { body, time: Date.now() };
+    const body = JSON.stringify({ flights, time: data.now });
 
     return new NextResponse(body, {
       headers: {
@@ -153,19 +94,7 @@ export async function GET() {
         "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
       },
     });
-  } catch (err) {
-    // Network error — return last good response if available
-    if (lastGoodResponse) {
-      return new NextResponse(lastGoodResponse.body, {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
-        },
-      });
-    }
-    return NextResponse.json(
-      { flights: [], _debug: { error: "network", message: String(err) } },
-      { status: 200 },
-    );
+  } catch {
+    return NextResponse.json({ flights: [] }, { status: 200 });
   }
 }

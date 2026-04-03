@@ -116,6 +116,7 @@ export default function CCTVViewer() {
   const [totalCameras, setTotalCameras] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<Camera | null>(null);
   const [zoom, setZoom] = useState(1);
   const [refreshCooldown, setRefreshCooldown] = useState(false);
@@ -123,6 +124,7 @@ export default function CCTVViewer() {
 
   const fetchCameras = useCallback(async (code: string, limit?: number) => {
     setLoading(true);
+    setFetchError(null);
     try {
       const mobile = isMobileDevice();
       const fetchLimit = limit ?? (mobile ? MOBILE_LIMIT : undefined);
@@ -134,8 +136,9 @@ export default function CCTVViewer() {
         setTotalCameras(data.total || data.cameras?.length || 0);
         return data.cameras || [];
       }
-    } catch {
-      // silently fail
+      setFetchError(`HTTP ${res.status}`);
+    } catch (err) {
+      setFetchError(String(err));
     }
     setLoading(false);
     return null;
@@ -269,6 +272,11 @@ export default function CCTVViewer() {
                 {!loading && cameras.length === 0 && (
                   <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] py-2 text-center">
                     NO CAMERAS AVAILABLE
+                    {fetchError && (
+                      <div className="mt-1 text-[8px] text-[var(--color-amber)] break-all px-2">
+                        DEBUG: {fetchError}
+                      </div>
+                    )}
                   </div>
                 )}
 

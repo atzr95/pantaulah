@@ -98,6 +98,7 @@ export async function GET() {
     });
 
     if (!res.ok) {
+      const errorBody = await res.text().catch(() => "");
       // Rate-limited or error — return last good response if available
       if (lastGoodResponse) {
         return new NextResponse(lastGoodResponse.body, {
@@ -107,7 +108,10 @@ export async function GET() {
           },
         });
       }
-      return NextResponse.json({ flights: [] }, { status: 200 });
+      return NextResponse.json(
+        { flights: [], _debug: { error: "opensky_http", status: res.status, body: errorBody.slice(0, 500) } },
+        { status: 200 },
+      );
     }
 
     const data = await res.json();
@@ -149,7 +153,7 @@ export async function GET() {
         "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
       },
     });
-  } catch {
+  } catch (err) {
     // Network error — return last good response if available
     if (lastGoodResponse) {
       return new NextResponse(lastGoodResponse.body, {
@@ -159,6 +163,9 @@ export async function GET() {
         },
       });
     }
-    return NextResponse.json({ flights: [] }, { status: 200 });
+    return NextResponse.json(
+      { flights: [], _debug: { error: "network", message: String(err) } },
+      { status: 200 },
+    );
   }
 }

@@ -27,8 +27,8 @@ function decodeCallsign(callsign: string): { airline: string | null; flightNum: 
   return { airline, flightNum };
 }
 
-// Centre of Malaysia, 250 NM radius covers Peninsular + most of East Malaysia
-const ADSB_LOL_URL = "https://api.adsb.lol/v2/lat/4.0/lon/109.5/dist/250";
+// KL centre, 250 NM radius covers Peninsular Malaysia + surrounding airspace
+const ADSB_LOL_URL = "https://api.adsb.lol/v2/lat/3.14/lon/101.69/dist/250";
 
 /** Proxy adsb.lol API for Malaysia airspace */
 export async function GET() {

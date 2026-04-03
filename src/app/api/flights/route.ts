@@ -27,67 +27,153 @@ function decodeCallsign(callsign: string): { airline: string | null; flightNum: 
   return { airline, flightNum };
 }
 
-// KL centre, 250 NM radius covers Peninsular Malaysia + surrounding airspace
-const ADSB_LOL_URL = "https://api.adsb.lol/v2/lat/3.14/lon/101.69/dist/250";
+// Multiple centre points to cover all of Malaysia (250 NM max per request)
+const ADSB_LOL_URLS = [
+  "https://api.adsb.lol/v2/lat/3.14/lon/101.69/dist/250", // Peninsular (KL)
+  "https://api.adsb.lol/v2/lat/6.0/lon/102.0/dist/250",   // North Peninsular
+  "https://api.adsb.lol/v2/lat/2.5/lon/111.5/dist/250",    // Sarawak
+  "https://api.adsb.lol/v2/lat/5.5/lon/116.0/dist/250",    // Sabah
+];
 
-/** Proxy adsb.lol API for Malaysia airspace */
+// OpenSky as fallback — works from residential IPs (localhost) but not cloud
+const OPENSKY_URL =
+  "https://opensky-network.org/api/states/all?lamin=0&lamax=8&lomin=98&lomax=120";
+
+interface AcState {
+  hex?: string;
+  flight?: string;
+  lat?: number;
+  lon?: number;
+  alt_baro?: number | string;
+  alt_geom?: number;
+  gs?: number;
+  track?: number;
+  baro_rate?: number;
+  squawk?: string;
+}
+
+interface Flight {
+  icao24: string;
+  callsign: string;
+  airline: string | null;
+  flightNum: string | null;
+  origin: string;
+  lon: number;
+  lat: number;
+  altitude: number;
+  geoAltitude: number;
+  velocity: number;
+  heading: number;
+  verticalRate: number;
+  squawk: string | null;
+}
+
+function parseAdsbLol(ac: AcState[]): Flight[] {
+  return ac
+    .filter(
+      (a) =>
+        a.lat != null &&
+        a.lon != null &&
+        a.alt_baro !== "ground" &&
+        typeof a.alt_baro === "number"
+    )
+    .map((a) => {
+      const callsign = (a.flight || "").trim();
+      const { airline, flightNum } = decodeCallsign(callsign);
+      return {
+        icao24: a.hex || "",
+        callsign,
+        airline,
+        flightNum,
+        origin: "",
+        lon: a.lon as number,
+        lat: a.lat as number,
+        altitude: Math.round((a.alt_baro as number) * 0.3048),
+        geoAltitude: Math.round((a.alt_geom || 0) * 0.3048),
+        velocity: Math.round((a.gs || 0) * 1.852),
+        heading: a.track || 0,
+        verticalRate: Math.round((a.baro_rate || 0) * 0.3048),
+        squawk: a.squawk || null,
+      };
+    });
+}
+
+function parseOpenSky(states: unknown[][]): Flight[] {
+  return states
+    .filter((s) => s[5] != null && s[6] != null && !s[8])
+    .map((s) => {
+      const callsign = ((s[1] as string) || "").trim();
+      const { airline, flightNum } = decodeCallsign(callsign);
+      return {
+        icao24: s[0] as string,
+        callsign,
+        airline,
+        flightNum,
+        origin: s[2] as string,
+        lon: s[5] as number,
+        lat: s[6] as number,
+        altitude: Math.round((s[7] as number) || 0),
+        geoAltitude: Math.round((s[13] as number) || 0),
+        velocity: Math.round(((s[9] as number) || 0) * 3.6),
+        heading: s[10] as number,
+        verticalRate: Math.round(((s[11] as number) || 0) * 60),
+        squawk: s[14] as string | null,
+      };
+    });
+}
+
+/** Fetch from adsb.lol (multiple regions in parallel), fall back to OpenSky */
 export async function GET() {
+  // Try adsb.lol first — fetch all regions in parallel
   try {
-    const res = await fetch(ADSB_LOL_URL, {
+    const responses = await Promise.all(
+      ADSB_LOL_URLS.map((url) =>
+        fetch(url, {
+          signal: AbortSignal.timeout(10_000),
+          headers: { Accept: "application/json" },
+        }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      )
+    );
+
+    const allAc: AcState[] = [];
+    for (const data of responses) {
+      if (data?.ac) allAc.push(...data.ac);
+    }
+
+    if (allAc.length > 0) {
+      // Deduplicate by icao24 hex code
+      const seen = new Set<string>();
+      const unique = allAc.filter((a) => {
+        const key = a.hex || "";
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      const flights = parseAdsbLol(unique);
+      const body = JSON.stringify({ flights, time: Date.now() });
+      return new NextResponse(body, {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
+        },
+      });
+    }
+  } catch {
+    // fall through to OpenSky
+  }
+
+  // Fallback: OpenSky (works from residential IPs / localhost)
+  try {
+    const res = await fetch(OPENSKY_URL, {
       signal: AbortSignal.timeout(10_000),
       headers: { Accept: "application/json" },
     });
-
-    if (!res.ok) {
-      return NextResponse.json({ flights: [] }, { status: 200 });
-    }
+    if (!res.ok) return NextResponse.json({ flights: [] }, { status: 200 });
 
     const data = await res.json();
-    const ac = data.ac || [];
-
-    interface AcState {
-      hex?: string;
-      flight?: string;
-      lat?: number;
-      lon?: number;
-      alt_baro?: number | string;
-      alt_geom?: number;
-      gs?: number;
-      track?: number;
-      baro_rate?: number;
-      squawk?: string;
-    }
-
-    const flights = ac
-      .filter(
-        (a: AcState) =>
-          a.lat != null &&
-          a.lon != null &&
-          a.alt_baro !== "ground" &&
-          typeof a.alt_baro === "number"
-      )
-      .map((a: AcState) => {
-        const callsign = (a.flight || "").trim();
-        const { airline, flightNum } = decodeCallsign(callsign);
-        return {
-          icao24: a.hex || "",
-          callsign,
-          airline,
-          flightNum,
-          origin: "",
-          lon: a.lon as number,
-          lat: a.lat as number,
-          altitude: Math.round(a.alt_baro as number * 0.3048), // ft → m
-          geoAltitude: Math.round((a.alt_geom || 0) * 0.3048),
-          velocity: Math.round((a.gs || 0) * 1.852), // knots → km/h
-          heading: a.track || 0,
-          verticalRate: Math.round((a.baro_rate || 0) * 0.3048), // ft/min → m/min
-          squawk: a.squawk || null,
-        };
-      });
-
-    const body = JSON.stringify({ flights, time: data.now });
-
+    const flights = parseOpenSky(data.states || []);
+    const body = JSON.stringify({ flights, time: data.time });
     return new NextResponse(body, {
       headers: {
         "Content-Type": "application/json",

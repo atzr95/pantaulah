@@ -54,6 +54,8 @@ const HIGHWAY_GROUPS: Record<string, { label: string; highways: Highway[] }> = {
   },
 };
 
+const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
+
 export default function CCTVViewer() {
   const [expanded, setExpanded] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
@@ -129,7 +131,20 @@ export default function CCTVViewer() {
         </span>
       </button>
 
-      {expanded && (
+      {expanded && isProduction && (
+        <div className="px-3 pb-3 text-center">
+          <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] py-3">
+            CCTV FEEDS UNAVAILABLE IN PRODUCTION
+          </div>
+          <div className="text-[8px] text-[var(--color-text-dim)] opacity-50">
+            LLM.gov.my restricts access from cloud servers.
+            <br />
+            Available on localhost only.
+          </div>
+        </div>
+      )}
+
+      {expanded && !isProduction && (
         <div className="px-3 pb-3">
           {/* Step 1: Choose highway group */}
           {!selectedGroup && (

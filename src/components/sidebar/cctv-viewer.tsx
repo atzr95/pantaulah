@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 interface Highway {
   code: string;
@@ -60,7 +60,20 @@ interface Camera {
 }
 
 function CameraImage({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   if (error) {
     return (
@@ -71,13 +84,21 @@ function CameraImage({ src, alt, className, style }: { src: string; alt: string;
   }
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      style={{ ...style, objectFit: "cover" }}
-      onError={() => setError(true)}
-    />
+    <div ref={ref} style={style}>
+      {visible ? (
+        <img
+          src={src}
+          alt={alt}
+          className={className}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={() => setError(true)}
+        />
+      ) : (
+        <div className="w-full h-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[8px] text-[var(--color-text-dim)] tracking-wider">
+          LOADING...
+        </div>
+      )}
+    </div>
   );
 }
 

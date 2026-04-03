@@ -87,7 +87,7 @@ export async function GET(request: Request) {
       { highway, cameras, total },
       { headers: { "Cache-Control": "public, max-age=60" } }
     );
-  } catch {
+  } catch (err) {
     return NextResponse.json({ error: `CCTV exception: ${String(err)}` }, { status: 502 });
   }
 }

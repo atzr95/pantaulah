@@ -30,6 +30,13 @@ const HIGHWAYS = [
   { code: "CKH", name: "GRANDSAGA (Cheras-Kajang)", operator: "GRANDSAGA" },
 ];
 
+/**
+ * Returns a signed URL for the CCTV iframe.
+ *
+ * The vigroot endpoint returns 30MB+ HTML with base64 images which exceeds
+ * Cloudflare edge worker limits. Instead, we only proxy the tiny signature
+ * request and let the user's browser load images directly via iframe.
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const highway = searchParams.get("h");
@@ -44,64 +51,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid highway code" }, { status: 400 });
   }
 
-  // Test mode: just fetch the signature to check if llm.gov.my is reachable
-  if (searchParams.get("test") === "sig") {
-    try {
-      const sigRes = await fetch(
-        `https://www.llm.gov.my/assets/ajax.get_sig.php?h=${highway}`,
-        { signal: AbortSignal.timeout(10_000) }
-      );
-      const body = await sigRes.text();
-      return NextResponse.json({ status: sigRes.status, body: body.slice(0, 500) });
-    } catch (err) {
-      return NextResponse.json({ error: `Sig test failed: ${String(err)}` });
-    }
-  }
-
   try {
-    // Step 1: Get signature
+    // Fetch signature — small JSON, works from Cloudflare edge
     const sigRes = await fetch(
       `https://www.llm.gov.my/assets/ajax.get_sig.php?h=${highway}`,
       { signal: AbortSignal.timeout(10_000) }
     );
     if (!sigRes.ok) {
-      return NextResponse.json({ error: `Signature failed: HTTP ${sigRes.status}` }, { status: 502 });
+      return NextResponse.json({ error: "Failed to get signature" }, { status: 502 });
     }
     const { t, sig } = await sigRes.json();
 
-    // Support ?limit=N to cap how many cameras to extract
-    const limitParam = searchParams.get("limit");
-    const maxCameras = limitParam ? Math.max(1, parseInt(limitParam, 10)) : 200;
-
-    // Step 2: Get camera images
-    const imgRes = await fetch(
-      `https://www.llm.gov.my/assets/ajax.vigroot.php?h=${highway}&t=${t}&sig=${sig}`,
-      { signal: AbortSignal.timeout(15_000) }
-    );
-    if (!imgRes.ok) {
-      return NextResponse.json({ error: `Images failed: HTTP ${imgRes.status}` }, { status: 502 });
-    }
-
-    const html = await imgRes.text();
-
-    // Parse HTML — images have src='data:image/...' title='CAM-NAME'
-    const cameras: Array<{ name: string; image: string }> = [];
-    const regex = /src='(data:image\/[^']+)'\s*title='([^']+)'/g;
-    let match;
-    while ((match = regex.exec(html)) !== null) {
-      cameras.push({ name: match[2], image: match[1] });
-      if (cameras.length >= maxCameras) break;
-    }
-
-    // Count remaining matches for total without storing image data
-    let total = cameras.length;
-    while (regex.exec(html) !== null) total++;
+    // Return the signed URL — the client's browser loads this in an iframe
+    const iframeUrl = `https://www.llm.gov.my/assets/ajax.vigroot.php?h=${highway}&t=${t}&sig=${sig}`;
 
     return NextResponse.json(
-      { highway, cameras, total },
-      { headers: { "Cache-Control": "public, max-age=60" } }
+      { highway, iframeUrl },
+      { headers: { "Cache-Control": "no-cache" } }
     );
   } catch (err) {
-    return NextResponse.json({ error: `CCTV exception: ${String(err)}` }, { status: 502 });
+    return NextResponse.json(
+      { error: `CCTV failed: ${String(err)}` },
+      { status: 502 }
+    );
   }
 }

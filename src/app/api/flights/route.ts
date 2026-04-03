@@ -122,9 +122,32 @@ function parseOpenSky(states: unknown[][]): Flight[] {
     });
 }
 
-/** Fetch from adsb.lol (multiple regions in parallel), fall back to OpenSky */
+/** Try OpenSky first (better coverage), fall back to adsb.lol */
 export async function GET() {
-  // Try adsb.lol first — fetch all regions in parallel
+  // Try OpenSky first — works from residential IPs (localhost)
+  try {
+    const res = await fetch(OPENSKY_URL, {
+      signal: AbortSignal.timeout(10_000),
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`OpenSky ${res.status}`);
+
+    const data = await res.json();
+    const flights = parseOpenSky(data.states || []);
+    if (flights.length > 0) {
+      const body = JSON.stringify({ flights, time: data.time });
+      return new NextResponse(body, {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
+        },
+      });
+    }
+  } catch {
+    // fall through to adsb.lol
+  }
+
+  // Fallback: adsb.lol — fetch multiple regions in parallel (works from cloud IPs)
   try {
     const responses = await Promise.all(
       ADSB_LOL_URLS.map((url) =>
@@ -140,40 +163,17 @@ export async function GET() {
       if (data?.ac) allAc.push(...data.ac);
     }
 
-    if (allAc.length > 0) {
-      // Deduplicate by icao24 hex code
-      const seen = new Set<string>();
-      const unique = allAc.filter((a) => {
-        const key = a.hex || "";
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      const flights = parseAdsbLol(unique);
-      const body = JSON.stringify({ flights, time: Date.now() });
-      return new NextResponse(body, {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
-        },
-      });
-    }
-  } catch {
-    // fall through to OpenSky
-  }
-
-  // Fallback: OpenSky (works from residential IPs / localhost)
-  try {
-    const res = await fetch(OPENSKY_URL, {
-      signal: AbortSignal.timeout(10_000),
-      headers: { Accept: "application/json" },
+    // Deduplicate by icao24 hex code
+    const seen = new Set<string>();
+    const unique = allAc.filter((a) => {
+      const key = a.hex || "";
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
-    if (!res.ok) return NextResponse.json({ flights: [] }, { status: 200 });
 
-    const data = await res.json();
-    const flights = parseOpenSky(data.states || []);
-    const body = JSON.stringify({ flights, time: data.time });
+    const flights = parseAdsbLol(unique);
+    const body = JSON.stringify({ flights, time: Date.now() });
     return new NextResponse(body, {
       headers: {
         "Content-Type": "application/json",

@@ -11,6 +11,7 @@
     "ingest": "npx tsx scripts/ingest.ts",
     "ingest:force": "npx tsx scripts/ingest.ts --force",
     "ingest:energy": "npx tsx scripts/ingest-energy.ts",
+    "ingest:bedutil": "npx tsx scripts/ingest-bedutil.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

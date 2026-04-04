@@ -22,7 +22,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm install
 
       - name: Run data ingest
         run: npm run ingest

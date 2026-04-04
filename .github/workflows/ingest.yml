@@ -4,7 +4,12 @@ on:
   schedule:
     # Run daily at 4:00 AM MYT (8:00 PM UTC previous day)
     - cron: "0 20 * * *"
-  workflow_dispatch: # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force re-fetch all data (bypass staleness check)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -25,7 +30,7 @@ jobs:
       - run: npm install
 
       - name: Run data ingest
-        run: npm run ingest
+        run: ${{ github.event.inputs.force == 'true' && 'npm run ingest:force' || 'npm run ingest' }}
 
       - name: Run energy ingest
         run: npm run ingest:energy

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import bedutilCache from "@/lib/data/cache/bedutil.json";
 
-export const runtime = "edge";
 
 /**
  * Serves hospital bed & ICU utilization from pre-cached JSON.

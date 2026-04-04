@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-export const runtime = "edge";
 
 export interface TrendingVideo {
   id: string;
@@ -37,7 +37,8 @@ function parseDuration(iso: string): number {
 }
 
 export async function GET() {
-  const apiKey = process.env.YOUTUBE_API_KEY;
+  const { env } = await getCloudflareContext();
+  const apiKey = (env as Record<string, string>).YOUTUBE_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json(

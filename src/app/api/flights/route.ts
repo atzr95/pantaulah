@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const runtime = "edge";
 
 /** ICAO airline code → name lookup for common airlines in Malaysia airspace */
 const AIRLINES: Record<string, string> = {

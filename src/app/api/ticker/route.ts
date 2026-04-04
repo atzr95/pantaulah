@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import type { Headline, ExchangeRate, FuelPrice, TickerData } from "@/lib/data/types";
 
-export const runtime = "edge";
 import { matchHeadlineToStates } from "@/lib/data/states";
 
 // BNM response schema (Zod validation)

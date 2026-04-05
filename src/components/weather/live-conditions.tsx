@@ -137,7 +137,7 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
       </div>
 
       {/* Desktop: original single-row layout */}
-      <div className="hidden lg:flex items-center gap-0 px-5 py-0">
+      <div className="hidden lg:flex items-center gap-0 px-5 py-0 overflow-x-auto">
         <div className="flex items-center gap-2 pr-4 py-2 border-r border-[var(--color-border)] shrink-0">
           <span
             className="inline-block w-1.5 h-1.5 rounded-full pulse-dot"

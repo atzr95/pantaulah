@@ -181,12 +181,16 @@ export default function WeatherView() {
     </>
   );
 
+  // Flood alert count for combined alert bar
+  const floodAlertCount = data ? data.floodAlerts.stations.length : 0;
+
   // Sidebar props (shared)
   const sidebarProps = {
     forecasts: data.forecasts,
     warnings: data.warnings,
     earthquakes: data.earthquakes,
     airQuality: data.airQuality,
+    floodAlerts: data.floodAlerts,
     selectedState,
     activeTab,
   };
@@ -195,9 +199,9 @@ export default function WeatherView() {
     <>
       <div className="flex flex-1 overflow-hidden">
         {/* Map area */}
-        <div className="flex-1 relative flex flex-col min-h-0 min-w-0">
-          {/* Warning alert bar */}
-          {activeWarningCount > 0 && (
+        <div className="flex-1 relative flex flex-col min-h-0 min-w-0 overflow-hidden">
+          {/* Warning + flood alert bar */}
+          {(activeWarningCount > 0 || floodAlertCount > 0) && (
             <div
               className="flex items-center gap-2 px-4 py-1.5 shrink-0"
               style={{
@@ -206,9 +210,19 @@ export default function WeatherView() {
               }}
             >
               <span className="text-sm">{"\u26A0\uFE0F"}</span>
-              <span className="text-[10px] tracking-wider text-[var(--color-amber)] font-bold">
-                {activeWarningCount} ACTIVE WARNING{activeWarningCount > 1 ? "S" : ""}
-              </span>
+              {activeWarningCount > 0 && (
+                <span className="text-[10px] tracking-wider text-[var(--color-amber)] font-bold">
+                  {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
+                </span>
+              )}
+              {activeWarningCount > 0 && floodAlertCount > 0 && (
+                <span className="text-[var(--color-text-dim)] opacity-30">|</span>
+              )}
+              {floodAlertCount > 0 && (
+                <span className="text-[10px] tracking-wider text-[var(--color-cyan)] font-bold">
+                  {"\uD83C\uDF0A"} {floodAlertCount} FLOOD ALERT{floodAlertCount > 1 ? "S" : ""}
+                </span>
+              )}
               <span className="text-[10px] text-[var(--color-text-dim)] hidden sm:inline">
                 — see sidebar for details
               </span>
@@ -292,11 +306,33 @@ export default function WeatherView() {
                 }}
               />
               <span className="text-[var(--color-amber)]">
-                {activeWarningCount} ACTIVE WARNING{activeWarningCount > 1 ? "S" : ""}
+                {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
               </span>
             </>
           ) : (
-            <span className="text-[var(--color-text-dim)]">NO ACTIVE WARNINGS</span>
+            <span className="text-[var(--color-text-dim)]">NO WARNINGS</span>
+          )}
+        </div>
+
+        <span className="text-[var(--color-text-dim)] opacity-30">|</span>
+
+        {/* Flood alerts */}
+        <div className="flex items-center gap-1.5 text-[10px]">
+          {floodAlertCount > 0 ? (
+            <>
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full"
+                style={{
+                  background: "var(--color-cyan)",
+                  boxShadow: "0 0 6px var(--color-cyan)",
+                }}
+              />
+              <span className="text-[var(--color-cyan)]">
+                {floodAlertCount} FLOOD ALERT{floodAlertCount > 1 ? "S" : ""}
+              </span>
+            </>
+          ) : (
+            <span className="text-[var(--color-text-dim)]">NO FLOOD ALERTS</span>
           )}
         </div>
 
@@ -361,11 +397,18 @@ export default function WeatherView() {
                 {selectedState ? "STATE WEATHER" : "NATIONAL WEATHER"} / METMALAYSIA
               </div>
             </div>
-            {activeWarningCount > 0 && (
+            {(activeWarningCount > 0 || floodAlertCount > 0) && (
               <div className="shrink-0 text-right">
-                <div className="text-[10px] tracking-[1.5px] text-[var(--color-amber)]">
-                  {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
-                </div>
+                {activeWarningCount > 0 && (
+                  <div className="text-[10px] tracking-[1.5px] text-[var(--color-amber)]">
+                    {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
+                  </div>
+                )}
+                {floodAlertCount > 0 && (
+                  <div className="text-[10px] tracking-[1.5px] text-[var(--color-cyan)]">
+                    {floodAlertCount} FLOOD{floodAlertCount > 1 ? "S" : ""}
+                  </div>
+                )}
               </div>
             )}
           </div>

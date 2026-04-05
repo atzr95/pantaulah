@@ -47,6 +47,7 @@ interface RssItem {
   source: string;
   sourceName: string;
   description: string;
+  matchedStates: string[];
 }
 
 type MediaTab = "live" | "trending" | "reddit" | "news";
@@ -620,6 +621,8 @@ function RedditPanel() {
 function RSSFeedPanel() {
   const [items, setItems] = useState<RssItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stateFilter, setStateFilter] = useState<string | null>(null);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
   useEffect(() => {
     fetch("/api/rss")
@@ -630,26 +633,107 @@ function RSSFeedPanel() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Build list of states that appear in current news, sorted by count
+  const stateCounts = items.reduce<Record<string, number>>((acc, item) => {
+    for (const s of item.matchedStates ?? []) {
+      acc[s] = (acc[s] || 0) + 1;
+    }
+    return acc;
+  }, {});
+  const availableStates = Object.entries(stateCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+
+  const filtered = stateFilter
+    ? items.filter((item) => item.matchedStates?.includes(stateFilter))
+    : items;
+
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <SectionHeader title="NEWS FEED" count={items.length} />
+      <div className="flex items-center justify-between mb-3">
+        <SectionHeader title="NEWS FEED" count={filtered.length} />
+        {/* State filter */}
+        <div className="relative">
+          <button
+            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+            className={`flex items-center gap-1.5 px-2 py-0.5 text-[10px] tracking-wider border rounded transition-all cursor-pointer ${
+              stateFilter
+                ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)]"
+                : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)]"
+            }`}
+          >
+            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 4h12M4 8h8M6 12h4" />
+            </svg>
+            {stateFilter ?? "ALL STATES"}
+          </button>
+          {showFilterDropdown && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowFilterDropdown(false)}
+              />
+              {/* Dropdown */}
+              <div
+                className="absolute right-0 top-full mt-1 z-20 w-48 max-h-64 overflow-y-auto rounded border border-[var(--color-border)] py-1"
+                style={{ background: "rgba(13, 13, 20, 0.95)", backdropFilter: "blur(8px)" }}
+              >
+                <button
+                  onClick={() => { setStateFilter(null); setShowFilterDropdown(false); }}
+                  className={`w-full text-left px-3 py-1.5 text-[10px] tracking-wider transition-colors cursor-pointer ${
+                    !stateFilter
+                      ? "text-[var(--color-cyan)] bg-[rgba(0,212,255,0.08)]"
+                      : "text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:bg-[rgba(255,255,255,0.03)]"
+                  }`}
+                >
+                  ALL STATES
+                  <span className="ml-1 opacity-50">({items.length})</span>
+                </button>
+                {availableStates.map(({ name, count }) => (
+                  <button
+                    key={name}
+                    onClick={() => { setStateFilter(name); setShowFilterDropdown(false); }}
+                    className={`w-full text-left px-3 py-1.5 text-[10px] tracking-wider transition-colors cursor-pointer ${
+                      stateFilter === name
+                        ? "text-[var(--color-cyan)] bg-[rgba(0,212,255,0.08)]"
+                        : "text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:bg-[rgba(255,255,255,0.03)]"
+                    }`}
+                  >
+                    {name.toUpperCase()}
+                    <span className="ml-1 opacity-50">({count})</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-6 text-[var(--color-text-dim)] text-xs tracking-wider">
           FETCHING NEWS FEEDS...
         </div>
-      ) : items.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-6 gap-1">
           <span className="text-[var(--color-amber)] text-xs tracking-wider">
-            NO NEWS AVAILABLE
+            {stateFilter ? `NO NEWS FOR ${stateFilter.toUpperCase()}` : "NO NEWS AVAILABLE"}
           </span>
           <span className="text-[var(--color-text-dim)] text-[10px] tracking-wider">
-            RSS feeds may be unreachable
+            {stateFilter ? "Try selecting a different state" : "RSS feeds may be unreachable"}
           </span>
+          {stateFilter && (
+            <button
+              onClick={() => setStateFilter(null)}
+              className="mt-1 text-[10px] tracking-wider text-[var(--color-cyan)] hover:underline cursor-pointer"
+            >
+              SHOW ALL NEWS
+            </button>
+          )}
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-          {items.map((item, i) => (
+          {filtered.map((item, i) => (
             <a
               key={`${item.link}-${i}`}
               href={item.link}
@@ -680,6 +764,19 @@ function RSSFeedPanel() {
                     <>
                       <span className="opacity-40">|</span>
                       <span>{rssTimeAgo(item.pubDate)}</span>
+                    </>
+                  )}
+                  {item.matchedStates?.length > 0 && (
+                    <>
+                      <span className="opacity-40">|</span>
+                      {item.matchedStates.map((s) => (
+                        <span
+                          key={s}
+                          className="px-1 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[rgba(0,212,255,0.15)] text-[var(--color-cyan)] text-[8px] tracking-wider"
+                        >
+                          {s}
+                        </span>
+                      ))}
                     </>
                   )}
                 </div>

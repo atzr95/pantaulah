@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import type { Headline, ExchangeRate, FuelPrice, TickerData } from "@/lib/data/types";
+import type { Headline, ExchangeRate, FuelPrice, GoldPrice, TickerData } from "@/lib/data/types";
 
 import { matchHeadlineToStates } from "@/lib/data/states";
 
@@ -19,6 +19,15 @@ const BnmRateSchema = z.object({
 const BnmOprSchema = z.object({
   data: z.object({
     new_opr_level: z.number(),
+  }),
+});
+
+const BnmKijangEmasSchema = z.object({
+  data: z.object({
+    effective_date: z.string(),
+    one_oz: z.object({
+      selling: z.number(),
+    }),
   }),
 });
 
@@ -60,6 +69,30 @@ async function fetchOpr(): Promise<number | undefined> {
     const parsed = BnmOprSchema.safeParse(raw);
     if (!parsed.success) return undefined;
     return parsed.data.data.new_opr_level;
+  } catch {
+    return undefined;
+  }
+}
+
+const TROY_OZ_GRAMS = 31.1035;
+
+async function fetchGoldPrice(): Promise<GoldPrice | undefined> {
+  try {
+    const res = await fetch("https://api.bnm.gov.my/public/kijang-emas", {
+      headers: { Accept: "application/vnd.BNM.API.v1+json" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return undefined;
+    const raw = await res.json();
+    const parsed = BnmKijangEmasSchema.safeParse(raw);
+    if (!parsed.success) return undefined;
+    const { effective_date, one_oz } = parsed.data.data;
+    const pricePerGram999 = one_oz.selling / TROY_OZ_GRAMS;
+    return {
+      gold999: Math.round(pricePerGram999 * 100) / 100,
+      gold916: Math.round(pricePerGram999 * 0.916 * 100) / 100,
+      effectiveDate: effective_date,
+    };
   } catch {
     return undefined;
   }
@@ -159,11 +192,12 @@ async function fetchFuelPrices(): Promise<FuelPrice | undefined> {
 }
 
 export async function GET() {
-  const [rates, opr, fuel, malayMailHeadlines, fmtHeadlines, bernamaHeadlines] =
+  const [rates, opr, fuel, gold, malayMailHeadlines, fmtHeadlines, bernamaHeadlines] =
     await Promise.all([
       fetchBnmRates(),
       fetchOpr(),
       fetchFuelPrices(),
+      fetchGoldPrice(),
       fetchRssHeadlines("https://www.malaymail.com/feed/rss/malaysia", "MALAY MAIL"),
       fetchRssHeadlines("https://www.freemalaysiatoday.com/feed", "FMT"),
       fetchRssHeadlines("https://www.bernama.com/en/rssfeed.php", "BERNAMA"),
@@ -182,6 +216,7 @@ export async function GET() {
     rates,
     opr,
     fuel,
+    gold,
     fetchedAt: new Date().toISOString(),
   };
 

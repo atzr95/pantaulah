@@ -20,16 +20,19 @@ Built with Next.js 16, React 19, D3-Geo, Tailwind CSS, and Recharts.
 - **Economy** — GDP, unemployment, CPI, trade balance, FDI, inflation, IPI
 - **Crime** — Crime rate, assault/property breakdown, homicide, drug offences
 - **Health** — Hospital beds, ICU utilization, blood donations, organ pledges, healthcare staff
-- **Transport** — Car & motorcycle registrations, public transit ridership (rail + bus)
+- **Transport** — Car & motorcycle registrations, public transit ridership (rail + bus), live bus & KTM train positions
 - **Education** — School enrolment, teachers, completion rates, literacy
 - **Energy** — Electricity consumption by sector, generation by fuel type, water access
 
 **Live Data Feeds:**
 - Weather forecasts, warnings, earthquakes, and air quality
+- Flood alerts from JPS InfoBanjir (river water levels with WASPADA/AMARAN/BAHAYA status)
 - Highway CCTV from 24 expressway systems
+- Live public transit map (KTMB trains, Rapid KL/Penang/Kuantan buses, MRT feeders, MyBAS nationwide)
+- Rail line overlay (KTM Komuter, ETS, LRT, MRT, Monorail, KLIA Express/Transit)
 - Flight tracker (Malaysia airspace)
 - AIS vessel tracking (Straits of Malacca & Malaysian waters)
-- Exchange rates, fuel prices, OPR
+- Exchange rates, fuel prices, gold price (Kijang Emas), OPR
 - News headlines
 
 ## Data Sources
@@ -43,6 +46,9 @@ All data is sourced from official Malaysian government APIs — no API keys requ
 | [BNM API](https://api.bnm.gov.my) | Exchange rates, OPR | Live |
 | [Open-Meteo](https://open-meteo.com) | Current weather, air quality | Live (15min cache) |
 | [MET Malaysia](https://api.met.gov.my) | Radar/satellite imagery | Live |
+| [JPS InfoBanjir](https://publicinfobanjir.water.gov.my) | Flood alerts, river water levels | Live (5min cache) |
+| [data.gov.my GTFS-RT](https://developer.data.gov.my/realtime-api/gtfs-realtime) | Public transit positions (bus & KTM) | Live (30s refresh) |
+| [OpenStreetMap](https://www.openstreetmap.org) | Rail line routes (LRT, MRT, KTM, Monorail, ERL) | Static |
 | [OpenSky Network](https://opensky-network.org) / [adsb.lol](https://adsb.lol) | Flight tracking | Live (60s refresh) |
 | [AISStream](https://aisstream.io) | Vessel tracking (AIS) | Live (WebSocket) |
 | [LLM.gov.my](https://www.llm.gov.my) | Highway CCTV feeds | Live (60s cache) |
@@ -57,10 +63,12 @@ Not all metrics update at the same pace — government datasets publish on diffe
 | Metric | Source | Notes |
 |--------|--------|-------|
 | Weather & air quality | Open-Meteo, MET Malaysia | 15-min cache |
+| Flood alerts | JPS InfoBanjir | 5-min cache, scraped (no API) |
+| Public transit (bus & KTM) | data.gov.my GTFS-RT | 30s refresh, 14 feeds (KTMB, Rapid KL/Penang/Kuantan, MRT feeders, MyBAS) |
 | Flight tracking | OpenSky Network / adsb.lol | 60s refresh, OpenSky primary with adsb.lol fallback |
 | Vessel tracking (AIS) | AISStream | WebSocket, live |
 | Highway CCTV | LLM.gov.my | 60s cache |
-| Exchange rates, OPR | BNM API | Live |
+| Exchange rates, OPR, gold price | BNM API | Live |
 | Fuel prices | data.gov.my | Updated on price change |
 | Bed & ICU utilization | KKMNow | Daily, 1hr cache |
 
@@ -170,8 +178,9 @@ src/
 ├── app/
 │   ├── page.tsx                          # Main dashboard
 │   └── api/
-│       ├── weather/                      # Forecasts, warnings, current conditions
+│       ├── weather/                      # Forecasts, warnings, flood alerts, current conditions
 │       ├── flights/                      # Flight data (OpenSky → adsb.lol fallback)
+│       ├── transit/                      # Live bus & KTM positions (GTFS-RT)
 │       ├── cctv/                         # Highway camera feeds
 │       ├── ticker/                       # News, exchange rates, fuel prices
 │       ├── health/bed-utilization/       # Hospital bed/ICU utilization
@@ -187,11 +196,13 @@ src/
 │   │   ├── cache/                        # Cached ingest data (JSON)
 │   │   ├── types.ts                      # TypeScript interfaces
 │   │   ├── choropleth.ts                 # Metric configs & tercile logic
+│   │   ├── rail-lines.json               # Rail route geometry (OSM, Douglas-Peucker simplified)
 │   │   ├── weather-types.ts              # Weather data types
-│   │   └── data-gov-weather.ts           # Weather API fetchers
+│   │   └── data-gov-weather.ts           # Weather API fetchers + JPS flood scraper
 │   └── hooks/
 │       ├── use-flights.ts                # Flight polling hook
-│       └── use-vessels.ts                # AIS vessel WebSocket hook
+│       ├── use-vessels.ts                # AIS vessel WebSocket hook
+│       └── use-transit.ts                # Bus & KTM transit polling hook
 └── scripts/
     ├── ingest.ts                         # Main data pipeline
     └── ingest-energy.ts                  # Energy & water pipeline
@@ -219,6 +230,7 @@ npm run test:watch   # Watch mode
 | **OpenSky Network / adsb.lol** (flights) | OpenSky times out from cloud IPs; adsb.lol has sparse feeder coverage in East Malaysia. Both are community-driven with no SLA. | [ADS-B Exchange](https://www.adsbexchange.com/data/) (paid, denser receivers) or [FlightRadar24](https://www.flightradar24.com) (paid, satellite ADS-B via Aireon for oceanic coverage). |
 | **AISStream** (vessels) | Free tier may have message rate limits and limited historical playback. | [MarineTraffic API](https://www.marinetraffic.com/en/ais-api-services) for commercial-grade vessel tracking with richer metadata (vessel type, cargo, port calls). |
 | **Open-Meteo** (weather) | Community-driven; no SLA, occasional gaps in Malaysian station data. | [MET Malaysia API](https://api.met.gov.my) (already partially integrated) for authoritative local forecasts, or [OpenWeatherMap](https://openweathermap.org/api) for global coverage with paid tiers. |
+| **JPS InfoBanjir** (floods) | No public API; data is scraped from server-rendered HTML. Parsing may break if page structure changes. | A proper REST API from JPS or inclusion in [data.gov.my](https://data.gov.my) would eliminate scraping fragility. |
 
 ## License
 

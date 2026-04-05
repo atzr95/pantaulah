@@ -28,6 +28,7 @@ export default function NewsTicker() {
   const rates = tickerData?.rates ?? [];
   const opr = tickerData?.opr;
   const fuel = tickerData?.fuel;
+  const gold = tickerData?.gold;
 
   // Double the headlines for seamless loop
   const scrollContent = [...headlines, ...headlines];
@@ -106,6 +107,43 @@ export default function NewsTicker() {
             </div>
           )}
         </span>
+        {gold && (
+          <span className="relative group/gold cursor-default">
+            <span className="text-[var(--color-text-muted)]">GOLD</span>
+            <span className="text-[var(--color-text-bright)] ml-1">RM{gold.gold999.toFixed(2)}/g</span>
+            <div
+              className="absolute bottom-full right-0 mb-2 hidden group-hover/gold:block z-50"
+              style={{
+                background: "linear-gradient(180deg, #16161e 0%, #111118 100%)",
+                border: "1px solid rgba(0, 212, 255, 0.15)",
+                borderRadius: "4px",
+                padding: "8px 12px",
+                minWidth: "160px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+              }}
+            >
+              <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)] mb-2">
+                GOLD PRICE / GRAM
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[var(--color-text-muted)]">999</span>
+                  <span className="text-[var(--color-text-bright)]">RM{gold.gold999.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[var(--color-text-muted)]">916</span>
+                  <span className="text-[var(--color-text-bright)]">RM{gold.gold916.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="text-[10px] text-[var(--color-text-dim)] mt-2 tracking-wider">
+                SRC: BNM KIJANG EMAS
+              </div>
+              <div className="text-[10px] text-[var(--color-text-dim)] tracking-wider">
+                EFF. {gold.effectiveDate}
+              </div>
+            </div>
+          </span>
+        )}
         {fuel && (
           <span className="relative group/fuel cursor-default">
             <span className="text-[var(--color-text-muted)]">RON95</span>

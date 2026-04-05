@@ -183,6 +183,40 @@ export function getAirQualityColor(status: AirQualityStatus): string {
   }
 }
 
+// ── Flood Alerts (JPS InfoBanjir) ──────────────────────────
+
+export type FloodAlertLevel = "WASPADA" | "AMARAN" | "BAHAYA";
+
+export interface FloodAlertStation {
+  state: string; // normalized topoName (e.g. "Penang")
+  stationName: string; // river / station name
+  waterLevel: number; // current level in metres
+  threshold: number; // threshold for this alert level
+  alertLevel: FloodAlertLevel;
+  trend: "RISING" | "STABLE" | "FALLING";
+}
+
+export interface FloodAlertData {
+  stations: FloodAlertStation[];
+  fetchedAt: string;
+}
+
+export function getFloodAlertSeverity(level: FloodAlertLevel): WarningSeverity {
+  switch (level) {
+    case "BAHAYA": return "DANGER";
+    case "AMARAN": return "WARNING";
+    case "WASPADA": return "ADVISORY";
+  }
+}
+
+export function getFloodTrendIcon(trend: "RISING" | "STABLE" | "FALLING"): string {
+  switch (trend) {
+    case "RISING": return "\u2191";
+    case "FALLING": return "\u2193";
+    case "STABLE": return "\u2192";
+  }
+}
+
 // ── Aggregated Weather Data ─────────────────────────────
 
 export type WeatherSubTab =
@@ -196,6 +230,7 @@ export interface WeatherData {
   warnings: WarningEntry[];
   marineForecast: MarineForecastEntry[];
   earthquakes: EarthquakeEntry[];
+  floodAlerts: FloodAlertData;
   radar: RadarImageSet;
   airQuality: AirQualityData;
   fetchedAt: string;

@@ -31,6 +31,9 @@ import type {
   EarthquakeEntry,
   AirQualityData,
   AirQualityReading,
+  FloodAlertData,
+  FloodAlertStation,
+  FloodAlertLevel,
 } from "./weather-types";
 import { STATE_COORDINATES, getAirQualityStatus } from "./weather-types";
 
@@ -317,4 +320,138 @@ export async function fetchAirQuality(): Promise<AirQualityData> {
   }
 
   return { readings, fetchedAt: now };
+}
+
+// ── Flood Alerts (JPS InfoBanjir) ─────────────────────────
+
+const JPS_URL = "https://publicinfobanjir.water.gov.my/index.php?lang=en";
+
+/**
+ * Scrape JPS InfoBanjir for alert-level water stations.
+ * The page is server-rendered HTML with no public API.
+ * We parse the text content for stations above normal level
+ * (WASPADA / AMARAN / BAHAYA).
+ *
+ * Page structure (after HTML strip):
+ *   NEGERI: PULAU PINANG
+ *   Sg. Air Itam di Lorong Batu Lanchang (F2)    ← station name
+ *   Aras Air 5.27m telah melepasi tahap WASPADA (5.20m)  ← alert
+ *   Trend: Menaik                                 ← trend
+ */
+export async function fetchFloodAlerts(): Promise<FloodAlertData> {
+  const now = new Date().toISOString();
+
+  const res = await fetch(JPS_URL, {
+    next: { revalidate: 300 }, // cache 5 min
+    headers: { "User-Agent": "PantauLah/1.0 (+https://pantaulah.com)" },
+  });
+  if (!res.ok) throw new Error(`JPS InfoBanjir: ${res.status}`);
+
+  const html = await res.text();
+
+  // Strip scripts/styles, convert block-level tags to newlines, strip remaining tags
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:tr|div|p|li|h[1-6]|td|th)\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/[ \t]+/g, " ");
+
+  const stations: FloodAlertStation[] = [];
+  let currentState = "";
+  let lastStationCandidate = "";
+
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Track state headers: "NEGERI: PULAU PINANG" or "NEGERI : KEDAH"
+    const stateMatch = line.match(/NEGERI\s*:\s*(.+)/i);
+    if (stateMatch) {
+      currentState = stateMatch[1].replace(/\s+/g, " ").trim();
+      lastStationCandidate = "";
+      continue;
+    }
+
+    // Track potential station names — lines with river/location prefixes
+    // that appear BEFORE the alert text line.
+    // Station names on the page look like: "Sg. Air Itam di Lorong Batu Lanchang (F2)"
+    if (
+      !/(WASPADA|AMARAN|BAHAYA|Aras Air|Water level|Trend|Hujan)/i.test(line) &&
+      line.length > 3 &&
+      line.length < 100
+    ) {
+      lastStationCandidate = line;
+    }
+
+    // Only interested in lines with alert keywords
+    if (!/WASPADA|AMARAN|BAHAYA/i.test(line)) continue;
+    if (!currentState) continue;
+
+    // Extract alert level
+    const alertMatch = line.match(/\b(BAHAYA|AMARAN|WASPADA)\b/i);
+    if (!alertMatch) continue;
+    const alertLevel = alertMatch[1].toUpperCase() as FloodAlertLevel;
+
+    // Water level: "Aras Air 5.27m" pattern — the number BEFORE the alert keyword
+    const levelMatch =
+      line.match(/(?:Aras Air|Water level)\s+(\d+\.?\d*)\s*m/i) ||
+      line.match(/(\d+\.?\d*)\s*m\s+.*?(?:WASPADA|AMARAN|BAHAYA)/i);
+
+    // Threshold: number in parentheses (e.g. "(5.20m)" or "(5.20)")
+    const thresholdMatch = line.match(/\((\d+\.?\d*)\s*m?\s*\)/);
+
+    // Trend — check current line and next line
+    const nextLine = lines[i + 1] ?? "";
+    const trendText = line + " " + nextLine;
+    const trend: "RISING" | "STABLE" | "FALLING" =
+      /menaik|rising/i.test(trendText)
+        ? "RISING"
+        : /menurun|falling/i.test(trendText)
+          ? "FALLING"
+          : "STABLE";
+
+    // Use last station candidate, or try to extract from current line
+    let stationName = lastStationCandidate;
+    if (!stationName) {
+      // Fallback: extract station-like text from the alert line itself
+      const inlineStation = line.match(
+        /((?:Sg\.|Sungai|Jambatan|Parit)\s+[A-Za-z\s.()0-9/]+?)(?:\s+[-:]|\s+Aras|\s+Water|\s+\d)/i
+      );
+      stationName = inlineStation?.[1]?.trim() ?? `Station ${stations.length + 1}`;
+    }
+
+    // Normalise state name — JPS uses uppercase (e.g. "PULAU PINANG")
+    // so convert to title case first for STATE_NAME_MAP lookup
+    const titleState = currentState
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .replace(/\bW\.p\./gi, "W.P.");
+
+    stations.push({
+      state: normaliseStateName(titleState),
+      stationName,
+      waterLevel: levelMatch ? parseFloat(levelMatch[1]) : 0,
+      threshold: thresholdMatch ? parseFloat(thresholdMatch[1]) : 0,
+      alertLevel,
+      trend,
+    });
+
+    lastStationCandidate = ""; // consumed
+  }
+
+  // Deduplicate by station + state (page may repeat entries)
+  const seen = new Set<string>();
+  const unique = stations.filter((s) => {
+    const key = `${s.state}:${s.stationName}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return { stations: unique, fetchedAt: now };
 }

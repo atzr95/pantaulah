@@ -85,6 +85,7 @@ function Home() {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>(initialMetric);
   const [selectedYear, setSelectedYear] = useState<number>(2023);
   const [sheetSnap, setSheetSnap] = useState<"peek" | "half" | "full">("half");
+  const [transitZoomed, setTransitZoomed] = useState(false);
   const bedUtilFetched = useRef(false);
 
   // Sync state changes to URL search params
@@ -248,6 +249,7 @@ function Home() {
           }
         }
 
+
         // National water: sum all states per year
         for (const metricKey of ["waterConsumption", "waterProduction", "waterAccess"] as const) {
           const wd = energyData[metricKey];
@@ -347,6 +349,7 @@ function Home() {
                 selectedYear={selectedYear}
                 selectedCategory={selectedCategory}
                 onStateSelect={setSelectedState}
+                onTransitZoomChange={setTransitZoomed}
                 sheetSnap={sheetSnap}
                 mobileSlider={
                   data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" ? (
@@ -384,7 +387,7 @@ function Home() {
 
               {/* Desktop: absolute-positioned time slider */}
               <div className="hidden lg:block">
-                {data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" && (
+                {!transitZoomed && data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" && (
                   <TimeSlider
                     availableYears={data.availableYears}
                     selectedYear={selectedYear}

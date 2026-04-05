@@ -221,10 +221,17 @@ export interface FuelPrice {
   date: string;
 }
 
+export interface GoldPrice {
+  gold999: number; // MYR per gram (999 purity)
+  gold916: number; // MYR per gram (916 purity)
+  effectiveDate: string;
+}
+
 export interface TickerData {
   headlines: Headline[];
   rates: ExchangeRate[];
   opr?: number;
   fuel?: FuelPrice;
+  gold?: GoldPrice;
   fetchedAt: string;
 }

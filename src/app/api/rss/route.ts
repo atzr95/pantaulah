@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { matchHeadlineToStates } from "@/lib/data/states";
 
 
 // ── Malaysian news RSS feeds ──
@@ -73,6 +74,7 @@ export interface RssItem {
   source: string;
   sourceName: string;
   description: string;
+  matchedStates: string[];
 }
 
 // ── Simple XML text extractor ──
@@ -143,6 +145,7 @@ async function fetchAllFeeds(): Promise<RssItem[]> {
         ...item,
         source: feed.source,
         sourceName: feed.name,
+        matchedStates: matchHeadlineToStates(item.title).map((s) => s.topoName),
       }));
     })
   );

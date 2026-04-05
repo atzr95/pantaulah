@@ -343,6 +343,15 @@ export function StateBriefContent({
       {/* Electricity Sector Breakdown (shown when electricity consumption is selected) */}
       {selectedMetric === "electricityConsumption" && (
         <div className="border-t border-[var(--color-border)]">
+          {!selectedState && (
+            <div className="px-4 pt-3 pb-1">
+              <p className="text-[10px] leading-relaxed text-[var(--color-text-dim)] italic">
+                {selectedYear >= 2023
+                  ? `National electricity total not available for ${selectedYear}. State-level data covers 11 Peninsular states only — Sabah, Sarawak, KL, Putrajaya & Labuan not available via API.`
+                  : "National electricity total includes all of Malaysia. State-level data covers 11 Peninsular states only — summing states will not match the national figure."}
+              </p>
+            </div>
+          )}
           <ElectricitySectors
             sectors={
               selectedState

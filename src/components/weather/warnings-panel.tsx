@@ -1,6 +1,7 @@
 "use client";
 
-import type { WarningEntry, EarthquakeEntry } from "@/lib/data/weather-types";
+import type { WarningEntry, EarthquakeEntry, FloodAlertData } from "@/lib/data/weather-types";
+import { getFloodAlertSeverity, getFloodTrendIcon } from "@/lib/data/weather-types";
 
 function getSeverityColor(severity: string): string {
   switch (severity) {
@@ -57,11 +58,13 @@ function getQuakeColor(magnitude: number): string {
 interface WarningsPanelProps {
   warnings: WarningEntry[];
   earthquakes: EarthquakeEntry[];
+  floodAlerts: FloodAlertData;
 }
 
 export default function WarningsPanel({
   warnings,
   earthquakes,
+  floodAlerts,
 }: WarningsPanelProps) {
   const activeWarnings = warnings.filter(
     (w) => new Date(w.validTo) > new Date()
@@ -190,6 +193,104 @@ export default function WarningsPanel({
             })}
           </div>
         )}
+      </div>
+
+      {/* Flood Alerts */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="text-[10px] tracking-[3px] text-[var(--color-cyan)]">
+            FLOOD ALERTS
+          </div>
+          {floodAlerts.stations.length > 0 && (
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold"
+              style={{
+                background: "rgba(239, 68, 68, 0.15)",
+                color: "var(--color-red)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+              }}
+            >
+              {floodAlerts.stations.length} STATION{floodAlerts.stations.length > 1 ? "S" : ""}
+            </span>
+          )}
+        </div>
+
+        {floodAlerts.stations.length === 0 ? (
+          <div
+            className="border border-[var(--color-border)] rounded-sm p-6 text-center"
+            style={{ background: "rgba(13, 13, 20, 0.8)" }}
+          >
+            <div className="text-[var(--color-green)] text-sm mb-1">
+              {"\u2713"} ALL CLEAR
+            </div>
+            <div className="text-[10px] text-[var(--color-text-dim)]">
+              No flood alerts — all stations normal
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {floodAlerts.stations.map((s, i) => {
+              const severity = getFloodAlertSeverity(s.alertLevel);
+              const severityColor = getSeverityColor(severity);
+              return (
+                <div
+                  key={`${s.state}-${s.stationName}-${i}`}
+                  className="border rounded-sm p-3"
+                  style={{
+                    background: "rgba(13, 13, 20, 0.8)",
+                    borderColor: severityColor,
+                    borderLeftWidth: "3px",
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="text-lg shrink-0 mt-0.5">{"\uD83C\uDF0A"}</span>
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-bold text-[var(--color-text-bright)] tracking-wider leading-snug">
+                          {s.stationName.toUpperCase()}
+                        </div>
+                        <div className="text-[10px] text-[var(--color-text-dim)]">
+                          {s.state}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      className="text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-wider"
+                      style={{
+                        background: `${severityColor}15`,
+                        color: severityColor,
+                        border: `1px solid ${severityColor}40`,
+                      }}
+                    >
+                      {s.alertLevel}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-[10px] mb-1">
+                    <span className="text-[var(--color-text-muted)]">
+                      LEVEL:{" "}
+                      <span className="font-bold text-[var(--color-text-bright)]">
+                        {s.waterLevel.toFixed(2)}m
+                      </span>
+                    </span>
+                    {s.threshold > 0 && (
+                      <span className="text-[var(--color-text-dim)]">
+                        THRESHOLD: {s.threshold.toFixed(2)}m
+                      </span>
+                    )}
+                    <span style={{ color: severityColor }}>
+                      {getFloodTrendIcon(s.trend)} {s.trend}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="text-[10px] text-[var(--color-text-dim)] mt-2">
+          Source: JPS InfoBanjir
+        </div>
       </div>
 
       {/* Seismic Activity */}

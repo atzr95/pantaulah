@@ -6,6 +6,7 @@ import {
   fetchWarnings,
   fetchEarthquakes,
   fetchAirQuality,
+  fetchFloodAlerts,
 } from "@/lib/data/data-gov-weather";
 import type { WeatherData } from "@/lib/data/weather-types";
 
@@ -40,12 +41,13 @@ export async function GET() {
   }
 
   // Fetch all endpoints in parallel; each settles independently
-  const [forecastResult, warningResult, earthquakeResult, airQualityResult] =
+  const [forecastResult, warningResult, earthquakeResult, airQualityResult, floodResult] =
     await Promise.allSettled([
       fetchForecasts(),
       fetchWarnings(),
       fetchEarthquakes(),
       fetchAirQuality(),
+      fetchFloodAlerts(),
     ]);
 
   const data: WeatherData = {
@@ -56,6 +58,10 @@ export async function GET() {
     earthquakes:
       earthquakeResult.status === "fulfilled" ? earthquakeResult.value : [],
     marineForecast: [],
+    floodAlerts:
+      floodResult.status === "fulfilled"
+        ? floodResult.value
+        : { stations: [], fetchedAt: new Date().toISOString() },
     airQuality:
       airQualityResult.status === "fulfilled"
         ? airQualityResult.value

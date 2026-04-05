@@ -24,6 +24,7 @@ export default function MobileRatesBar() {
   const rates = tickerData?.rates ?? [];
   const opr = tickerData?.opr;
   const fuel = tickerData?.fuel;
+  const gold = tickerData?.gold;
 
   if (!tickerData) return null;
 
@@ -35,7 +36,7 @@ export default function MobileRatesBar() {
         borderTop: "1px solid rgba(0, 212, 255, 0.08)",
       }}
     >
-      {rates.slice(0, 3).map((r) => (
+      {rates.slice(0, 2).map((r) => (
         <span key={r.currency} className="whitespace-nowrap shrink-0">
           <span className="text-[var(--color-text-dim)]">{r.currency}</span>
           <span className="text-[var(--color-text-bright)] ml-1">
@@ -47,6 +48,14 @@ export default function MobileRatesBar() {
         <span className="whitespace-nowrap shrink-0">
           <span className="text-[var(--color-text-dim)]">OPR</span>
           <span className="text-[var(--color-text-bright)] ml-1">{opr}%</span>
+        </span>
+      )}
+      {gold && (
+        <span className="whitespace-nowrap shrink-0">
+          <span className="text-[var(--color-text-dim)]">GOLD 999</span>
+          <span className="text-[var(--color-text-bright)] ml-1">
+            RM{gold.gold999.toFixed(2)}/g
+          </span>
         </span>
       )}
       {fuel && (

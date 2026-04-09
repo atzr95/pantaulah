@@ -830,7 +830,7 @@ export default function MediaView() {
           ))}
         </div>
 
-        <div className="flex-1 overflow-hidden p-3">
+        <div className="flex-1 overflow-y-auto p-3">
           {activeTab === "live" && <LiveTVPanel compact />}
           {activeTab === "trending" && <TrendingPanel />}
           {activeTab === "reddit" && <RedditPanel />}

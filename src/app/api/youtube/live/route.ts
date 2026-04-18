@@ -38,27 +38,14 @@ async function resolveLiveVideoId(handle: string): Promise<string | null> {
     if (!res.ok) return null;
     const html = await res.text();
 
-    // Look for canonical URL with video ID (present on live stream pages)
+    // When a channel is live, the /live page's canonical link points to
+    // /watch?v=XXXXXXXXXXX (the current live stream). When offline, it
+    // points to /channel/... instead. The canonical is re-pointed by
+    // YouTube every new stream, so this auto-survives restarts.
     const canonicalMatch = html.match(
-      /<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})"/
+      /<link\s+rel="canonical"\s+href="https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})"/
     );
-    if (canonicalMatch) {
-      // Verify it's actually live by checking for live badge in the page
-      const isLive =
-        html.includes('"isLive":true') ||
-        html.includes('"isLiveNow":true') ||
-        html.includes('"liveBadge"') ||
-        html.includes('"BADGE_STYLE_TYPE_LIVE_NOW"');
-      if (isLive) return canonicalMatch[1];
-    }
-
-    // Fallback: look for videoId in the page JSON data
-    const videoIdMatch = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-    if (videoIdMatch) {
-      const isLive =
-        html.includes('"isLive":true') || html.includes('"isLiveNow":true');
-      if (isLive) return videoIdMatch[1];
-    }
+    if (canonicalMatch) return canonicalMatch[1];
 
     return null;
   } catch {

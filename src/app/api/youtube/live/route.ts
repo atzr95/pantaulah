@@ -21,8 +21,12 @@ const CHANNELS = [
 ];
 
 // ── In-memory cache ──
-let cached: { body: string; time: number } | null = null;
-const CACHE_TTL_MS = 5 * 60_000; // 5 minutes
+// Successful responses (≥1 live channel) cache for 5 min. Fully-empty
+// responses cache for 30s so a transient YouTube hiccup doesn't pin
+// viewers to "no live streams" until the long TTL expires.
+let cached: { body: string; time: number; ttl: number } | null = null;
+const CACHE_TTL_OK_MS = 5 * 60_000;
+const CACHE_TTL_EMPTY_MS = 30_000;
 
 /** Fetch a YouTube channel's live page and extract the video ID */
 async function resolveLiveVideoId(handle: string): Promise<string | null> {
@@ -55,11 +59,13 @@ async function resolveLiveVideoId(handle: string): Promise<string | null> {
 
 export async function GET() {
   // Serve from cache if fresh
-  if (cached && Date.now() - cached.time < CACHE_TTL_MS) {
+  if (cached && Date.now() - cached.time < cached.ttl) {
     return new NextResponse(cached.body, {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=120, stale-while-revalidate=300",
+        "Cache-Control": cached.ttl === CACHE_TTL_OK_MS
+          ? "public, max-age=120, stale-while-revalidate=300"
+          : "public, max-age=30, stale-while-revalidate=60",
       },
     });
   }
@@ -81,13 +87,17 @@ export async function GET() {
     fetchedAt: new Date().toISOString(),
   };
 
+  const hasAnyLive = results.some((r) => r.videoId);
+  const ttl = hasAnyLive ? CACHE_TTL_OK_MS : CACHE_TTL_EMPTY_MS;
   const body = JSON.stringify(data);
-  cached = { body, time: Date.now() };
+  cached = { body, time: Date.now(), ttl };
 
   return new NextResponse(body, {
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=120, stale-while-revalidate=300",
+      "Cache-Control": hasAnyLive
+        ? "public, max-age=120, stale-while-revalidate=300"
+        : "public, max-age=30, stale-while-revalidate=60",
     },
   });
 }

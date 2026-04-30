@@ -37,8 +37,10 @@ function parseDuration(iso: string): number {
 }
 
 export async function GET() {
-  const { env } = await getCloudflareContext();
-  const apiKey = (env as Record<string, string>).YOUTUBE_API_KEY;
+  const { env } = getCloudflareContext();
+  const apiKey =
+    (env as Record<string, string>).YOUTUBE_API_KEY ??
+    process.env.YOUTUBE_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json(

@@ -50,7 +50,6 @@ All data is sourced from official Malaysian government APIs — no API keys requ
 | [data.gov.my GTFS-RT](https://developer.data.gov.my/realtime-api/gtfs-realtime) | Public transit positions (bus & KTM) | Live (30s refresh) |
 | [OpenStreetMap](https://www.openstreetmap.org) | Rail line routes (LRT, MRT, KTM, Monorail, ERL) | Static |
 | [OpenSky Network](https://opensky-network.org) / [adsb.lol](https://adsb.lol) | Flight tracking | Live (60s refresh) |
-| [AISStream](https://aisstream.io) | Vessel tracking (AIS) | Live (WebSocket) |
 | [LLM.gov.my](https://www.llm.gov.my) | Highway CCTV feeds | Live (60s cache) |
 | [MyEnergyStats](https://myenergystats.st.gov.my) | Electricity, generation, capacity | Annual |
 | [KKMNow](https://data.gov.my) | Hospital bed/ICU utilization | Daily (1hr cache) |
@@ -66,7 +65,6 @@ Not all metrics update at the same pace — government datasets publish on diffe
 | Flood alerts | JPS InfoBanjir | 5-min cache, scraped (no API) |
 | Public transit (bus & KTM) | data.gov.my GTFS-RT | 30s refresh, 14 feeds (KTMB, Rapid KL/Penang/Kuantan, MRT feeders, MyBAS) |
 | Flight tracking | OpenSky Network / adsb.lol | 60s refresh, OpenSky primary with adsb.lol fallback |
-| Vessel tracking (AIS) | AISStream | WebSocket, live |
 | Highway CCTV | LLM.gov.my | 60s cache |
 | Exchange rates, OPR, gold price | BNM API | Live |
 | Fuel prices | data.gov.my | Updated on price change |
@@ -162,9 +160,6 @@ All environment variables are **optional**. The dashboard works fully without an
 OPENSKY_CLIENT_ID=
 OPENSKY_CLIENT_SECRET=
 
-# Vessel tracking (free API key from aisstream.io)
-NEXT_PUBLIC_AISSTREAM_API_KEY=
-
 # Backup weather source (not required)
 # MET_MALAYSIA_TOKEN=
 ```
@@ -201,7 +196,6 @@ src/
 │   │   └── data-gov-weather.ts           # Weather API fetchers + JPS flood scraper
 │   └── hooks/
 │       ├── use-flights.ts                # Flight polling hook
-│       ├── use-vessels.ts                # AIS vessel WebSocket hook
 │       └── use-transit.ts                # Bus & KTM transit polling hook
 └── scripts/
     ├── ingest.ts                         # Main data pipeline
@@ -228,7 +222,6 @@ npm run test:watch   # Watch mode
 | Current API | Limitation | Recommended Upgrade |
 |-------------|-----------|-------------------|
 | **OpenSky Network / adsb.lol** (flights) | OpenSky times out from cloud IPs; adsb.lol has sparse feeder coverage in East Malaysia. Both are community-driven with no SLA. | [ADS-B Exchange](https://www.adsbexchange.com/data/) (paid, denser receivers) or [FlightRadar24](https://www.flightradar24.com) (paid, satellite ADS-B via Aireon for oceanic coverage). |
-| **AISStream** (vessels) | Free tier may have message rate limits and limited historical playback. | [MarineTraffic API](https://www.marinetraffic.com/en/ais-api-services) for commercial-grade vessel tracking with richer metadata (vessel type, cargo, port calls). |
 | **Open-Meteo** (weather) | Community-driven; no SLA, occasional gaps in Malaysian station data. | [MET Malaysia API](https://api.met.gov.my) (already partially integrated) for authoritative local forecasts, or [OpenWeatherMap](https://openweathermap.org/api) for global coverage with paid tiers. |
 | **JPS InfoBanjir** (floods) | No public API; data is scraped from server-rendered HTML. Parsing may break if page structure changes. | A proper REST API from JPS or inclusion in [data.gov.my](https://data.gov.my) would eliminate scraping fragility. |
 

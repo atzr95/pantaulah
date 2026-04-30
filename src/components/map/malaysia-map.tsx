@@ -19,7 +19,6 @@ import {
 import { formatMetricValue } from "@/lib/utils/format";
 import { AIRPORTS, PORTS, UNIVERSITIES } from "@/lib/data/poi";
 import { useFlights, type Flight } from "@/lib/hooks/use-flights";
-import { useVessels, type Vessel } from "@/lib/hooks/use-vessels";
 import { useTransit, type TransitVehicle } from "@/lib/hooks/use-transit";
 import { HIGHWAYS as HIGHWAY_ROUTES } from "@/lib/data/highways";
 import { RAIL_LINES } from "@/lib/data/rail-lines";
@@ -91,12 +90,10 @@ export default function MalaysiaMap({
   const [hiddenPOITypes, setHiddenPOITypes] = useState<Set<string>>(new Set(["transit"]));
   const [legendOpen, setLegendOpen] = useState(false);
   const [hoveredFlight, setHoveredFlight] = useState<Flight | null>(null);
-  const [hoveredVessel, setHoveredVessel] = useState<Vessel | null>(null);
   const [hoveredTransit, setHoveredTransit] = useState<TransitVehicle | null>(null);
   const [transitZoomState, setTransitZoomState] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const flights = useFlights(selectedCategory === "transport");
-  const vessels = useVessels(selectedCategory === "transport");
   const transit = useTransit(selectedCategory === "transport");
 
   const togglePOIType = useCallback((type: string) => {
@@ -461,40 +458,6 @@ export default function MalaysiaMap({
     });
   };
 
-  // Render live vessel markers
-  const renderVessels = (proj: ReturnType<typeof geoMercator>) => {
-    if (selectedCategory !== "transport" || vessels.length === 0 || hiddenPOITypes.has("vessel")) return null;
-    return vessels.map((v, i) => {
-      const coords = proj([v.lon, v.lat]);
-      if (!coords) return null;
-      const isHov = hoveredVessel?.mmsi === v.mmsi;
-      return (
-        <g
-          key={`vessel-${v.mmsi || i}`}
-          onMouseMove={(e) => {
-            setHoveredVessel(v);
-            setHoveredState(null);
-            setHoveredPOI(null);
-            setHoveredFlight(null);
-            setTooltipPos({ x: e.clientX, y: e.clientY });
-          }}
-          onMouseLeave={() => setHoveredVessel(null)}
-          className="cursor-pointer"
-        >
-          <circle cx={coords[0]} cy={coords[1]} r={8} fill="transparent" />
-          <circle
-            cx={coords[0]}
-            cy={coords[1]}
-            r={isHov ? 4 : 2.5}
-            fill={isHov ? "#2ed573" : "rgba(46, 213, 115, 0.8)"}
-            stroke="rgba(0,0,0,0.4)"
-            strokeWidth={0.5}
-          />
-        </g>
-      );
-    });
-  };
-
   // Render live transit markers (buses & trains)
   const renderTransit = (proj: ReturnType<typeof geoMercator>) => {
     if (selectedCategory !== "transport" || transit.length === 0 || hiddenPOITypes.has("transit")) return null;
@@ -517,7 +480,6 @@ export default function MalaysiaMap({
             setHoveredState(null);
             setHoveredPOI(null);
             setHoveredFlight(null);
-            setHoveredVessel(null);
             setTooltipPos({ x: e.clientX, y: e.clientY });
           }}
           onMouseLeave={() => setHoveredTransit(null)}
@@ -619,12 +581,6 @@ export default function MalaysiaMap({
             <div className="w-4 h-0" style={{ borderTop: hiddenPOITypes.has("rail") ? "1.5px dashed rgba(226,232,240,0.2)" : (transitZoom ? "2px solid #c084fc" : "1.5px dashed rgba(226,232,240,0.6)") }} />
             <span style={{ opacity: hiddenPOITypes.has("rail") ? 0.4 : 1 }}>RAIL LINES</span>
           </button>
-          {vessels.length > 0 && (
-            <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("vessel")}>
-              <div className="w-2.5 h-2.5 rounded-full border border-[#2ed573]" style={{ background: hiddenPOITypes.has("vessel") ? "transparent" : "#2ed573" }} />
-              <span style={{ opacity: hiddenPOITypes.has("vessel") ? 0.4 : 1 }}>VESSELS ({vessels.length})</span>
-            </button>
-          )}
           {transit.length > 0 && (
             <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("transit")}>
               <div className="w-2.5 h-2.5 rounded-sm border border-[#fb923c]" style={{ background: hiddenPOITypes.has("transit") ? "transparent" : "#fb923c" }} />
@@ -709,26 +665,6 @@ export default function MalaysiaMap({
         </div>
       )}
 
-      {hoveredVessel && (
-        <div
-          className="fixed z-50 pointer-events-none px-3 py-2 text-xs"
-          style={{
-            left: tooltipPos.x + 12, top: tooltipPos.y - 10,
-            background: "rgba(13, 13, 20, 0.95)",
-            border: "1px solid rgba(46, 213, 115, 0.3)", borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
-          }}
-        >
-          <div className="font-bold tracking-wider" style={{ color: "#2ed573" }}>
-            {hoveredVessel.name || `MMSI ${hoveredVessel.mmsi}`}
-          </div>
-          <div className="text-[var(--color-text-dim)] mt-0.5 space-y-0.5">
-            <div>Speed: {hoveredVessel.speed.toFixed(1)} kn · Hdg: {Math.round(hoveredVessel.heading)}°</div>
-            <div>MMSI: {hoveredVessel.mmsi}</div>
-          </div>
-        </div>
-      )}
-
       {hoveredTransit && (
         <div
           className="fixed z-50 pointer-events-none px-3 py-2 text-xs"
@@ -750,7 +686,7 @@ export default function MalaysiaMap({
         </div>
       )}
 
-      {hoveredState && !hoveredPOI && !hoveredFlight && !hoveredVessel && !hoveredTransit && (
+      {hoveredState && !hoveredPOI && !hoveredFlight && !hoveredTransit && (
         <div
           className="fixed z-50 pointer-events-none px-3 py-2 text-xs"
           style={{
@@ -811,7 +747,6 @@ export default function MalaysiaMap({
           {renderPOIs(activeProjection, () => true)}
           {renderHighways(activeProjection)}
           {renderRailLines(activeProjection)}
-          {renderVessels(activeProjection)}
           {renderTransit(activeProjection)}
           {renderFlights(activeProjection)}
         </svg>
@@ -843,7 +778,6 @@ export default function MalaysiaMap({
             {renderPOIs(activeWestProjection, isWestPOI)}
             {renderHighways(activeWestProjection)}
             {renderRailLines(activeWestProjection)}
-            {renderVessels(activeWestProjection)}
             {renderTransit(activeWestProjection)}
             {renderFlights(activeWestProjection)}
           </svg>
@@ -871,7 +805,6 @@ export default function MalaysiaMap({
             {renderPOIs(activeEastProjection, isEastPOI)}
             {renderHighways(activeEastProjection)}
             {renderRailLines(activeEastProjection)}
-            {renderVessels(activeEastProjection)}
             {renderTransit(activeEastProjection)}
             {renderFlights(activeEastProjection)}
           </svg>

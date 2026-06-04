@@ -1,9 +1,9 @@
 {
-  "fetchedAt": "2026-06-03T21:04:30.435Z",
+  "fetchedAt": "2026-06-04T20:44:30.009Z",
   "gaps": [
     {
       "state": "Johor",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -12,13 +12,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Kedah",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -27,13 +26,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Kelantan",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -42,13 +40,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Melaka",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -57,13 +54,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Negeri Sembilan",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -72,13 +68,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Pahang",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -87,13 +82,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Perak",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -102,13 +96,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Perlis",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -117,13 +110,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Penang",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -132,13 +124,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Sabah",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -147,13 +138,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Sarawak",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -162,13 +152,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Selangor",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -177,13 +166,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Terengganu",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -192,13 +180,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Kuala Lumpur",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -207,13 +194,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Putrajaya",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -222,13 +208,12 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     },
     {
       "state": "Labuan",
-      "metric": "healthScreenings",
+      "metric": "unemployment",
       "years": [
         2010,
         2011,
@@ -237,8 +222,7 @@
         2014,
         2015,
         2016,
-        2017,
-        2018
+        2026
       ]
     }
   ]

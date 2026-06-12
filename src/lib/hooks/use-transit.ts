@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { reportFeedStatus } from "@/lib/feed-status";
 
 export interface TransitVehicle {
   id: string;
@@ -22,41 +23,56 @@ export function useTransit(enabled: boolean) {
   const [vehicles, setVehicles] = useState<TransitVehicle[]>([]);
   const vehicleMap = useRef<Map<string, TransitVehicle & { lastSeen: number }>>(new Map());
 
-  const fetchTransit = useCallback(async () => {
-    if (!enabled) return;
-    try {
-      const res = await fetch("/api/transit");
-      if (!res.ok) return;
-      const data = await res.json();
-      const now = Date.now();
-
-      // Merge: update existing, add new
-      for (const v of (data.vehicles || []) as TransitVehicle[]) {
-        const key = `${v.feed}::${v.id}`;
-        vehicleMap.current.set(key, { ...v, lastSeen: now });
-      }
-
-      // Prune stale vehicles (not seen in 3 minutes)
-      for (const [key, v] of vehicleMap.current) {
-        if (now - v.lastSeen > STALE_MS) vehicleMap.current.delete(key);
-      }
-
-      setVehicles(Array.from(vehicleMap.current.values()));
-    } catch {
-      // silently fail — keep existing data
-    }
-  }, [enabled]);
-
   useEffect(() => {
     if (!enabled) {
       setVehicles([]);
       vehicleMap.current.clear();
       return;
     }
+
+    const controller = new AbortController();
+
+    const fetchTransit = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch("/api/transit", { signal: controller.signal });
+        reportFeedStatus("transit", res.ok);
+        if (!res.ok) return;
+        const data = await res.json();
+        const now = Date.now();
+
+        // Merge: update existing, add new
+        for (const v of (data.vehicles || []) as TransitVehicle[]) {
+          const key = `${v.feed}::${v.id}`;
+          vehicleMap.current.set(key, { ...v, lastSeen: now });
+        }
+
+        // Prune stale vehicles (not seen in 3 minutes)
+        for (const [key, v] of vehicleMap.current) {
+          if (now - v.lastSeen > STALE_MS) vehicleMap.current.delete(key);
+        }
+
+        setVehicles(Array.from(vehicleMap.current.values()));
+      } catch (err) {
+        // keep existing data on failure
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          reportFeedStatus("transit", false);
+        }
+      }
+    };
+
     fetchTransit();
     const interval = setInterval(fetchTransit, REFRESH_MS);
-    return () => clearInterval(interval);
-  }, [enabled, fetchTransit]);
+    const onVisibility = () => {
+      if (!document.hidden) fetchTransit();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+      controller.abort();
+    };
+  }, [enabled]);
 
   return vehicles;
 }

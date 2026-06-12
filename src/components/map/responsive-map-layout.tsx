@@ -149,6 +149,7 @@ export default function ResponsiveMapLayout({
   return (
     <div className="relative flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
       {/* Desktop */}
+      {!p.isMobile && (
       <div className="hidden lg:flex items-center w-full h-full">
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
@@ -161,8 +162,10 @@ export default function ResponsiveMapLayout({
           {renderSVGContent(p.allFeatures, p.pathGen, p.projection)}
         </svg>
       </div>
+      )}
 
       {/* Mobile: stacked */}
+      {p.isMobile && (
       <div
         className="lg:hidden"
         style={{
@@ -205,6 +208,7 @@ export default function ResponsiveMapLayout({
           </svg>
         </div>
       </div>
+      )}
 
       {/* Overlay (tooltips, legends, etc.) */}
       {overlay}

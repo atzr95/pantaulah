@@ -192,7 +192,7 @@ export async function fetchForecasts(): Promise<ForecastEntry[]> {
   // Trailing slash required — API returns 301 without it
   const res = await fetch(
     `${BASE}/weather/forecast/?contains=St@location__location_id`,
-    { next: { revalidate: 1800 } } // cache 30 min
+    { signal: AbortSignal.timeout(8_000) }
   );
   if (!res.ok) throw new Error(`data.gov.my forecast: ${res.status}`);
 
@@ -216,7 +216,7 @@ export async function fetchForecasts(): Promise<ForecastEntry[]> {
 
 export async function fetchWarnings(): Promise<WarningEntry[]> {
   const res = await fetch(`${BASE}/weather/warning/`, {
-    next: { revalidate: 300 }, // cache 5 min
+    signal: AbortSignal.timeout(8_000),
   });
   if (!res.ok) throw new Error(`data.gov.my warning: ${res.status}`);
 
@@ -243,7 +243,7 @@ export async function fetchEarthquakes(): Promise<EarthquakeEntry[]> {
   // data.gov.my — sort by newest first (default sort returns oldest)
   const res = await fetch(
     `${BASE}/weather/warning/earthquake/?limit=10&sort=-utcdatetime`,
-    { next: { revalidate: 300 } } // cache 5 min
+    { signal: AbortSignal.timeout(8_000) }
   );
   if (!res.ok) throw new Error(`data.gov.my earthquake: ${res.status}`);
 
@@ -281,7 +281,7 @@ export async function fetchAirQuality(): Promise<AirQualityData> {
   const lons = STATE_COORDINATES.map((c) => c.lon).join(",");
   const url = `${AQ_BASE}?latitude=${lats}&longitude=${lons}&current=${AQ_PARAMS}&timezone=Asia/Kuala_Lumpur`;
 
-  const res = await fetch(url, { next: { revalidate: 900 } }); // cache 15 min
+  const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
   if (!res.ok) throw new Error(`Open-Meteo AQ: ${res.status}`);
 
   const data = await res.json();
@@ -342,7 +342,7 @@ export async function fetchFloodAlerts(): Promise<FloodAlertData> {
   const now = new Date().toISOString();
 
   const res = await fetch(JPS_URL, {
-    next: { revalidate: 300 }, // cache 5 min
+    signal: AbortSignal.timeout(8_000),
     headers: { "User-Agent": "PantauLah/1.0 (+https://pantaulah.com)" },
   });
   if (!res.ok) throw new Error(`JPS InfoBanjir: ${res.status}`);

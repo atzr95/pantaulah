@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import PillButton from "@/components/ui/pill-button";
 
 // ── Types ──
 
@@ -142,14 +143,16 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
           <div className="flex gap-1 mb-3">
             <button
               onClick={() => setGridMode(true)}
-              className={`p-1 rounded border transition-all ${
+              className={`p-2 rounded border transition-all ${
                 gridMode
                   ? "border-[var(--color-cyan)] text-[var(--color-cyan)]"
                   : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] cursor-pointer"
               }`}
               title="Grid view"
+              aria-label="Switch to grid view"
+              aria-pressed={gridMode}
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <rect x="1" y="1" width="6" height="6" rx="1" />
                 <rect x="9" y="1" width="6" height="6" rx="1" />
                 <rect x="1" y="9" width="6" height="6" rx="1" />
@@ -158,14 +161,16 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
             </button>
             <button
               onClick={() => setGridMode(false)}
-              className={`p-1 rounded border transition-all ${
+              className={`p-2 rounded border transition-all ${
                 !gridMode
                   ? "border-[var(--color-cyan)] text-[var(--color-cyan)]"
                   : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] cursor-pointer"
               }`}
               title="Single view"
+              aria-label="Switch to single view"
+              aria-pressed={!gridMode}
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <rect x="1" y="1" width="14" height="14" rx="1" />
               </svg>
             </button>
@@ -369,26 +374,18 @@ function TrendingPanel() {
       <div className="flex items-center justify-between mb-3">
         <SectionHeader title="TRENDING MALAYSIA" count={list.length} />
         <div className="flex gap-1">
-          <button
+          <PillButton
+            active={tab === "videos"}
             onClick={() => { setTab("videos"); setPlayingId(null); }}
-            className={`px-2 py-0.5 text-[10px] tracking-wider border rounded transition-all ${
-              tab === "videos"
-                ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)]"
-                : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] cursor-pointer"
-            }`}
           >
             VIDEOS ({videos.length})
-          </button>
-          <button
+          </PillButton>
+          <PillButton
+            active={tab === "shorts"}
             onClick={() => { setTab("shorts"); setPlayingId(null); }}
-            className={`px-2 py-0.5 text-[10px] tracking-wider border rounded transition-all ${
-              tab === "shorts"
-                ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)]"
-                : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] cursor-pointer"
-            }`}
           >
             SHORTS ({shorts.length})
-          </button>
+          </PillButton>
         </div>
       </div>
 
@@ -425,7 +422,7 @@ function TrendingPanel() {
                   </div>
                   <button
                     onClick={() => setPlayingId(null)}
-                    className="mt-1 text-[10px] tracking-wider text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors cursor-pointer"
+                    className="mt-1 py-2 text-[10px] tracking-wider text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors cursor-pointer"
                   >
                     CLOSE PLAYER
                   </button>
@@ -513,26 +510,18 @@ function RedditPanel() {
           count={posts.length}
         />
         <div className="flex gap-1">
-          <button
+          <PillButton
+            active={activeTab === "subreddits"}
             onClick={() => setActiveTab("subreddits")}
-            className={`px-2 py-0.5 text-[10px] tracking-wider border rounded transition-all ${
-              activeTab === "subreddits"
-                ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)]"
-                : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] cursor-pointer"
-            }`}
           >
             MY SUBS
-          </button>
-          <button
+          </PillButton>
+          <PillButton
+            active={activeTab === "global"}
             onClick={() => setActiveTab("global")}
-            className={`px-2 py-0.5 text-[10px] tracking-wider border rounded transition-all ${
-              activeTab === "global"
-                ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)]"
-                : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] cursor-pointer"
-            }`}
           >
             GLOBAL
-          </button>
+          </PillButton>
         </div>
       </div>
 
@@ -743,7 +732,7 @@ function RSSFeedPanel() {
             >
               {/* Source badge */}
               <div className="shrink-0 w-12 flex flex-col items-center justify-center">
-                <span className="text-[8px] tracking-wider text-[var(--color-cyan)] font-bold text-center leading-tight uppercase">
+                <span className="text-[9px] tracking-wider text-[var(--color-cyan)] font-bold text-center leading-tight uppercase">
                   {item.sourceName}
                 </span>
               </div>
@@ -772,7 +761,7 @@ function RSSFeedPanel() {
                       {item.matchedStates.map((s) => (
                         <span
                           key={s}
-                          className="px-1 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[rgba(0,212,255,0.15)] text-[var(--color-cyan)] text-[8px] tracking-wider"
+                          className="px-1 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[var(--color-border)] text-[var(--color-cyan)] text-[9px] tracking-wider"
                         >
                           {s}
                         </span>
@@ -816,17 +805,13 @@ export default function MediaView() {
           }}
         >
           {TABS.map((tab) => (
-            <button
+            <PillButton
               key={tab.key}
+              active={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-3 py-1 text-[10px] tracking-wider border rounded transition-all ${
-                activeTab === tab.key
-                  ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)]"
-                  : "border-[rgba(0,212,255,0.25)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer"
-              }`}
             >
               {tab.label}
-            </button>
+            </PillButton>
           ))}
         </div>
 

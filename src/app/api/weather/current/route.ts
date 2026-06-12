@@ -5,6 +5,7 @@ import {
   STATE_COORDINATES,
   type CurrentWeatherResponse,
 } from "@/lib/data/weather-types";
+import { cachedJson } from "@/lib/server/edge-cache";
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
 const CURRENT_PARAMS = [
@@ -34,33 +35,41 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const url = `${OPEN_METEO_BASE}?latitude=${coord.lat}&longitude=${coord.lon}&current=${CURRENT_PARAMS}&timezone=Asia/Kuala_Lumpur`;
-    const res = await fetch(url, { next: { revalidate: 900 } }); // cache 15 min
-    if (!res.ok) throw new Error(`Open-Meteo returned ${res.status}`);
+    const response = await cachedJson<CurrentWeatherResponse>(
+      `weather:current:${coord.state}`,
+      300,
+      async () => {
+        const url = `${OPEN_METEO_BASE}?latitude=${coord.lat}&longitude=${coord.lon}&current=${CURRENT_PARAMS}&timezone=Asia/Kuala_Lumpur`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
+        if (!res.ok) throw new Error(`Open-Meteo returned ${res.status}`);
 
-    const data = await res.json();
-    const c = data.current;
+        const data = await res.json();
+        const c = data.current;
 
-    const response: CurrentWeatherResponse = {
-      state: coord.state,
-      locationName: coord.locationName,
-      current: {
-        time: c.time,
-        temperature: c.temperature_2m,
-        apparentTemperature: c.apparent_temperature,
-        humidity: c.relative_humidity_2m,
-        windSpeed: c.wind_speed_10m,
-        windDirection: c.wind_direction_10m,
-        weatherCode: c.weather_code,
-        precipitation: c.precipitation,
-        pressure: c.pressure_msl,
-        uvIndex: c.uv_index,
-        cloudCover: c.cloud_cover,
-      },
-      fetchedAt: new Date().toISOString(),
-    };
+        return {
+          state: coord.state,
+          locationName: coord.locationName,
+          current: {
+            time: c.time,
+            temperature: c.temperature_2m,
+            apparentTemperature: c.apparent_temperature,
+            humidity: c.relative_humidity_2m,
+            windSpeed: c.wind_speed_10m,
+            windDirection: c.wind_direction_10m,
+            weatherCode: c.weather_code,
+            precipitation: c.precipitation,
+            pressure: c.pressure_msl,
+            uvIndex: c.uv_index,
+            cloudCover: c.cloud_cover,
+          },
+          fetchedAt: new Date().toISOString(),
+        };
+      }
+    );
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" },
+    });
   } catch {
     return NextResponse.json(
       { error: "Failed to fetch current weather" },

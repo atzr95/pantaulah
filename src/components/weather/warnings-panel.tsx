@@ -2,6 +2,7 @@
 
 import type { WarningEntry, EarthquakeEntry, FloodAlertData } from "@/lib/data/weather-types";
 import { getFloodAlertSeverity, getFloodTrendIcon } from "@/lib/data/weather-types";
+import EmptyState from "@/components/ui/empty-state";
 
 function getSeverityColor(severity: string): string {
   switch (severity) {
@@ -93,17 +94,12 @@ export default function WarningsPanel({
         </div>
 
         {activeWarnings.length === 0 ? (
-          <div
-            className="border border-[var(--color-border)] rounded-sm p-6 text-center"
-            style={{ background: "rgba(13, 13, 20, 0.8)" }}
-          >
-            <div className="text-[var(--color-green)] text-sm mb-1">
-              \u2713 ALL CLEAR
-            </div>
-            <div className="text-[10px] text-[var(--color-text-dim)]">
-              No active weather warnings
-            </div>
-          </div>
+          <EmptyState
+            tone="positive"
+            title={"\u2713 ALL CLEAR"}
+            detail="No active weather warnings"
+            className="p-6"
+          />
         ) : (
           <div className="space-y-3">
             {activeWarnings.map((w) => {
@@ -115,7 +111,6 @@ export default function WarningsPanel({
                   style={{
                     background: "rgba(13, 13, 20, 0.8)",
                     borderColor: severityColor,
-                    borderLeftWidth: "3px",
                   }}
                 >
                   {/* Header */}
@@ -156,7 +151,7 @@ export default function WarningsPanel({
                       className="text-[10px] p-2 rounded-sm mb-3"
                       style={{
                         background: `${severityColor}08`,
-                        borderLeft: `2px solid ${severityColor}60`,
+                        border: `1px solid ${severityColor}40`,
                         color: "var(--color-text)",
                       }}
                     >
@@ -216,17 +211,12 @@ export default function WarningsPanel({
         </div>
 
         {floodAlerts.stations.length === 0 ? (
-          <div
-            className="border border-[var(--color-border)] rounded-sm p-6 text-center"
-            style={{ background: "rgba(13, 13, 20, 0.8)" }}
-          >
-            <div className="text-[var(--color-green)] text-sm mb-1">
-              {"\u2713"} ALL CLEAR
-            </div>
-            <div className="text-[10px] text-[var(--color-text-dim)]">
-              No flood alerts — all stations normal
-            </div>
-          </div>
+          <EmptyState
+            tone="positive"
+            title={"\u2713 ALL CLEAR"}
+            detail="No flood alerts, all stations normal"
+            className="p-6"
+          />
         ) : (
           <div className="space-y-2">
             {floodAlerts.stations.map((s, i) => {
@@ -239,7 +229,6 @@ export default function WarningsPanel({
                   style={{
                     background: "rgba(13, 13, 20, 0.8)",
                     borderColor: severityColor,
-                    borderLeftWidth: "3px",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1.5">

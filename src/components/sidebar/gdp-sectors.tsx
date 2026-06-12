@@ -5,6 +5,8 @@ import type { GdpSectorData } from "@/lib/data/types";
 
 interface GdpSectorsProps {
   sectors: GdpSectorData | undefined;
+  /** Year shown when the data is older than the selected year */
+  vintageYear?: number;
 }
 
 const SECTOR_CONFIG = [
@@ -15,7 +17,7 @@ const SECTOR_CONFIG = [
   { key: "mining" as const, label: "Mining", color: "rgba(255, 100, 100, 0.7)", desc: "Crude oil & condensate, natural gas, quarrying (stone, sand, clay)." },
 ];
 
-export default function GdpSectors({ sectors }: GdpSectorsProps) {
+export default function GdpSectors({ sectors, vintageYear }: GdpSectorsProps) {
   const [hoveredSector, setHoveredSector] = useState<string | null>(null);
   const bars = useMemo(() => {
     if (!sectors) return [];
@@ -37,6 +39,9 @@ export default function GdpSectors({ sectors }: GdpSectorsProps) {
     <div className="bg-[var(--color-bg)] p-3.5">
       <div className="text-[10px] tracking-[2px] text-[var(--color-text-muted)] mb-2.5">
         GDP BY SECTOR
+        {vintageYear != null && (
+          <span className="text-[var(--color-text-dim)]"> ({vintageYear})</span>
+        )}
       </div>
 
       <div className="space-y-2.5">

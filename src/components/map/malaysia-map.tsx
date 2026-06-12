@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { memo, useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { geoMercator, geoPath, type GeoPermissibleObjects } from "d3-geo";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
@@ -22,6 +22,13 @@ import { useFlights, type Flight } from "@/lib/hooks/use-flights";
 import { useTransit, type TransitVehicle } from "@/lib/hooks/use-transit";
 import { HIGHWAYS as HIGHWAY_ROUTES } from "@/lib/data/highways";
 import { RAIL_LINES } from "@/lib/data/rail-lines";
+import { POI_COLORS, OVERLAY_COLORS } from "@/lib/ui/colors";
+
+function getPOIColor(type: string): string {
+  if (type === "airport") return POI_COLORS.airport;
+  if (type === "university") return POI_COLORS.university;
+  return POI_COLORS.port;
+}
 
 interface MalaysiaMapProps {
   data: CacheData;
@@ -73,6 +80,383 @@ interface POI {
   code?: string;
 }
 
+// Region filter helpers (lon-based)
+const isWestPOI = (poi: POI) => poi.lon < 108;
+const isEastPOI = (poi: POI) => poi.lon >= 108;
+
+const ALL_POIS: POI[] = [...AIRPORTS, ...PORTS, ...UNIVERSITIES];
+const POI_BY_KEY = new Map<string, POI>(ALL_POIS.map((p) => [`${p.type}-${p.name}`, p]));
+
+type Projection = ReturnType<typeof geoMercator>;
+type PathGen = ReturnType<typeof geoPath>;
+
+// ── Choropleth state layer ──
+interface StateLayerProps {
+  features: Feature<Geometry, StateProperties>[];
+  generator: PathGen;
+  metricValues: Record<string, number | undefined>;
+  terciles: ReturnType<typeof computeTerciles>;
+  config: ChoroplethConfig;
+  selectedState: string | null;
+  hoveredState: string | null;
+  onStateSelect: (topoName: string | null) => void;
+  onStateEnter: (name: string) => void;
+  onStateLeave: () => void;
+}
+
+const StateLayer = memo(function StateLayer({
+  features,
+  generator,
+  metricValues,
+  terciles,
+  config,
+  selectedState,
+  hoveredState,
+  onStateSelect,
+  onStateEnter,
+  onStateLeave,
+}: StateLayerProps) {
+  const paths = useMemo(
+    () =>
+      features.map((feat) => ({
+        name: feat.properties.Name,
+        d: generator(feat as GeoPermissibleObjects) || "",
+      })),
+    [features, generator]
+  );
+
+  return (
+    <>
+      {paths.map(({ name, d }) => {
+        const value = metricValues[name];
+        const bucket = getBucket(value, terciles);
+        const isSelected = selectedState === name;
+        const isHovered = hoveredState === name;
+
+        return (
+          <path
+            key={name}
+            d={d}
+            fill={
+              isSelected
+                ? "rgba(0, 212, 255, 0.35)"
+                : isHovered
+                  ? "rgba(0, 212, 255, 0.3)"
+                  : getBucketColor(bucket, config.colorHue)
+            }
+            stroke={
+              isSelected
+                ? "#00d4ff"
+                : isHovered
+                  ? "rgba(0, 212, 255, 0.8)"
+                  : getBucketStroke(bucket, config.colorHue)
+            }
+            strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 1}
+            className="transition-all duration-300 cursor-pointer outline-none"
+            style={{
+              outline: "none",
+              ...(isSelected
+                ? { filter: "drop-shadow(0 0 8px rgba(0, 212, 255, 0.3))" }
+                : {}),
+            }}
+            onClick={() => onStateSelect(isSelected ? null : name)}
+            onMouseEnter={() => onStateEnter(name)}
+            onMouseLeave={onStateLeave}
+            onFocus={() => onStateEnter(name)}
+            onBlur={onStateLeave}
+            role="button"
+            aria-label={`${name}: ${formatMetricValue(config.key, value)}`}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onStateSelect(isSelected ? null : name);
+              }
+            }}
+          />
+        );
+      })}
+    </>
+  );
+});
+
+// ── POI markers ──
+interface POILayerProps {
+  pois: POI[];
+  proj: Projection;
+  hoveredPOI: string | null;
+  onPOIEnter: (key: string) => void;
+  onPOILeave: () => void;
+}
+
+const POILayer = memo(function POILayer({
+  pois,
+  proj,
+  hoveredPOI,
+  onPOIEnter,
+  onPOILeave,
+}: POILayerProps) {
+  const projected = useMemo(() => {
+    const pts = pois
+      .map((poi) => ({ poi, coords: proj([poi.lon, poi.lat]) }))
+      .filter((p) => p.coords != null);
+
+    // Overlap nudging
+    const offsets: Record<string, [number, number]> = {};
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const a = pts[i], b = pts[j];
+        const dx = a.coords![0] - b.coords![0];
+        const dy = a.coords![1] - b.coords![1];
+        if (Math.sqrt(dx * dx + dy * dy) < 12) {
+          const port = a.poi.type === "port" ? a : b;
+          offsets[`${port.poi.type}-${port.poi.name}`] = [0, -8];
+        }
+      }
+    }
+
+    return pts.map(({ poi, coords }) => {
+      const key = `${poi.type}-${poi.name}`;
+      const [ox, oy] = offsets[key] || [0, 0];
+      return { poi, key, cx: coords![0] + ox, cy: coords![1] + oy };
+    });
+  }, [pois, proj]);
+
+  if (projected.length === 0) return null;
+
+  return (
+    <>
+      {projected.map(({ poi, key, cx, cy }) => {
+        const isLarge = poi.size === "large";
+        const isHov = hoveredPOI === key;
+        const r = isHov ? 7 : isLarge ? 5.5 : 4;
+        const color = getPOIColor(poi.type);
+        const symbol =
+          poi.type === "airport" ? "✈" : poi.type === "university" ? "🎓" : "⚓";
+
+        return (
+          <g
+            key={key}
+            className="cursor-pointer"
+            onMouseEnter={() => onPOIEnter(key)}
+            onMouseLeave={onPOILeave}
+            onClick={() => onPOIEnter(key)}
+          >
+            <circle cx={cx} cy={cy} r={r + 2} fill="transparent" />
+            <circle
+              cx={cx} cy={cy} r={r}
+              fill={color} stroke="rgba(0, 0, 0, 0.6)" strokeWidth={0.8}
+              opacity={isLarge ? 0.9 : 0.65}
+              className="transition-all duration-150"
+            />
+            <text
+              x={cx} y={cy} dy="0.35em" textAnchor="middle"
+              fontSize={isHov ? 11 : isLarge ? 8 : 6}
+              fill="rgba(0,0,0,0.85)"
+              style={{ pointerEvents: "none" }}
+              className="transition-all duration-150"
+            >
+              {symbol}
+            </text>
+          </g>
+        );
+      })}
+    </>
+  );
+});
+
+// ── Highway routes ──
+const HighwayLayer = memo(function HighwayLayer({ proj }: { proj: Projection }) {
+  const paths = useMemo(
+    () =>
+      HIGHWAY_ROUTES.map((route, i) => {
+        const points = route.coords
+          .map((c) => proj(c))
+          .filter((p): p is [number, number] => p != null);
+        if (points.length < 2) return null;
+        return {
+          key: `hw-${route.ref}-${i}`,
+          d: "M" + points.map((p) => `${p[0]},${p[1]}`).join("L"),
+        };
+      }).filter((p): p is { key: string; d: string } => p != null),
+    [proj]
+  );
+
+  return (
+    <>
+      {paths.map(({ key, d }) => (
+        <path
+          key={key}
+          d={d}
+          fill="none"
+          stroke={OVERLAY_COLORS.highway}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ pointerEvents: "none" }}
+        />
+      ))}
+    </>
+  );
+});
+
+// ── Rail lines ──
+const RailLayer = memo(function RailLayer({
+  proj,
+  transitZoom,
+}: {
+  proj: Projection;
+  transitZoom: boolean;
+}) {
+  const paths = useMemo(
+    () =>
+      RAIL_LINES.map((line, i) => {
+        const points = line.coords
+          .map((c) => proj(c))
+          .filter((p): p is [number, number] => p != null);
+        if (points.length < 2) return null;
+        return {
+          key: `rail-${i}`,
+          d: "M" + points.map((p) => `${p[0]},${p[1]}`).join("L"),
+          color: line.color,
+        };
+      }).filter((p): p is { key: string; d: string; color: string } => p != null),
+    [proj]
+  );
+
+  return (
+    <>
+      {paths.map(({ key, d, color }) => (
+        <path
+          key={key}
+          d={d}
+          fill="none"
+          stroke={transitZoom ? (color || "#c084fc") : OVERLAY_COLORS.rail}
+          strokeWidth={transitZoom ? 2.5 : 1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeOpacity={transitZoom ? 0.9 : 0.6}
+          strokeDasharray={transitZoom ? "none" : "4 2"}
+          style={{ pointerEvents: "none" }}
+        />
+      ))}
+    </>
+  );
+});
+
+// ── Live flight markers ──
+// Airplane SVG path (pointing right, centered at origin)
+const PLANE_PATH = "M-1.5,0 L-0.5,-0.8 L1.5,0 L-0.5,0.8 Z M-0.5,-0.4 L-1.8,-1.5 L-1.8,-1.2 L-0.5,-0.2 M-0.5,0.4 L-1.8,1.5 L-1.8,1.2 L-0.5,0.2";
+
+interface FlightLayerProps {
+  flights: Flight[];
+  proj: Projection;
+  hoveredFlightId: string | null;
+  onFlightEnter: (f: Flight) => void;
+  onFlightLeave: () => void;
+}
+
+const FlightLayer = memo(function FlightLayer({
+  flights,
+  proj,
+  hoveredFlightId,
+  onFlightEnter,
+  onFlightLeave,
+}: FlightLayerProps) {
+  return (
+    <>
+      {flights.map((f, i) => {
+        const coords = proj([f.lon, f.lat]);
+        if (!coords) return null;
+        const isHov = hoveredFlightId === f.icao24;
+        const scale = isHov ? 5 : 3.5;
+        return (
+          <g
+            key={`flight-${f.icao24 || i}`}
+            onMouseEnter={() => onFlightEnter(f)}
+            onMouseLeave={onFlightLeave}
+            onClick={() => onFlightEnter(f)}
+            className="cursor-pointer"
+          >
+            {/* Hit area */}
+            <circle cx={coords[0]} cy={coords[1]} r={8} fill="transparent" />
+            {/* Airplane icon rotated to heading */}
+            <g transform={`translate(${coords[0]},${coords[1]}) scale(${scale}) rotate(${(f.heading || 0) - 90})`}>
+              <path
+                d={PLANE_PATH}
+                fill={isHov ? POI_COLORS.flight : "rgba(255, 107, 107, 0.8)"}
+                stroke="rgba(0,0,0,0.4)"
+                strokeWidth={0.15}
+              />
+            </g>
+          </g>
+        );
+      })}
+    </>
+  );
+});
+
+// ── Live transit markers (buses & trains) ──
+interface TransitLayerProps {
+  vehicles: TransitVehicle[];
+  proj: Projection;
+  hoveredTransitKey: string | null;
+  onTransitEnter: (v: TransitVehicle) => void;
+  onTransitLeave: () => void;
+}
+
+const TransitLayer = memo(function TransitLayer({
+  vehicles,
+  proj,
+  hoveredTransitKey,
+  onTransitEnter,
+  onTransitLeave,
+}: TransitLayerProps) {
+  return (
+    <>
+      {vehicles.map((v, i) => {
+        const coords = proj([v.lon, v.lat]);
+        if (!coords) return null;
+        const isHov = hoveredTransitKey === `${v.feed}::${v.id}`;
+        const isTrain = v.type === "train";
+        const color = isTrain
+          ? (isHov ? POI_COLORS.train : "rgba(232, 121, 249, 0.9)")
+          : (isHov ? POI_COLORS.bus : "rgba(251, 146, 60, 0.85)");
+        const r = isTrain ? (isHov ? 5 : 3.5) : (isHov ? 4 : 2.5);
+        return (
+          <g
+            key={`transit-${v.feed}-${v.id}-${i}`}
+            onMouseEnter={() => onTransitEnter(v)}
+            onMouseLeave={onTransitLeave}
+            onClick={() => onTransitEnter(v)}
+            className="cursor-pointer"
+          >
+            <circle cx={coords[0]} cy={coords[1]} r={6} fill="transparent" />
+            {isTrain ? (
+              <rect
+                x={coords[0] - r} y={coords[1] - r}
+                width={r * 2} height={r * 2}
+                rx={0.5}
+                fill={color}
+                stroke="rgba(0,0,0,0.3)"
+                strokeWidth={0.3}
+              />
+            ) : (
+              <circle
+                cx={coords[0]} cy={coords[1]}
+                r={r}
+                fill={color}
+                stroke="rgba(0,0,0,0.3)"
+                strokeWidth={0.3}
+              />
+            )}
+          </g>
+        );
+      })}
+    </>
+  );
+});
+
 export default function MalaysiaMap({
   data,
   selectedState,
@@ -86,22 +470,66 @@ export default function MalaysiaMap({
 }: MalaysiaMapProps) {
   const [hoveredState, setHoveredState] = useState<string | null>(null);
   const [hoveredPOI, setHoveredPOI] = useState<string | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [hiddenPOITypes, setHiddenPOITypes] = useState<Set<string>>(new Set(["transit"]));
   const [legendOpen, setLegendOpen] = useState(false);
   const [hoveredFlight, setHoveredFlight] = useState<Flight | null>(null);
   const [hoveredTransit, setHoveredTransit] = useState<TransitVehicle | null>(null);
   const [transitZoomState, setTransitZoomState] = useState<string | null>(null);
   const isMobile = useIsMobile();
-  const flights = useFlights(selectedCategory === "transport");
-  const transit = useTransit(selectedCategory === "transport");
+  const flights = useFlights(selectedCategory === "transport" && !hiddenPOITypes.has("flight"));
+  const transit = useTransit(selectedCategory === "transport" && !hiddenPOITypes.has("transit"));
+
+  // Tooltip position lives outside React state — updated via rAF on mousemove
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const tooltipPosRef = useRef({ x: 0, y: 0 });
+  const rafRef = useRef(0);
+
+  const handleRootMouseMove = useCallback((e: React.MouseEvent) => {
+    tooltipPosRef.current = { x: e.clientX, y: e.clientY };
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      const el = tooltipRef.current;
+      if (el) {
+        el.style.left = `${tooltipPosRef.current.x + 12}px`;
+        el.style.top = `${tooltipPosRef.current.y - 10}px`;
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const handleStateEnter = useCallback((name: string) => setHoveredState(name), []);
+  const handleStateLeave = useCallback(() => setHoveredState(null), []);
+  const handlePOIEnter = useCallback((key: string) => {
+    setHoveredPOI(key);
+    setHoveredState(null);
+  }, []);
+  const handlePOILeave = useCallback(() => setHoveredPOI(null), []);
+  const handleFlightEnter = useCallback((f: Flight) => {
+    setHoveredFlight(f);
+    setHoveredState(null);
+    setHoveredPOI(null);
+  }, []);
+  const handleFlightLeave = useCallback(() => setHoveredFlight(null), []);
+  const handleTransitEnter = useCallback((v: TransitVehicle) => {
+    setHoveredTransit(v);
+    setHoveredState(null);
+    setHoveredPOI(null);
+    setHoveredFlight(null);
+  }, []);
+  const handleTransitLeave = useCallback(() => setHoveredTransit(null), []);
 
   const togglePOIType = useCallback((type: string) => {
     setHiddenPOITypes((prev) => {
       const next = new Set(prev);
       if (next.has(type)) next.delete(type);
       else next.add(type);
-      if (type === "transit" && !next.has("transit") === false) setTransitZoomState(null);
+      if (type === "transit" && next.has("transit")) setTransitZoomState(null);
       return next;
     });
   }, []);
@@ -145,7 +573,6 @@ export default function MalaysiaMap({
       geojson
     );
   }, [geojson]);
-  const pathGen = useMemo(() => geoPath().projection(projection), [projection]);
 
   // Mobile: separate projections per region
   const westGeo = useMemo(
@@ -175,9 +602,6 @@ export default function MalaysiaMap({
       eastGeo
     );
   }, [eastGeo]);
-
-  const westPathGen = useMemo(() => geoPath().projection(westProjection), [westProjection]);
-  const eastPathGen = useMemo(() => geoPath().projection(eastProjection), [eastProjection]);
 
   // Transit zoom: when transit is visible + a state is picked from dropdown
   const transitZoom = selectedCategory === "transport" && !hiddenPOITypes.has("transit") && transitZoomState != null;
@@ -217,14 +641,6 @@ export default function MalaysiaMap({
   }, [metricValues]);
   const config = METRIC_CONFIGS.find((c) => c.key === selectedMetric)!;
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent, name: string) => {
-      setHoveredState(name);
-      setTooltipPos({ x: e.clientX, y: e.clientY });
-    },
-    []
-  );
-
   // Get relevant POIs for current category
   const categoryPois = useMemo(() => {
     if (selectedCategory === "education") {
@@ -236,282 +652,42 @@ export default function MalaysiaMap({
     return [];
   }, [selectedCategory, hiddenPOITypes]);
 
-  // Render state paths for a set of features
-  const renderStates = (
-    features: Feature<Geometry, StateProperties>[],
-    generator: ReturnType<typeof geoPath>,
-  ) =>
-    features.map((feat) => {
-      const name = feat.properties.Name;
-      const value = metricValues[name];
-      const bucket = getBucket(value, terciles);
-      const isSelected = selectedState === name;
-      const isHovered = hoveredState === name;
+  const westPois = useMemo(() => categoryPois.filter(isWestPOI), [categoryPois]);
+  const eastPois = useMemo(() => categoryPois.filter(isEastPOI), [categoryPois]);
 
-      return (
-        <path
-          key={name}
-          d={generator(feat as GeoPermissibleObjects) || ""}
-          fill={
-            isSelected
-              ? "rgba(0, 212, 255, 0.35)"
-              : isHovered
-                ? "rgba(0, 212, 255, 0.3)"
-                : getBucketColor(bucket, config.colorHue)
-          }
-          stroke={
-            isSelected
-              ? "#00d4ff"
-              : isHovered
-                ? "rgba(0, 212, 255, 0.8)"
-                : getBucketStroke(bucket, config.colorHue)
-          }
-          strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 1}
-          className="transition-all duration-300 cursor-pointer outline-none"
-          style={{
-            outline: "none",
-            ...(isSelected
-              ? { filter: "drop-shadow(0 0 8px rgba(0, 212, 255, 0.3))" }
-              : {}),
-          }}
-          onClick={() => onStateSelect(isSelected ? null : name)}
-          onMouseMove={(e) => handleMouseMove(e, name)}
-          onMouseLeave={() => setHoveredState(null)}
-          role="button"
-          aria-label={`${name}: ${formatMetricValue(config.key, value)}`}
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onStateSelect(isSelected ? null : name);
-          }}
-        />
-      );
-    });
+  // Live markers: sort transit once (buses first, trains on top), filter by region
+  const sortedTransit = useMemo(
+    () => [...transit].sort((a, b) => (a.type === "train" ? 1 : 0) - (b.type === "train" ? 1 : 0)),
+    [transit]
+  );
+  const westTransit = useMemo(() => sortedTransit.filter((v) => v.lon < 108), [sortedTransit]);
+  const eastTransit = useMemo(() => sortedTransit.filter((v) => v.lon >= 108), [sortedTransit]);
+  const westFlights = useMemo(() => flights.filter((f) => f.lon < 108), [flights]);
+  const eastFlights = useMemo(() => flights.filter((f) => f.lon >= 108), [flights]);
 
-  // Render POI markers for a given projection and region filter
-  const renderPOIs = (
-    proj: ReturnType<typeof geoMercator>,
-    regionFilter: (poi: POI) => boolean,
-  ) => {
-    if (categoryPois.length === 0) return null;
+  // Layer visibility
+  const showHighways = selectedCategory === "transport" && !hiddenPOITypes.has("highway");
+  const showRail = selectedCategory === "transport" && !hiddenPOITypes.has("rail");
+  const showTransit = selectedCategory === "transport" && !hiddenPOITypes.has("transit") && transit.length > 0;
+  const showFlights = selectedCategory === "transport" && !hiddenPOITypes.has("flight") && flights.length > 0;
 
-    const filtered = categoryPois.filter(regionFilter);
-    const projected = filtered
-      .map((poi) => ({ poi, coords: proj([poi.lon, poi.lat]) }))
-      .filter((p) => p.coords != null);
+  const hoveredFlightId = hoveredFlight?.icao24 ?? null;
+  const hoveredTransitKey = hoveredTransit ? `${hoveredTransit.feed}::${hoveredTransit.id}` : null;
 
-    // Overlap nudging
-    const offsets: Record<string, [number, number]> = {};
-    for (let i = 0; i < projected.length; i++) {
-      for (let j = i + 1; j < projected.length; j++) {
-        const a = projected[i], b = projected[j];
-        const dx = a.coords![0] - b.coords![0];
-        const dy = a.coords![1] - b.coords![1];
-        if (Math.sqrt(dx * dx + dy * dy) < 12) {
-          const port = a.poi.type === "port" ? a : b;
-          offsets[`${port.poi.type}-${port.poi.name}`] = [0, -8];
-        }
-      }
-    }
-
-    return projected.map(({ poi, coords: c }) => {
-      const poiKey = `${poi.type}-${poi.name}`;
-      const [ox, oy] = offsets[poiKey] || [0, 0];
-      const cx = c![0] + ox;
-      const cy = c![1] + oy;
-      const isLarge = poi.size === "large";
-      const isHov = hoveredPOI === poiKey;
-      const r = isHov ? 7 : isLarge ? 5.5 : 4;
-      const color =
-        poi.type === "airport" ? "#ff9f43" : poi.type === "university" ? "#ffd43b" : "#2ed573";
-      const symbol =
-        poi.type === "airport" ? "✈" : poi.type === "university" ? "🎓" : "⚓";
-
-      return (
-        <g
-          key={poiKey}
-          className="cursor-pointer"
-          onMouseMove={(e) => {
-            setHoveredPOI(poiKey);
-            setHoveredState(null);
-            setTooltipPos({ x: e.clientX, y: e.clientY });
-          }}
-          onMouseLeave={() => setHoveredPOI(null)}
-        >
-          <circle cx={cx} cy={cy} r={r + 2} fill="transparent" />
-          <circle
-            cx={cx} cy={cy} r={r}
-            fill={color} stroke="rgba(0, 0, 0, 0.6)" strokeWidth={0.8}
-            opacity={isLarge ? 0.9 : 0.65}
-            className="transition-all duration-150"
-          />
-          <text
-            x={cx} y={cy} dy="0.35em" textAnchor="middle"
-            fontSize={isHov ? 11 : isLarge ? 8 : 6}
-            fill="rgba(0,0,0,0.85)"
-            style={{ pointerEvents: "none" }}
-            className="transition-all duration-150"
-          >
-            {symbol}
-          </text>
-        </g>
-      );
-    });
-  };
-
-  // SVG click handler to deselect
+  // SVG click handler: deselect state and dismiss any tap-pinned tooltip
   const handleSvgClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       const tag = (e.target as SVGElement).tagName;
-      if (tag === "svg" || tag === "rect") onStateSelect(null);
+      if (tag === "svg" || tag === "rect") {
+        onStateSelect(null);
+        setHoveredState(null);
+        setHoveredPOI(null);
+        setHoveredFlight(null);
+        setHoveredTransit(null);
+      }
     },
     [onStateSelect]
   );
-
-  // Render highway routes
-  const renderHighways = (proj: ReturnType<typeof geoMercator>) => {
-    if (selectedCategory !== "transport" || hiddenPOITypes.has("highway")) return null;
-    return HIGHWAY_ROUTES.map((route, i) => {
-      const points = route.coords
-        .map((c) => proj(c))
-        .filter((p): p is [number, number] => p != null);
-      if (points.length < 2) return null;
-      const d = "M" + points.map((p) => `${p[0]},${p[1]}`).join("L");
-      return (
-        <path
-          key={`hw-${route.ref}-${i}`}
-          d={d}
-          fill="none"
-          stroke="rgba(255, 200, 50, 0.35)"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ pointerEvents: "none" }}
-        />
-      );
-    });
-  };
-
-  // Render rail lines
-  const renderRailLines = (proj: ReturnType<typeof geoMercator>) => {
-    if (selectedCategory !== "transport" || hiddenPOITypes.has("rail")) return null;
-    return RAIL_LINES.map((line, i) => {
-      const points = line.coords
-        .map((c) => proj(c))
-        .filter((p): p is [number, number] => p != null);
-      if (points.length < 2) return null;
-      const d = "M" + points.map((p) => `${p[0]},${p[1]}`).join("L");
-      // Zoomed out: bright white so it pops against highways
-      // Zoomed in: individual line colors
-      const stroke = transitZoom ? (line.color || "#c084fc") : "#e2e8f0";
-      return (
-        <path
-          key={`rail-${i}`}
-          d={d}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={transitZoom ? 2.5 : 1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeOpacity={transitZoom ? 0.9 : 0.6}
-          strokeDasharray={transitZoom ? "none" : "4 2"}
-          style={{ pointerEvents: "none" }}
-        />
-      );
-    });
-  };
-
-  // Render live flight markers
-  const renderFlights = (proj: ReturnType<typeof geoMercator>) => {
-    if (selectedCategory !== "transport" || flights.length === 0 || hiddenPOITypes.has("flight")) return null;
-    // Airplane SVG path (pointing right, centered at origin)
-    const planePath = "M-1.5,0 L-0.5,-0.8 L1.5,0 L-0.5,0.8 Z M-0.5,-0.4 L-1.8,-1.5 L-1.8,-1.2 L-0.5,-0.2 M-0.5,0.4 L-1.8,1.5 L-1.8,1.2 L-0.5,0.2";
-    return flights.map((f, i) => {
-      const coords = proj([f.lon, f.lat]);
-      if (!coords) return null;
-      const isHov = hoveredFlight?.icao24 === f.icao24;
-      const scale = isHov ? 5 : 3.5;
-      return (
-        <g
-          key={`flight-${f.icao24 || i}`}
-          onMouseMove={(e) => {
-            setHoveredFlight(f);
-            setHoveredState(null);
-            setHoveredPOI(null);
-            setTooltipPos({ x: e.clientX, y: e.clientY });
-          }}
-          onMouseLeave={() => setHoveredFlight(null)}
-          className="cursor-pointer"
-        >
-          {/* Hit area */}
-          <circle cx={coords[0]} cy={coords[1]} r={8} fill="transparent" />
-          {/* Airplane icon rotated to heading */}
-          <g transform={`translate(${coords[0]},${coords[1]}) scale(${scale}) rotate(${(f.heading || 0) - 90})`}>
-            <path
-              d={planePath}
-              fill={isHov ? "#ff6b6b" : "rgba(255, 107, 107, 0.8)"}
-              stroke="rgba(0,0,0,0.4)"
-              strokeWidth={0.15}
-            />
-          </g>
-        </g>
-      );
-    });
-  };
-
-  // Render live transit markers (buses & trains)
-  const renderTransit = (proj: ReturnType<typeof geoMercator>) => {
-    if (selectedCategory !== "transport" || transit.length === 0 || hiddenPOITypes.has("transit")) return null;
-    // Render buses first, trains on top
-    const sorted = [...transit].sort((a, b) => (a.type === "train" ? 1 : 0) - (b.type === "train" ? 1 : 0));
-    return sorted.map((v, i) => {
-      const coords = proj([v.lon, v.lat]);
-      if (!coords) return null;
-      const isHov = hoveredTransit?.id === v.id && hoveredTransit?.feed === v.feed;
-      const isTrain = v.type === "train";
-      const color = isTrain
-        ? (isHov ? "#e879f9" : "rgba(232, 121, 249, 0.9)")
-        : (isHov ? "#fb923c" : "rgba(251, 146, 60, 0.85)");
-      const r = isTrain ? (isHov ? 5 : 3.5) : (isHov ? 4 : 2.5);
-      return (
-        <g
-          key={`transit-${v.feed}-${v.id}-${i}`}
-          onMouseMove={(e) => {
-            setHoveredTransit(v);
-            setHoveredState(null);
-            setHoveredPOI(null);
-            setHoveredFlight(null);
-            setTooltipPos({ x: e.clientX, y: e.clientY });
-          }}
-          onMouseLeave={() => setHoveredTransit(null)}
-          className="cursor-pointer"
-        >
-          <circle cx={coords[0]} cy={coords[1]} r={6} fill="transparent" />
-          {isTrain ? (
-            <rect
-              x={coords[0] - r} y={coords[1] - r}
-              width={r * 2} height={r * 2}
-              rx={0.5}
-              fill={color}
-              stroke="rgba(0,0,0,0.3)"
-              strokeWidth={0.3}
-            />
-          ) : (
-            <circle
-              cx={coords[0]} cy={coords[1]}
-              r={r}
-              fill={color}
-              stroke="rgba(0,0,0,0.3)"
-              strokeWidth={0.3}
-            />
-          )}
-        </g>
-      );
-    });
-  };
-
-  // Region filter helpers for POIs (lon-based)
-  const isWestPOI = (poi: POI) => poi.lon < 108;
-  const isEastPOI = (poi: POI) => poi.lon >= 108;
 
   // Render legend content (shared between desktop and mobile)
   const renderLegendContent = (compact = false) => (
@@ -528,7 +704,8 @@ export default function MalaysiaMap({
             <div
               className={`${compact ? "w-3 h-2" : "w-4 h-2.5"} rounded-sm`}
               style={{
-                background: config.colorHue === "amber" ? "rgba(255, 149, 0, 0.3)" : "rgba(0, 212, 255, 0.3)",
+                background: getBucketColor("high", config.colorHue),
+                border: `1px solid ${getBucketStroke("high", config.colorHue)}`,
               }}
             />
             HIGH (&gt; {formatMetricValue(config.key, terciles.t2)})
@@ -537,7 +714,8 @@ export default function MalaysiaMap({
             <div
               className={`${compact ? "w-3 h-2" : "w-4 h-2.5"} rounded-sm`}
               style={{
-                background: config.colorHue === "amber" ? "rgba(255, 149, 0, 0.15)" : "rgba(0, 212, 255, 0.15)",
+                background: getBucketColor("medium", config.colorHue),
+                border: `1px solid ${getBucketStroke("medium", config.colorHue)}`,
               }}
             />
             MEDIUM
@@ -545,20 +723,33 @@ export default function MalaysiaMap({
           <div className="flex items-center gap-2">
             <div
               className={`${compact ? "w-3 h-2" : "w-4 h-2.5"} rounded-sm`}
-              style={{ background: "rgba(0, 212, 255, 0.06)" }}
+              style={{
+                background: getBucketColor("low", config.colorHue),
+                border: `1px solid ${getBucketStroke("low", config.colorHue)}`,
+              }}
             />
             LOW (&lt; {formatMetricValue(config.key, terciles.t1)})
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              className={`${compact ? "w-3 h-2" : "w-4 h-2.5"} rounded-sm`}
+              style={{
+                background: getBucketColor("none", config.colorHue),
+                border: `1px solid ${getBucketStroke("none", config.colorHue)}`,
+              }}
+            />
+            NO DATA
           </div>
         </>
       )}
       {selectedCategory === "economy" && (
         <div className={`${compact ? "mt-2 pt-1.5" : "mt-3 pt-2"} border-t border-[rgba(255,255,255,0.06)] space-y-1`}>
           <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("airport")}>
-            <div className="w-2.5 h-2.5 rounded-full border border-[#ff9f43]" style={{ background: hiddenPOITypes.has("airport") ? "transparent" : "#ff9f43" }} />
+            <div className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: POI_COLORS.airport, background: hiddenPOITypes.has("airport") ? "transparent" : POI_COLORS.airport }} />
             <span style={{ opacity: hiddenPOITypes.has("airport") ? 0.4 : 1 }}>AIRPORTS</span>
           </button>
           <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("port")}>
-            <div className="w-2.5 h-2.5 rounded-full border border-[#2ed573]" style={{ background: hiddenPOITypes.has("port") ? "transparent" : "#2ed573" }} />
+            <div className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: POI_COLORS.port, background: hiddenPOITypes.has("port") ? "transparent" : POI_COLORS.port }} />
             <span style={{ opacity: hiddenPOITypes.has("port") ? 0.4 : 1 }}>PORTS</span>
           </button>
         </div>
@@ -566,7 +757,7 @@ export default function MalaysiaMap({
       {selectedCategory === "education" && (
         <div className={`${compact ? "mt-2 pt-1.5" : "mt-3 pt-2"} border-t border-[rgba(255,255,255,0.06)] space-y-1`}>
           <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("university")}>
-            <div className="w-2.5 h-2.5 rounded-full border border-[#ffd43b]" style={{ background: hiddenPOITypes.has("university") ? "transparent" : "#ffd43b" }} />
+            <div className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: POI_COLORS.university, background: hiddenPOITypes.has("university") ? "transparent" : POI_COLORS.university }} />
             <span style={{ opacity: hiddenPOITypes.has("university") ? 0.4 : 1 }}>UNIVERSITIES (IPTA)</span>
           </button>
         </div>
@@ -581,67 +772,62 @@ export default function MalaysiaMap({
             <div className="w-4 h-0" style={{ borderTop: hiddenPOITypes.has("rail") ? "1.5px dashed rgba(226,232,240,0.2)" : (transitZoom ? "2px solid #c084fc" : "1.5px dashed rgba(226,232,240,0.6)") }} />
             <span style={{ opacity: hiddenPOITypes.has("rail") ? 0.4 : 1 }}>RAIL LINES</span>
           </button>
-          {transit.length > 0 && (
-            <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("transit")}>
-              <div className="w-2.5 h-2.5 rounded-sm border border-[#fb923c]" style={{ background: hiddenPOITypes.has("transit") ? "transparent" : "#fb923c" }} />
-              <span style={{ opacity: hiddenPOITypes.has("transit") ? 0.4 : 1 }}>BUS &amp; KTM ({transit.length})</span>
-            </button>
-          )}
-          {flights.length > 0 && (
-            <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("flight")}>
-              <svg width="10" height="8" viewBox="-4 -2 8 4">
-                <polygon points="-3,0 3,-1.5 3,1.5" fill={hiddenPOITypes.has("flight") ? "transparent" : "#ff6b6b"} stroke="#ff6b6b" strokeWidth="0.5" />
-              </svg>
-              <span style={{ opacity: hiddenPOITypes.has("flight") ? 0.4 : 1 }}>LIVE FLIGHTS ({flights.length})</span>
-            </button>
-          )}
+          <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("transit")}>
+            <div className="w-2.5 h-2.5 rounded-sm border" style={{ borderColor: POI_COLORS.bus, background: hiddenPOITypes.has("transit") ? "transparent" : POI_COLORS.bus }} />
+            <span style={{ opacity: hiddenPOITypes.has("transit") ? 0.4 : 1 }}>BUS &amp; KTM{transit.length > 0 ? ` (${transit.length})` : ""}</span>
+          </button>
+          <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("flight")}>
+            <svg width="10" height="8" viewBox="-4 -2 8 4">
+              <polygon points="-3,0 3,-1.5 3,1.5" fill={hiddenPOITypes.has("flight") ? "transparent" : POI_COLORS.flight} stroke={POI_COLORS.flight} strokeWidth="0.5" />
+            </svg>
+            <span style={{ opacity: hiddenPOITypes.has("flight") ? 0.4 : 1 }}>LIVE FLIGHTS{flights.length > 0 ? ` (${flights.length})` : ""}</span>
+          </button>
         </div>
       )}
     </>
   );
 
-  // Tooltip rendering (shared)
-  const renderTooltips = () => (
-    <>
-      {hoveredPOI && (() => {
-        const allPois = [...AIRPORTS, ...PORTS, ...UNIVERSITIES];
-        const poi = allPois.find((p) => `${p.type}-${p.name}` === hoveredPOI);
-        if (!poi) return null;
-        const color = poi.type === "airport" ? "#ff9f43" : poi.type === "university" ? "#ffd43b" : "#2ed573";
-        return (
-          <div
-            className="fixed z-50 pointer-events-none px-3 py-2 text-xs"
-            style={{
-              left: tooltipPos.x + 12, top: tooltipPos.y - 10,
-              background: "rgba(13, 13, 20, 0.95)",
-              border: `1px solid ${color}40`, borderRadius: 4,
-              color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
-            }}
-          >
-            <div className="font-bold tracking-wider" style={{ color }}>
-              {poi.type === "airport" ? "✈" : poi.type === "university" ? "🎓" : "⚓"} {poi.name}
-            </div>
-            <div className="text-[var(--color-text-dim)] mt-0.5">
-              {poi.type === "airport" ? "Airport" : poi.type === "university" ? "Public University" : "Port"}
-              {poi.code ? ` · ${poi.code}` : ""}
-              {poi.type !== "university" && (" · " + (poi.size === "large" ? "Major" : "Regional"))}
-              {poi.type === "university" && (" · " + (poi.size === "large" ? "Research University" : "IPTA"))}
-            </div>
-          </div>
-        );
-      })()}
+  // Tooltip content (position handled imperatively via tooltipRef)
+  const hoveredPoiData = hoveredPOI ? POI_BY_KEY.get(hoveredPOI) : null;
+  const hasTooltip = !!(hoveredPoiData || hoveredFlight || hoveredTransit || hoveredState);
 
-      {hoveredFlight && (
+  const renderTooltipContent = () => {
+    if (hoveredPoiData) {
+      const poi = hoveredPoiData;
+      const color = getPOIColor(poi.type);
+      return (
         <div
-          className="fixed z-50 pointer-events-none px-3 py-2 text-xs"
+          className="px-3 py-2 text-xs"
           style={{
-            left: tooltipPos.x + 12, top: tooltipPos.y - 10,
+            background: "rgba(13, 13, 20, 0.95)",
+            border: `1px solid ${color}40`, borderRadius: 4,
+            color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
+          }}
+        >
+          <div className="font-bold tracking-wider" style={{ color }}>
+            {poi.type === "airport" ? "✈" : poi.type === "university" ? "🎓" : "⚓"} {poi.name}
+          </div>
+          <div className="text-[var(--color-text-dim)] mt-0.5">
+            {poi.type === "airport" ? "Airport" : poi.type === "university" ? "Public University" : "Port"}
+            {poi.code ? ` · ${poi.code}` : ""}
+            {poi.type !== "university" && (" · " + (poi.size === "large" ? "Major" : "Regional"))}
+            {poi.type === "university" && (" · " + (poi.size === "large" ? "Research University" : "IPTA"))}
+          </div>
+        </div>
+      );
+    }
+
+    if (hoveredFlight) {
+      return (
+        <div
+          className="px-3 py-2 text-xs"
+          style={{
             background: "rgba(13, 13, 20, 0.95)",
             border: "1px solid rgba(255, 107, 107, 0.3)", borderRadius: 4,
             color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
           }}
         >
-          <div className="font-bold tracking-wider" style={{ color: "#ff6b6b" }}>
+          <div className="font-bold tracking-wider" style={{ color: POI_COLORS.flight }}>
             ✈ {hoveredFlight.callsign || hoveredFlight.icao24}
           </div>
           <div className="text-[var(--color-text-dim)] mt-0.5 space-y-0.5">
@@ -663,19 +849,20 @@ export default function MalaysiaMap({
             {hoveredFlight.squawk && <div>Squawk: {hoveredFlight.squawk}</div>}
           </div>
         </div>
-      )}
+      );
+    }
 
-      {hoveredTransit && (
+    if (hoveredTransit) {
+      return (
         <div
-          className="fixed z-50 pointer-events-none px-3 py-2 text-xs"
+          className="px-3 py-2 text-xs"
           style={{
-            left: tooltipPos.x + 12, top: tooltipPos.y - 10,
             background: "rgba(13, 13, 20, 0.95)",
             border: `1px solid ${hoveredTransit.type === "train" ? "rgba(232, 121, 249, 0.3)" : "rgba(251, 146, 60, 0.3)"}`, borderRadius: 4,
             color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
           }}
         >
-          <div className="font-bold tracking-wider" style={{ color: hoveredTransit.type === "train" ? "#e879f9" : "#fb923c" }}>
+          <div className="font-bold tracking-wider" style={{ color: hoveredTransit.type === "train" ? POI_COLORS.train : POI_COLORS.bus }}>
             {hoveredTransit.type === "train" ? "🚆" : "🚌"} {hoveredTransit.label}
           </div>
           <div className="text-[var(--color-text-dim)] mt-0.5 space-y-0.5">
@@ -684,13 +871,14 @@ export default function MalaysiaMap({
             <div>Speed: {hoveredTransit.speed} km/h{hoveredTransit.bearing > 0 ? ` · Hdg: ${Math.round(hoveredTransit.bearing)}°` : ""}</div>
           </div>
         </div>
-      )}
+      );
+    }
 
-      {hoveredState && !hoveredPOI && !hoveredFlight && !hoveredTransit && (
+    if (hoveredState) {
+      return (
         <div
-          className="fixed z-50 pointer-events-none px-3 py-2 text-xs"
+          className="px-3 py-2 text-xs"
           style={{
-            left: tooltipPos.x + 12, top: tooltipPos.y - 10,
             background: "rgba(13, 13, 20, 0.95)",
             border: "1px solid rgba(0, 212, 255, 0.3)", borderRadius: 4,
             color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
@@ -703,9 +891,11 @@ export default function MalaysiaMap({
             {config.label}: {formatMetricValue(config.key, metricValues[hoveredState])}
           </div>
         </div>
-      )}
-    </>
-  );
+      );
+    }
+
+    return null;
+  };
 
   const transitVisible = selectedCategory === "transport" && !hiddenPOITypes.has("transit");
 
@@ -715,9 +905,13 @@ export default function MalaysiaMap({
   }, [geojson]);
 
   return (
-    <div className="relative flex-1 overflow-hidden min-h-0">
+    <div
+      className="relative flex-1 overflow-hidden min-h-0"
+      onMouseMove={handleRootMouseMove}
+      onClick={handleRootMouseMove}
+    >
       {/* Transit zoom dropdown — desktop: absolute top-left */}
-      {transitVisible && (
+      {!isMobile && transitVisible && (
         <div className="absolute top-2 left-2 z-10 hidden lg:block">
           <select
             value={transitZoomState || ""}
@@ -734,144 +928,266 @@ export default function MalaysiaMap({
       )}
 
       {/* ── Desktop: single combined SVG ── */}
-      <div className="hidden lg:flex items-center w-full h-full">
-        <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          className="w-full h-full"
-          style={{ background: "transparent", overflow: "hidden" }}
-          onMouseLeave={() => setHoveredState(null)}
-          onClick={handleSvgClick}
-        >
-          <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="transparent" />
-          {renderStates(geojson.features, activePathGen)}
-          {renderPOIs(activeProjection, () => true)}
-          {renderHighways(activeProjection)}
-          {renderRailLines(activeProjection)}
-          {renderTransit(activeProjection)}
-          {renderFlights(activeProjection)}
-        </svg>
-      </div>
+      {!isMobile && (
+        <div className="hidden lg:flex items-center w-full h-full">
+          <svg
+            viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+            className="w-full h-full"
+            style={{ background: "transparent", overflow: "hidden" }}
+            onMouseLeave={handleStateLeave}
+            onClick={handleSvgClick}
+          >
+            <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="transparent" />
+            <StateLayer
+              features={geojson.features}
+              generator={activePathGen}
+              metricValues={metricValues}
+              terciles={terciles}
+              config={config}
+              selectedState={selectedState}
+              hoveredState={hoveredState}
+              onStateSelect={onStateSelect}
+              onStateEnter={handleStateEnter}
+              onStateLeave={handleStateLeave}
+            />
+            <POILayer
+              pois={categoryPois}
+              proj={activeProjection}
+              hoveredPOI={hoveredPOI}
+              onPOIEnter={handlePOIEnter}
+              onPOILeave={handlePOILeave}
+            />
+            {showHighways && <HighwayLayer proj={activeProjection} />}
+            {showRail && <RailLayer proj={activeProjection} transitZoom={transitZoom} />}
+            {showTransit && (
+              <TransitLayer
+                vehicles={sortedTransit}
+                proj={activeProjection}
+                hoveredTransitKey={hoveredTransitKey}
+                onTransitEnter={handleTransitEnter}
+                onTransitLeave={handleTransitLeave}
+              />
+            )}
+            {showFlights && (
+              <FlightLayer
+                flights={flights}
+                proj={activeProjection}
+                hoveredFlightId={hoveredFlightId}
+                onFlightEnter={handleFlightEnter}
+                onFlightLeave={handleFlightLeave}
+              />
+            )}
+          </svg>
+        </div>
+      )}
 
       {/* ── Mobile: stacked West / East SVGs ── */}
-      <div
-        className="lg:hidden overflow-y-auto h-full"
-        style={{
-          paddingBottom: sheetSnap === "full" ? "92vh"
-            : sheetSnap === "half" ? "52vh"
-            : "180px",
-        }}
-      >
-        {/* West Malaysia */}
-        <div className="px-1">
-          <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] px-2 pt-2">
-            PENINSULAR MALAYSIA
-          </div>
-          <svg
-            viewBox={`0 0 ${M_W} ${M_H_WEST}`}
-            className="w-full h-auto"
-            style={{ background: "transparent", overflow: "hidden" }}
-            onMouseLeave={() => setHoveredState(null)}
-            onClick={handleSvgClick}
-          >
-            <rect x="0" y="0" width={M_W} height={M_H_WEST} fill="transparent" />
-            {renderStates(westFeatures, activeWestPathGen)}
-            {renderPOIs(activeWestProjection, isWestPOI)}
-            {renderHighways(activeWestProjection)}
-            {renderRailLines(activeWestProjection)}
-            {renderTransit(activeWestProjection)}
-            {renderFlights(activeWestProjection)}
-          </svg>
-        </div>
-
-        {/* Divider */}
+      {isMobile && (
         <div
-          className="mx-4 border-t border-[rgba(0,212,255,0.08)]"
-        />
-
-        {/* East Malaysia */}
-        <div className="px-1">
-          <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] px-2 pt-2">
-            EAST MALAYSIA
+          className="lg:hidden overflow-y-auto h-full"
+          style={{
+            paddingBottom: sheetSnap === "full" ? "92vh"
+              : sheetSnap === "half" ? "52vh"
+              : "180px",
+          }}
+        >
+          {/* West Malaysia */}
+          <div className="px-1">
+            <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] px-2 pt-2">
+              PENINSULAR MALAYSIA
+            </div>
+            <svg
+              viewBox={`0 0 ${M_W} ${M_H_WEST}`}
+              className="w-full h-auto"
+              style={{ background: "transparent", overflow: "hidden" }}
+              onMouseLeave={handleStateLeave}
+              onClick={handleSvgClick}
+            >
+              <rect x="0" y="0" width={M_W} height={M_H_WEST} fill="transparent" />
+              <StateLayer
+                features={westFeatures}
+                generator={activeWestPathGen}
+                metricValues={metricValues}
+                terciles={terciles}
+                config={config}
+                selectedState={selectedState}
+                hoveredState={hoveredState}
+                onStateSelect={onStateSelect}
+                onStateEnter={handleStateEnter}
+                onStateLeave={handleStateLeave}
+              />
+              <POILayer
+                pois={westPois}
+                proj={activeWestProjection}
+                hoveredPOI={hoveredPOI}
+                onPOIEnter={handlePOIEnter}
+                onPOILeave={handlePOILeave}
+              />
+              {showHighways && <HighwayLayer proj={activeWestProjection} />}
+              {showRail && <RailLayer proj={activeWestProjection} transitZoom={transitZoom} />}
+              {showTransit && (
+                <TransitLayer
+                  vehicles={westTransit}
+                  proj={activeWestProjection}
+                  hoveredTransitKey={hoveredTransitKey}
+                  onTransitEnter={handleTransitEnter}
+                  onTransitLeave={handleTransitLeave}
+                />
+              )}
+              {showFlights && (
+                <FlightLayer
+                  flights={westFlights}
+                  proj={activeWestProjection}
+                  hoveredFlightId={hoveredFlightId}
+                  onFlightEnter={handleFlightEnter}
+                  onFlightLeave={handleFlightLeave}
+                />
+              )}
+            </svg>
           </div>
-          <svg
-            viewBox={`0 0 ${M_W} ${M_H_EAST}`}
-            className="w-full h-auto"
-            style={{ background: "transparent", overflow: "hidden" }}
-            onMouseLeave={() => setHoveredState(null)}
-            onClick={handleSvgClick}
-          >
-            <rect x="0" y="0" width={M_W} height={M_H_EAST} fill="transparent" />
-            {renderStates(eastFeatures, activeEastPathGen)}
-            {renderPOIs(activeEastProjection, isEastPOI)}
-            {renderHighways(activeEastProjection)}
-            {renderRailLines(activeEastProjection)}
-            {renderTransit(activeEastProjection)}
-            {renderFlights(activeEastProjection)}
-          </svg>
+
+          {/* Divider */}
+          <div
+            className="mx-4 border-t border-[rgba(0,212,255,0.08)]"
+          />
+
+          {/* East Malaysia */}
+          <div className="px-1">
+            <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] px-2 pt-2">
+              EAST MALAYSIA
+            </div>
+            <svg
+              viewBox={`0 0 ${M_W} ${M_H_EAST}`}
+              className="w-full h-auto"
+              style={{ background: "transparent", overflow: "hidden" }}
+              onMouseLeave={handleStateLeave}
+              onClick={handleSvgClick}
+            >
+              <rect x="0" y="0" width={M_W} height={M_H_EAST} fill="transparent" />
+              <StateLayer
+                features={eastFeatures}
+                generator={activeEastPathGen}
+                metricValues={metricValues}
+                terciles={terciles}
+                config={config}
+                selectedState={selectedState}
+                hoveredState={hoveredState}
+                onStateSelect={onStateSelect}
+                onStateEnter={handleStateEnter}
+                onStateLeave={handleStateLeave}
+              />
+              <POILayer
+                pois={eastPois}
+                proj={activeEastProjection}
+                hoveredPOI={hoveredPOI}
+                onPOIEnter={handlePOIEnter}
+                onPOILeave={handlePOILeave}
+              />
+              {showHighways && <HighwayLayer proj={activeEastProjection} />}
+              {showRail && <RailLayer proj={activeEastProjection} transitZoom={transitZoom} />}
+              {showTransit && (
+                <TransitLayer
+                  vehicles={eastTransit}
+                  proj={activeEastProjection}
+                  hoveredTransitKey={hoveredTransitKey}
+                  onTransitEnter={handleTransitEnter}
+                  onTransitLeave={handleTransitLeave}
+                />
+              )}
+              {showFlights && (
+                <FlightLayer
+                  flights={eastFlights}
+                  proj={activeEastProjection}
+                  hoveredFlightId={hoveredFlightId}
+                  onFlightEnter={handleFlightEnter}
+                  onFlightLeave={handleFlightLeave}
+                />
+              )}
+            </svg>
+          </div>
+
+          {/* Mobile: inline time slider */}
+          {mobileSlider && (
+            <div className="px-3 py-2">
+              {mobileSlider}
+            </div>
+          )}
         </div>
+      )}
 
-        {/* Mobile: inline time slider */}
-        {mobileSlider && (
-          <div className="px-3 py-2">
-            {mobileSlider}
-          </div>
-        )}
-      </div>
-
-      {/* Tooltips */}
-      {renderTooltips()}
+      {/* Tooltip — positioned imperatively, content driven by hover identity */}
+      {hasTooltip && (
+        <div
+          ref={tooltipRef}
+          className="fixed z-50 pointer-events-none"
+          style={{
+            left: tooltipPosRef.current.x + 12,
+            top: tooltipPosRef.current.y - 10,
+          }}
+        >
+          {renderTooltipContent()}
+        </div>
+      )}
 
       {/* Legend — desktop: full, bottom-left, above slider area */}
-      <div className="absolute bottom-36 left-5 text-[10px] text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
-        {renderLegendContent(false)}
-      </div>
+      {!isMobile && (
+        <div className="absolute bottom-36 left-5 text-[10px] text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
+          {renderLegendContent(false)}
+        </div>
+      )}
 
       {/* Legend — mobile: collapsible */}
-      <div className="absolute top-2 right-2 z-10 lg:hidden">
-        <button
-          onClick={() => setLegendOpen((v) => !v)}
-          className="flex items-center gap-1.5 px-2 py-1 text-[10px] tracking-wider rounded transition-all bg-[rgba(10,10,15,0.85)] backdrop-blur-sm border border-[rgba(0,212,255,0.2)] text-[var(--color-text-muted)]"
-        >
-          <div className="flex gap-0.5">
-            <div className="w-2 h-2 rounded-sm" style={{ background: config.colorHue === "amber" ? "rgba(255, 149, 0, 0.3)" : "rgba(0, 212, 255, 0.3)" }} />
-            <div className="w-2 h-2 rounded-sm" style={{ background: config.colorHue === "amber" ? "rgba(255, 149, 0, 0.15)" : "rgba(0, 212, 255, 0.15)" }} />
-            <div className="w-2 h-2 rounded-sm" style={{ background: "rgba(0, 212, 255, 0.06)" }} />
-          </div>
-          LEGEND
-          <svg className={`w-2.5 h-2.5 opacity-50 transition-transform ${legendOpen ? "rotate-180" : ""}`} viewBox="0 0 10 6" fill="none">
-            <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        {legendOpen && (
-          <div
-            className="mt-1 px-3 py-2 rounded border border-[rgba(0,212,255,0.2)] text-[10px] text-[var(--color-text-muted)] space-y-1.5"
-            style={{ background: "rgba(10, 10, 15, 0.92)", backdropFilter: "blur(12px)" }}
+      {isMobile && (
+        <div className="absolute top-2 right-2 z-10 lg:hidden">
+          <button
+            onClick={() => setLegendOpen((v) => !v)}
+            aria-expanded={legendOpen}
+            aria-label="Toggle map legend and layer options"
+            className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-[10px] tracking-wider rounded transition-all bg-[rgba(10,10,15,0.85)] backdrop-blur-sm border border-[var(--color-border-mid)] text-[var(--color-text-muted)]"
           >
-            {renderLegendContent(true)}
-          </div>
-        )}
-        {transitVisible && (
-          <select
-            value={transitZoomState || ""}
-            onChange={(e) => setTransitZoomState(e.target.value || null)}
-            className="mt-1 w-full px-2 py-1 text-[10px] tracking-wider rounded border border-[rgba(251,146,60,0.3)] bg-[rgba(10,10,15,0.9)] text-[var(--color-text-muted)] cursor-pointer outline-none"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            <option value="">ALL MALAYSIA</option>
-            {stateNames.map((name) => (
-              <option key={name} value={name}>{name.toUpperCase()}</option>
-            ))}
-          </select>
-        )}
-      </div>
+            <div className="flex gap-0.5">
+              <div className="w-2 h-2 rounded-sm" style={{ background: getBucketColor("high", config.colorHue) }} />
+              <div className="w-2 h-2 rounded-sm" style={{ background: getBucketColor("medium", config.colorHue) }} />
+              <div className="w-2 h-2 rounded-sm" style={{ background: getBucketColor("low", config.colorHue) }} />
+            </div>
+            LEGEND
+            <svg className={`w-2.5 h-2.5 opacity-50 transition-transform ${legendOpen ? "rotate-180" : ""}`} viewBox="0 0 10 6" fill="none">
+              <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {legendOpen && (
+            <div
+              className="mt-1 px-3 py-2 rounded border border-[rgba(0,212,255,0.2)] text-[10px] text-[var(--color-text-muted)] space-y-1.5"
+              style={{ background: "rgba(10, 10, 15, 0.92)", backdropFilter: "blur(12px)" }}
+            >
+              {renderLegendContent(true)}
+            </div>
+          )}
+          {transitVisible && (
+            <select
+              value={transitZoomState || ""}
+              onChange={(e) => setTransitZoomState(e.target.value || null)}
+              className="mt-1 w-full px-2 py-1 text-[10px] tracking-wider rounded border border-[rgba(251,146,60,0.3)] bg-[rgba(10,10,15,0.9)] text-[var(--color-text-muted)] cursor-pointer outline-none"
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
+              <option value="">ALL MALAYSIA</option>
+              {stateNames.map((name) => (
+                <option key={name} value={name}>{name.toUpperCase()}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
 
       {/* Coordinates — desktop only */}
-      <div
-        className="absolute bottom-4 left-4 text-xs tracking-wider hidden lg:block"
-        style={{ color: "var(--color-text-muted)" }}
-      >
-        3.1390&deg;N 101.6869&deg;E
-      </div>
+      {!isMobile && (
+        <div
+          className="absolute bottom-4 left-4 text-xs tracking-wider hidden lg:block"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          3.1390&deg;N 101.6869&deg;E
+        </div>
+      )}
     </div>
   );
 }

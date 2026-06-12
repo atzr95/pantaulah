@@ -27,11 +27,10 @@ Built with Next.js 16, React 19, D3-Geo, Tailwind CSS, and Recharts.
 **Live Data Feeds:**
 - Weather forecasts, warnings, earthquakes, and air quality
 - Flood alerts from JPS InfoBanjir (river water levels with WASPADA/AMARAN/BAHAYA status)
-- Highway CCTV from 24 expressway systems
+- Highway CCTV (PLUS North/South & KL-Karak — the highways LLM.gov.my still publishes)
 - Live public transit map (KTMB trains, Rapid KL/Penang/Kuantan buses, MRT feeders, MyBAS nationwide)
 - Rail line overlay (KTM Komuter, ETS, LRT, MRT, Monorail, KLIA Express/Transit)
 - Flight tracker (Malaysia airspace)
-- AIS vessel tracking (Straits of Malacca & Malaysian waters)
 - Exchange rates, fuel prices, gold price (Kijang Emas), OPR
 - News headlines
 
@@ -50,7 +49,7 @@ All data is sourced from official Malaysian government APIs — no API keys requ
 | [data.gov.my GTFS-RT](https://developer.data.gov.my/realtime-api/gtfs-realtime) | Public transit positions (bus & KTM) | Live (30s refresh) |
 | [OpenStreetMap](https://www.openstreetmap.org) | Rail line routes (LRT, MRT, KTM, Monorail, ERL) | Static |
 | [OpenSky Network](https://opensky-network.org) / [adsb.lol](https://adsb.lol) | Flight tracking | Live (60s refresh) |
-| [LLM.gov.my](https://www.llm.gov.my) | Highway CCTV feeds | Live (60s cache) |
+| [LLM.gov.my](https://www.llm.gov.my) | Highway CCTV feeds (3 highways) | Live (4min cache) |
 | [MyEnergyStats](https://myenergystats.st.gov.my) | Electricity, generation, capacity | Annual |
 | [KKMNow](https://data.gov.my) | Hospital bed/ICU utilization | Daily (1hr cache) |
 
@@ -65,7 +64,7 @@ Not all metrics update at the same pace — government datasets publish on diffe
 | Flood alerts | JPS InfoBanjir | 5-min cache, scraped (no API) |
 | Public transit (bus & KTM) | data.gov.my GTFS-RT | 30s refresh, 14 feeds (KTMB, Rapid KL/Penang/Kuantan, MRT feeders, MyBAS) |
 | Flight tracking | OpenSky Network / adsb.lol | 60s refresh, OpenSky primary with adsb.lol fallback |
-| Highway CCTV | LLM.gov.my | 60s cache |
+| Highway CCTV | LLM.gov.my | 4min cache; LLM now publishes only PLUS North/South & KL-Karak |
 | Exchange rates, OPR, gold price | BNM API | Live |
 | Fuel prices | data.gov.my | Updated on price change |
 | Bed & ICU utilization | KKMNow | Daily, 1hr cache |

@@ -114,6 +114,22 @@ export default function AboutPage() {
           </div>
         </section>
 
+        {/* Data freshness */}
+        <section>
+          <h2 className="text-[10px] tracking-[3px] text-[var(--color-cyan)] mb-4">
+            DATA FRESHNESS
+          </h2>
+          <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
+            Government datasets publish on different schedules, so not every metric is
+            equally current. Live feeds (weather, floods, transit, flights, CCTV, exchange
+            rates) refresh in seconds to minutes. Monthly statistics (CPI, trade, inflation,
+            vehicle registrations) follow each agency&apos;s publication cycle. Annual
+            statistics (GDP, crime, education, health infrastructure) can lag one to two
+            years behind. Each value on the dashboard carries a vintage tag when it comes
+            from an older year than the one selected.
+          </p>
+        </section>
+
         {/* Contribute */}
         <section>
           <h2 className="text-[10px] tracking-[3px] text-[var(--color-cyan)] mb-4">

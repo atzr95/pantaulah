@@ -53,9 +53,7 @@ export default function MarinePanel({ marineForecast, sheetSnap = "half" }: Mari
               className="border rounded-sm p-4 transition-all hover:border-[var(--color-border-bright)]"
               style={{
                 background: "rgba(13, 13, 20, 0.8)",
-                borderColor: "var(--color-border)",
-                borderLeftWidth: "3px",
-                borderLeftColor: seaColor,
+                borderColor: `${seaColor}40`,
               }}
             >
               {/* Location */}

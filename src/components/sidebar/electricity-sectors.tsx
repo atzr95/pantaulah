@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import type { ElectricitySectorData } from "@/lib/data/types";
 
 interface ElectricitySectorsProps {
-  sectors: (ElectricitySectorData & { total: number }) | undefined;
+  sectors: (ElectricitySectorData & { total: number; transport?: number }) | undefined;
+  /** Year shown when the data is older than the selected year */
+  vintageYear?: number;
 }
 
 const SECTOR_CONFIG = [
@@ -14,9 +16,10 @@ const SECTOR_CONFIG = [
   { key: "mining" as const, label: "Mining", color: "rgba(255, 100, 100, 0.7)", desc: "Mining and quarrying operations including tin, bauxite, and sand." },
   { key: "publicLighting" as const, label: "Public Lighting", color: "rgba(180, 130, 255, 0.7)", desc: "Street lights, highway lighting, and public area illumination." },
   { key: "agriculture" as const, label: "Agriculture", color: "rgba(120, 220, 180, 0.7)", desc: "Irrigation pumps, poultry farms, aquaculture, and agricultural facilities." },
+  { key: "transport" as const, label: "Transport", color: "rgba(80, 160, 255, 0.7)", desc: "Electrified rail — LRT, MRT, monorail, KTM — and other transport uses." },
 ];
 
-export default function ElectricitySectors({ sectors }: ElectricitySectorsProps) {
+export default function ElectricitySectors({ sectors, vintageYear }: ElectricitySectorsProps) {
   const [hoveredSector, setHoveredSector] = useState<string | null>(null);
   const bars = useMemo(() => {
     if (!sectors) return [];
@@ -38,6 +41,9 @@ export default function ElectricitySectors({ sectors }: ElectricitySectorsProps)
     <div className="bg-[var(--color-bg)] p-3.5">
       <div className="text-[10px] tracking-[2px] text-[var(--color-text-muted)] mb-2.5">
         CONSUMPTION BY SECTOR
+        {vintageYear != null && (
+          <span className="text-[var(--color-text-dim)]"> ({vintageYear})</span>
+        )}
       </div>
 
       <div className="space-y-2.5">

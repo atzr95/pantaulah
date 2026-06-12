@@ -8,11 +8,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "http://localhost:3000"
-  ),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://pantaulah.com"),
   title: "PANTAULAH — Malaysia Intelligence Terminal",
   description:
     "Real-time intelligence dashboard for Malaysia. Synthesizes demographics, economics, health, crime, and news across all 16 states and federal territories.",

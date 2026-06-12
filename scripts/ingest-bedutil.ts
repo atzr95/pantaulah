@@ -8,7 +8,7 @@
  * doesn't work on Cloudflare's edge runtime. So we parse at build time.
  */
 
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { parquetRead } from "hyparquet";
 import { compressors } from "hyparquet-compressors";
@@ -36,6 +36,37 @@ const STATE_MAP: Record<string, string> = {
   "W.P. Putrajaya": "Putrajaya",
   "W.P. Labuan": "Labuan",
 };
+
+/** Recursive sorted-key replacer so output is deterministic across runs */
+function sortKeysReplacer(_key: string, value: unknown): unknown {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const k of Object.keys(obj).sort()) sorted[k] = obj[k];
+    return sorted;
+  }
+  return value;
+}
+
+function stableStringify(data: object): string {
+  return JSON.stringify(data, sortKeysReplacer);
+}
+
+/**
+ * Write minified JSON only if content (ignoring fetchedAt) actually changed.
+ * Skipping the write preserves the old fetchedAt and produces no git diff.
+ */
+function writeJsonIfChanged(path: string, data: object): boolean {
+  if (existsSync(path)) {
+    try {
+      const { fetchedAt: _prev, ...prevRest } = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+      const { fetchedAt: _next, ...nextRest } = data as Record<string, unknown>;
+      if (stableStringify(prevRest) === stableStringify(nextRest)) return false;
+    } catch { /* unreadable — rewrite */ }
+  }
+  writeFileSync(path, stableStringify(data));
+  return true;
+}
 
 interface BedUtilRow {
   state: string;
@@ -82,12 +113,28 @@ async function main() {
     }
   }
 
-  const output = { states, national, fetchedAt: new Date().toISOString() };
-
   mkdirSync(CACHE_DIR, { recursive: true });
   const outPath = join(CACHE_DIR, "bedutil.json");
-  writeFileSync(outPath, JSON.stringify(output, null, 2));
-  console.log(`Wrote ${outPath} (${Object.keys(states).length} states)`);
+
+  // Sanity gate: never replace a healthy cache with an empty/sparse parse
+  if (existsSync(outPath)) {
+    try {
+      const previous = JSON.parse(readFileSync(outPath, "utf-8")) as { states?: Record<string, unknown> };
+      const prevCount = Object.keys(previous.states ?? {}).length;
+      const newCount = Object.keys(states).length;
+      if (prevCount > 0 && newCount < prevCount * 0.5) {
+        console.warn(`!! WARNING: parsed only ${newCount} states (previous cache has ${prevCount}) — keeping previous data.`);
+        return;
+      }
+    } catch { /* unreadable — rewrite */ }
+  }
+
+  const output = { states, national, fetchedAt: new Date().toISOString() };
+  if (writeJsonIfChanged(outPath, output)) {
+    console.log(`Wrote ${outPath} (${Object.keys(states).length} states)`);
+  } else {
+    console.log("Cache content unchanged — write skipped (fetchedAt preserved).");
+  }
 }
 
 main().catch((err) => {

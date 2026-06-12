@@ -14,42 +14,12 @@ const HIGHWAY_GROUPS: Record<string, { label: string; highways: Highway[] }> = {
     highways: [
       { code: "PLS", route: "E1", name: "PLUS Utara (North)" },
       { code: "SPL", route: "E2", name: "PLUS Selatan (South)" },
-      { code: "NKV", route: "E1", name: "NKVE" },
-      { code: "ELT", route: "E6", name: "ELITE" },
     ],
   },
   "East Coast": {
     label: "East Coast",
     highways: [
       { code: "KLK", route: "E8", name: "KL-Karak" },
-      { code: "LPT", route: "E8", name: "LPT1 (East Coast)" },
-    ],
-  },
-  "KL Urban": {
-    label: "KL Urban Highways",
-    highways: [
-      { code: "KSS", route: "E5", name: "KESAS" },
-      { code: "LDP", route: "E11", name: "LDP (Damansara-Puchong)" },
-      { code: "DUKE", route: "E33", name: "DUKE" },
-      { code: "DASH", route: "E31", name: "DASH" },
-      { code: "SUKE", route: "E19", name: "SUKE" },
-      { code: "NPE", route: "E10", name: "NPE (New Pantai)" },
-      { code: "BES", route: "E9", name: "BESRAYA" },
-      { code: "SRT", route: "E23", name: "SPRINT" },
-      { code: "AKL", route: "E12", name: "AKLEH (Ampang)" },
-      { code: "CKH", route: "E7", name: "GRANDSAGA (Cheras-Kajang)" },
-    ],
-  },
-  Other: {
-    label: "Other Highways",
-    highways: [
-      { code: "WCE", route: "E32", name: "WCE (West Coast)" },
-      { code: "GCE", route: "E35", name: "Guthrie Corridor" },
-      { code: "SDE", route: "E22", name: "Senai-Desaru" },
-      { code: "LKS", route: "E21", name: "LEKAS (Kajang-Seremban)" },
-      { code: "PNB", route: "E36", name: "Penang Bridge" },
-      { code: "SMT", route: "E38", name: "SMART Tunnel" },
-      { code: "JKSB", route: "E28", name: "Penang 2nd Bridge" },
     ],
   },
 };
@@ -77,7 +47,7 @@ function CameraImage({ src, alt, className, style }: { src: string; alt: string;
 
   if (error) {
     return (
-      <div style={style} className="bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[8px] text-[var(--color-text-dim)] tracking-wider">
+      <div style={style} className="bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[9px] text-[var(--color-text-dim)] tracking-wider">
         FEED OFFLINE
       </div>
     );
@@ -94,15 +64,13 @@ function CameraImage({ src, alt, className, style }: { src: string; alt: string;
           onError={() => setError(true)}
         />
       ) : (
-        <div className="w-full h-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[8px] text-[var(--color-text-dim)] tracking-wider">
+        <div className="w-full h-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[9px] text-[var(--color-text-dim)] tracking-wider">
           LOADING...
         </div>
       )}
     </div>
   );
 }
-
-const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
 
 export default function CCTVViewer() {
   const [expanded, setExpanded] = useState(false);
@@ -156,14 +124,22 @@ export default function CCTVViewer() {
     cooldownTimer.current = setTimeout(() => setRefreshCooldown(false), 10_000);
   }, [selectedHighway, fetchCameras, fullscreenImg, loading, refreshCooldown]);
 
+  // Signed image URLs expire after ~300s, so refetch before they go stale
+  useEffect(() => {
+    if (!selectedHighway) return;
+    const interval = setInterval(refreshCameras, 240_000);
+    return () => clearInterval(interval);
+  }, [selectedHighway, refreshCameras]);
+
   const refreshDisabled = loading || refreshCooldown;
 
   return (
     <>
       <div className="border-t border-[var(--color-border)]">
         <button
-          className="w-full px-4 py-2.5 flex justify-between items-center cursor-pointer"
+          className="w-full px-4 py-2.5 min-h-[44px] flex justify-between items-center cursor-pointer"
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
         >
           <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
             HIGHWAY CCTV
@@ -174,20 +150,7 @@ export default function CCTVViewer() {
           </span>
         </button>
 
-        {expanded && isProduction && (
-          <div className="px-3 pb-3 text-center">
-            <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] py-3">
-              CCTV FEEDS UNAVAILABLE IN PRODUCTION
-            </div>
-            <div className="text-[8px] text-[var(--color-text-dim)] opacity-50">
-              LLM.gov.my restricts access from cloud servers.
-              <br />
-              Available on localhost only.
-            </div>
-          </div>
-        )}
-
-        {expanded && !isProduction && (
+        {expanded && (
           <div className="px-3 pb-3">
             {/* Step 1: Choose highway group */}
             {!selectedGroup && (
@@ -210,7 +173,7 @@ export default function CCTVViewer() {
               <div>
                 <button
                   onClick={() => setSelectedGroup(null)}
-                  className="text-[10px] tracking-wider text-[var(--color-cyan)] mb-2 cursor-pointer hover:underline"
+                  className="text-[10px] tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
                 >
                   ◂ BACK
                 </button>
@@ -237,7 +200,7 @@ export default function CCTVViewer() {
               <div>
                 <button
                   onClick={() => { setSelectedHighway(null); setCameras([]); }}
-                  className="text-[10px] tracking-wider text-[var(--color-cyan)] mb-2 cursor-pointer hover:underline"
+                  className="text-[10px] tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
                 >
                   ◂ BACK TO HIGHWAYS
                 </button>
@@ -250,7 +213,7 @@ export default function CCTVViewer() {
 
                 {!loading && cameras.length === 0 && (
                   <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] py-2 text-center">
-                    NO CAMERAS AVAILABLE
+                    NO CAMERAS REPORTED
                   </div>
                 )}
 
@@ -261,7 +224,7 @@ export default function CCTVViewer() {
                       <button
                         onClick={refreshCameras}
                         disabled={refreshDisabled}
-                        className="text-[10px] tracking-wider text-[var(--color-cyan)] hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                        className="text-[10px] tracking-wider text-[var(--color-cyan)] py-2 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
                       >
                         {loading ? "REFRESHING..." : refreshCooldown ? "WAIT..." : "REFRESH ↻"}
                       </button>
@@ -283,7 +246,7 @@ export default function CCTVViewer() {
                               className="w-full rounded-sm border border-[rgba(255,255,255,0.08)] hover:border-[rgba(0,212,255,0.3)] transition-all"
                               style={{ aspectRatio: "16/9" }}
                             />
-                            <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 text-[7px] tracking-wider text-white bg-[rgba(0,0,0,0.7)]">
+                            <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 text-[9px] tracking-wider text-white bg-[rgba(0,0,0,0.7)]">
                               {shortName}
                             </div>
                           </button>
@@ -329,16 +292,18 @@ export default function CCTVViewer() {
               )}
             </div>
             <button
-              className="absolute top-2 right-12 w-8 h-8 flex items-center justify-center rounded-full bg-[rgba(0,0,0,0.6)] text-white text-sm hover:bg-[rgba(0,0,0,0.8)] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="absolute top-2 right-14 w-11 h-11 flex items-center justify-center rounded-full bg-[rgba(0,0,0,0.6)] text-white text-sm hover:bg-[rgba(0,0,0,0.8)] disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={refreshCameras}
               disabled={refreshDisabled}
               title={refreshDisabled ? "Please wait..." : "Refresh"}
+              aria-label="Refresh camera image"
             >
               ↻
             </button>
             <button
-              className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-[rgba(0,0,0,0.6)] text-white text-lg hover:bg-[rgba(0,0,0,0.8)]"
+              className="absolute top-2 right-2 w-11 h-11 flex items-center justify-center rounded-full bg-[rgba(0,0,0,0.6)] text-white text-lg hover:bg-[rgba(0,0,0,0.8)]"
               onClick={() => { setFullscreenImg(null); setZoom(1); }}
+              aria-label="Close fullscreen view"
             >
               ✕
             </button>

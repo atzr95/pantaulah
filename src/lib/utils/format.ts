@@ -117,6 +117,31 @@ export function formatOpr(value: number | undefined): string {
   return `${value.toFixed(2)}%`;
 }
 
+/** Resolve the latest available year ≤ target from a year-keyed record, falling back to the latest year overall */
+export function resolveLatestYear<T>(
+  byYear: Record<number, T> | null | undefined,
+  year: number
+): { value: T; year: number } | undefined {
+  if (!byYear) return undefined;
+  if (byYear[year] != null) return { value: byYear[year], year };
+  let bestUnder = -Infinity;
+  let best = -Infinity;
+  for (const key of Object.keys(byYear)) {
+    const y = Number(key);
+    if (byYear[y] == null) continue;
+    if (y <= year && y > bestUnder) bestUnder = y;
+    if (y > best) best = y;
+  }
+  const chosen = bestUnder !== -Infinity ? bestUnder : best;
+  if (chosen === -Infinity) return undefined;
+  return { value: byYear[chosen], year: chosen };
+}
+
+/** Format a data-vintage year tag → "'22" */
+export function formatVintage(year: number): string {
+  return `'${String(year).slice(-2)}`;
+}
+
 /** Universal metric formatter — maps a metric key to its human-readable value with units */
 export function formatMetricValue(key: string, value: number | undefined): string {
   if (value == null) return "—";

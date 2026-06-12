@@ -97,6 +97,10 @@ describe("/api/ticker", () => {
       ok: true,
       json: () => Promise.resolve({ data: { new_opr_level: 2.75 } }),
     });
+    // Fuel prices
+    mockFetch.mockResolvedValueOnce({ ok: false });
+    // Kijang Emas gold
+    mockFetch.mockResolvedValueOnce({ ok: false });
     // Malay Mail
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -123,6 +127,6 @@ describe("/api/ticker", () => {
     const { GET } = await import("@/app/api/ticker/route");
     const response = await GET();
 
-    expect(response.headers.get("Cache-Control")).toContain("max-age=3600");
+    expect(response.headers.get("Cache-Control")).toContain("max-age=900");
   });
 });

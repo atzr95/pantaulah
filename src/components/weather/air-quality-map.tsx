@@ -125,7 +125,7 @@ export default function AirQualityMap({
               <text x={centroid[0] + dx} y={centroid[1] + dy - 2} textAnchor="middle" fontSize={12} fontWeight="bold" fill={color} style={{ textShadow: "0 0 6px rgba(0,0,0,0.9)" }}>
                 {reading.apiValue}
               </text>
-              <text x={centroid[0] + dx} y={centroid[1] + dy + 10} textAnchor="middle" fontSize={7} fontWeight="bold" fill={color} opacity={0.7} style={{ textShadow: "0 0 4px rgba(0,0,0,0.9)" }}>
+              <text x={centroid[0] + dx} y={centroid[1] + dy + 10} textAnchor="middle" fontSize={9} fontWeight="bold" fill={color} opacity={0.85} style={{ textShadow: "0 0 4px rgba(0,0,0,0.9)" }}>
                 {reading.dominantPollutant}
               </text>
             </g>
@@ -138,6 +138,13 @@ export default function AirQualityMap({
 
   const overlay = (
     <>
+      {airQuality.readings.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="text-[var(--color-text-dim)] text-xs tracking-wider">
+            AWAITING AIR QUALITY DATA...
+          </span>
+        </div>
+      )}
       {hoveredState && (() => {
         const reading = stateReadingMap[hoveredState];
         return (

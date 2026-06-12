@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useRef, useState, useEffect } from "react";
+import { useMemo, useCallback, useRef, useState, useEffect, useTransition } from "react";
 import type { CacheData, MetricKey } from "@/lib/data/types";
 
 interface TimeSliderProps {
@@ -44,15 +44,38 @@ export default function TimeSlider({
   );
 
   // Slider operates on index (0..N-1) so it always snaps to data years
-  const currentIdx = Math.max(0, dataYears.indexOf(selectedYear));
+  const externalIdx = Math.max(0, dataYears.indexOf(selectedYear));
   const maxIdx = dataYears.length - 1;
+
+  // Local urgent value for instant thumb/label feedback; heavy downstream
+  // updates (map re-render) go through a transition.
+  const [localIdx, setLocalIdx] = useState(externalIdx);
+  const [prevExternalIdx, setPrevExternalIdx] = useState(externalIdx);
+  const [isPending, startTransition] = useTransition();
+
+  if (externalIdx !== prevExternalIdx) {
+    setPrevExternalIdx(externalIdx);
+    if (!isPending) setLocalIdx(externalIdx);
+  }
+
+  const currentIdx = Math.min(Math.max(0, localIdx), Math.max(0, maxIdx));
+  const displayYear = dataYears[currentIdx] ?? selectedYear;
+
+  const selectYear = useCallback(
+    (idx: number) => {
+      const year = dataYears[idx];
+      if (year == null) return;
+      setLocalIdx(idx);
+      startTransition(() => onYearChange(year));
+    },
+    [onYearChange, dataYears]
+  );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const idx = parseInt(e.target.value);
-      if (dataYears[idx] != null) onYearChange(dataYears[idx]);
+      selectYear(parseInt(e.target.value));
     },
-    [onYearChange, dataYears]
+    [selectYear]
   );
 
   const statesWithData = useMemo(() => {
@@ -65,16 +88,6 @@ export default function TimeSlider({
   }, [stateEntries, selectedYear, selectedMetric]);
 
   const coverageRatio = yearCoverage[selectedYear] ?? 0;
-
-  if (dataYears.length === 0) {
-    return (
-      <div className={inline ? "" : "absolute bottom-4 lg:bottom-16 left-3 right-3 lg:left-5 lg:right-[396px]"}>
-        <div className="text-[10px] tracking-wider text-[var(--color-red)]">
-          NO DATA AVAILABLE FOR THIS METRIC
-        </div>
-      </div>
-    );
-  }
 
   // Measure label row width to compute step dynamically
   const labelRowRef = useRef<HTMLDivElement>(null);
@@ -95,6 +108,16 @@ export default function TimeSlider({
     return () => ro.disconnect();
   }, [dataYears.length]);
 
+  if (dataYears.length === 0) {
+    return (
+      <div className={inline ? "" : "absolute bottom-4 lg:bottom-16 left-3 right-3 lg:left-5 lg:right-[396px]"}>
+        <div className="text-[10px] tracking-wider text-[var(--color-red)]">
+          NO DATA AVAILABLE FOR THIS METRIC
+        </div>
+      </div>
+    );
+  }
+
   const pct = maxIdx > 0 ? (currentIdx / maxIdx) * 100 : 50;
 
   return (
@@ -110,7 +133,7 @@ export default function TimeSlider({
           className="text-xs font-bold tracking-[2px] text-[var(--color-cyan)]"
           style={{ textShadow: "0 0 8px rgba(0, 212, 255, 0.3)" }}
         >
-          {selectedYear}
+          {displayYear}
         </span>
       </div>
 
@@ -119,7 +142,15 @@ export default function TimeSlider({
         <span className="text-[10px] tracking-wider text-[var(--color-text-dim)] shrink-0 w-[22px] text-right hidden lg:inline">
           {dataYears[0]}
         </span>
-        <div className="relative flex-1">
+        <div className="relative flex-1 h-6 flex items-center">
+          {/* Visual track — input itself is taller for an easier grab */}
+          <div
+            className="absolute inset-x-0 h-1 pointer-events-none"
+            style={{
+              background: `linear-gradient(to right, rgba(0,212,255,0.4) ${pct}%, rgba(0,212,255,0.1) ${pct}%)`,
+              borderRadius: 2,
+            }}
+          />
           <input
             type="range"
             min={0}
@@ -127,12 +158,8 @@ export default function TimeSlider({
             step={1}
             value={currentIdx}
             onChange={handleChange}
-            className="w-full h-1 appearance-none bg-transparent cursor-pointer"
-            style={{
-              background: `linear-gradient(to right, rgba(0,212,255,0.4) ${pct}%, rgba(0,212,255,0.1) ${pct}%)`,
-              borderRadius: 2,
-            }}
-            aria-label={`Timeline: ${selectedYear}`}
+            className="relative w-full h-6 appearance-none bg-transparent cursor-pointer"
+            aria-label={`Timeline: ${displayYear}`}
           />
           <style jsx>{`
             input[type="range"]::-webkit-slider-thumb {
@@ -161,68 +188,82 @@ export default function TimeSlider({
         </span>
       </div>
 
-      {/* Year labels row — below slider (desktop only, too dense for mobile) */}
-      <div ref={labelRowRef} className="relative h-4 hidden lg:block" style={{ marginLeft: 30, marginRight: 94 }}>
-        {dataYears.map((y, i) => {
-          const isSelected = y === selectedYear;
-          const leftPct = maxIdx > 0 ? (i / maxIdx) * 100 : 50;
-          const prevYear = i > 0 ? dataYears[i - 1] : y;
-          const hasGap = y - prevYear > 1;
-          const gapPct = i > 0 && maxIdx > 0 ? ((i - 0.5) / maxIdx) * 100 : 0;
+      {/* Year labels row — below slider (desktop only, too dense for mobile).
+          Invisible copies of the end-year labels keep this row aligned with the
+          track above, whatever the font metrics. */}
+      <div className="hidden lg:flex items-center gap-3">
+        <span className="text-[10px] tracking-wider shrink-0 w-[22px] invisible" aria-hidden="true">
+          {dataYears[0]}
+        </span>
+        <div ref={labelRowRef} className="relative h-4 flex-1">
+          {dataYears.map((y, i) => {
+            const isSelected = y === displayYear;
+            const leftPct = maxIdx > 0 ? (i / maxIdx) * 100 : 50;
+            const prevYear = i > 0 ? dataYears[i - 1] : y;
+            const hasGap = y - prevYear > 1;
+            const gapPct = i > 0 && maxIdx > 0 ? ((i - 0.5) / maxIdx) * 100 : 0;
 
-          const isFirst = i === 0;
-          const isLast = i === maxIdx;
-          const showLabel = isFirst || isLast || isSelected || i % labelStep === 0;
+            const isFirst = i === 0;
+            const isLast = i === maxIdx;
+            const showLabel = isFirst || isLast || isSelected || i % labelStep === 0;
 
-          return (
-            <span key={y}>
-              {hasGap && (
-                <span
-                  className="absolute text-[7px] text-[var(--color-text-dim)] opacity-30 -translate-x-1/2 top-[2px] select-none"
-                  style={{ left: `${gapPct}%` }}
-                >
-                  ···
-                </span>
-              )}
-              {showLabel && (
-                <button
-                  onClick={() => onYearChange(y)}
-                  className="absolute -translate-x-1/2 text-[10px] tracking-wider transition-all cursor-pointer"
-                  style={{
-                    left: `${leftPct}%`,
-                    top: 0,
-                    color: isSelected ? "#00d4ff" : "var(--color-text-dim)",
-                    fontWeight: isSelected ? 700 : 400,
-                    textShadow: isSelected ? "0 0 8px rgba(0, 212, 255, 0.3)" : "none",
-                  }}
-                >
-                  {y}
-                </button>
-              )}
-            </span>
-          );
-        })}
+            return (
+              <span key={y}>
+                {hasGap && (
+                  <span
+                    className="absolute text-[9px] text-[var(--color-text-dim)] opacity-40 -translate-x-1/2 top-[2px] select-none"
+                    style={{ left: `${gapPct}%` }}
+                  >
+                    ···
+                  </span>
+                )}
+                {showLabel && (
+                  <button
+                    onClick={() => selectYear(i)}
+                    className="absolute -translate-x-1/2 text-[10px] tracking-wider transition-all cursor-pointer px-1.5 py-1 -top-1"
+                    style={{
+                      left: `${leftPct}%`,
+                      color: isSelected ? "#00d4ff" : "var(--color-text-dim)",
+                      fontWeight: isSelected ? 700 : 400,
+                      textShadow: isSelected ? "0 0 8px rgba(0, 212, 255, 0.3)" : "none",
+                    }}
+                  >
+                    {y}
+                  </button>
+                )}
+              </span>
+            );
+          })}
+        </div>
+        <span className="text-[10px] tracking-wider shrink-0 invisible" aria-hidden="true">
+          {dataYears[dataYears.length - 1]}
+        </span>
       </div>
 
       {/* Coverage badge */}
-      <div className="hidden lg:flex items-center gap-2" style={{ marginLeft: 30 }}>
-        <span
-          className="text-[10px] tracking-wider"
-          style={{
-            color: coverageRatio >= 0.8
-              ? "var(--color-green)"
-              : coverageRatio > 0
-                ? "var(--color-amber)"
-                : "var(--color-red)",
-          }}
-        >
-          {statesWithData}/{totalStates} STATES
+      <div className="hidden lg:flex items-center gap-3">
+        <span className="text-[10px] tracking-wider shrink-0 w-[22px] invisible" aria-hidden="true">
+          {dataYears[0]}
         </span>
-        {coverageRatio > 0 && coverageRatio < 0.5 && (
-          <span className="text-[10px] tracking-wider text-[var(--color-amber)]">
-            PARTIAL COVERAGE
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[10px] tracking-wider"
+            style={{
+              color: coverageRatio >= 0.8
+                ? "var(--color-green)"
+                : coverageRatio > 0
+                  ? "var(--color-amber)"
+                  : "var(--color-red)",
+            }}
+          >
+            {statesWithData}/{totalStates} STATES
           </span>
-        )}
+          {coverageRatio > 0 && coverageRatio < 0.5 && (
+            <span className="text-[10px] tracking-wider text-[var(--color-amber)]">
+              PARTIAL COVERAGE
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

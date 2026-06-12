@@ -5,6 +5,7 @@ import {
   STATE_COORDINATES,
   type CurrentWeather,
 } from "@/lib/data/weather-types";
+import { cachedJson } from "@/lib/server/edge-cache";
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
 const CURRENT_PARAMS = [
@@ -27,50 +28,55 @@ export interface AllStatesCurrentWeather {
 
 export async function GET() {
   try {
-    // Fetch all 16 states in parallel
-    const results = await Promise.allSettled(
-      STATE_COORDINATES.map(async (coord) => {
-        const url = `${OPEN_METEO_BASE}?latitude=${coord.lat}&longitude=${coord.lon}&current=${CURRENT_PARAMS}&timezone=Asia/Kuala_Lumpur`;
-        const res = await fetch(url, { next: { revalidate: 900 } });
+    const response = await cachedJson<AllStatesCurrentWeather>(
+      "weather:current:all",
+      600,
+      async () => {
+        // Batch all 16 states into a single Open-Meteo request
+        const lats = STATE_COORDINATES.map((c) => c.lat).join(",");
+        const lons = STATE_COORDINATES.map((c) => c.lon).join(",");
+        const url = `${OPEN_METEO_BASE}?latitude=${lats}&longitude=${lons}&current=${CURRENT_PARAMS}&timezone=Asia/Kuala_Lumpur`;
+
+        const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
         if (!res.ok) throw new Error(`${res.status}`);
         const data = await res.json();
-        const c = data.current;
-        return {
-          state: coord.state,
-          locationName: coord.locationName,
-          current: {
-            time: c.time,
-            temperature: c.temperature_2m,
-            apparentTemperature: c.apparent_temperature,
-            humidity: c.relative_humidity_2m,
-            windSpeed: c.wind_speed_10m,
-            windDirection: c.wind_direction_10m,
-            weatherCode: c.weather_code,
-            precipitation: c.precipitation,
-            pressure: c.pressure_msl,
-            uvIndex: c.uv_index,
-            cloudCover: c.cloud_cover,
-          } as CurrentWeather,
-        };
-      })
-    );
+        // Single coord returns object, multiple returns array
+        const items: Array<{ current?: Record<string, number | string> }> =
+          Array.isArray(data) ? data : [data];
 
-    const states: AllStatesCurrentWeather["states"] = {};
-    for (const result of results) {
-      if (result.status === "fulfilled") {
-        states[result.value.state] = {
-          locationName: result.value.locationName,
-          current: result.value.current,
+        const states: AllStatesCurrentWeather["states"] = {};
+        for (let i = 0; i < items.length && i < STATE_COORDINATES.length; i++) {
+          const c = items[i]?.current;
+          if (!c) continue;
+          const coord = STATE_COORDINATES[i];
+          states[coord.state] = {
+            locationName: coord.locationName,
+            current: {
+              time: c.time,
+              temperature: c.temperature_2m,
+              apparentTemperature: c.apparent_temperature,
+              humidity: c.relative_humidity_2m,
+              windSpeed: c.wind_speed_10m,
+              windDirection: c.wind_direction_10m,
+              weatherCode: c.weather_code,
+              precipitation: c.precipitation,
+              pressure: c.pressure_msl,
+              uvIndex: c.uv_index,
+              cloudCover: c.cloud_cover,
+            } as CurrentWeather,
+          };
+        }
+
+        return {
+          states,
+          fetchedAt: new Date().toISOString(),
         };
       }
-    }
+    );
 
-    const response: AllStatesCurrentWeather = {
-      states,
-      fetchedAt: new Date().toISOString(),
-    };
-
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" },
+    });
   } catch {
     return NextResponse.json(
       { error: "Failed to fetch current weather" },

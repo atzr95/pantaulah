@@ -87,20 +87,20 @@ describe("getBucketColor", () => {
 });
 
 describe("METRIC_CONFIGS", () => {
-  it("has 28 metrics", () => {
-    expect(METRIC_CONFIGS).toHaveLength(28);
+  it("has 31 metrics", () => {
+    expect(METRIC_CONFIGS).toHaveLength(31);
   });
 
   it("has amber (concern) metrics", () => {
     const amber = METRIC_CONFIGS.filter((c) => c.colorHue === "amber");
-    expect(amber.map((c) => c.key).sort()).toEqual(["cpi", "crime", "crimeRate", "deathRate", "drugAddicts", "homicideRate", "studentTeacherRatio", "unemployment"]);
+    expect(amber.map((c) => c.key).sort()).toEqual(["bedUtilization", "cpi", "crime", "crimeRate", "deathRate", "drugAddicts", "homicideRate", "icuUtilization", "studentTeacherRatio", "unemployment"]);
   });
 
   it("has cyan (neutral) metrics", () => {
     const cyan = METRIC_CONFIGS.filter((c) => c.colorHue === "cyan");
     expect(cyan.map((c) => c.key).sort()).toEqual([
       "bedsPerCapita", "birthRate", "bloodDonations", "completion", "doctorsPerCapita", "electricityConsumption", "enrolment", "gdp", "gdpPerCapita",
-      "healthScreenings", "householdIncome", "literacy", "organPledges", "population", "schools", "teachers", "vehicleReg",
+      "healthScreenings", "householdIncome", "literacy", "motorcycleReg", "organPledges", "population", "schools", "teachers", "vehicleReg",
       "waterAccess", "waterConsumption", "waterProduction",
     ]);
   });

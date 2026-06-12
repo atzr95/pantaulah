@@ -7,6 +7,7 @@ import CrimeBreakdown from "./crime-breakdown";
 import BloodGroups from "./blood-groups";
 import ElectricitySectors from "./electricity-sectors";
 import EnrolmentBreakdown from "./enrolment-breakdown";
+import GenerationByFuel from "./generation-by-fuel";
 import RidershipCard from "./ridership-card";
 import CCTVViewer from "./cctv-viewer";
 import type { CacheData, SparklinePoint } from "@/lib/data/types";
@@ -14,6 +15,8 @@ import {
   formatPopulationCompact,
   formatChange,
   formatMetricValue,
+  formatVintage,
+  resolveLatestYear,
 } from "@/lib/utils/format";
 import { MALAYSIA_STATES } from "@/lib/data/states";
 import { CATEGORY_METRICS, NATIONAL_ECONOMY_INDICATORS } from "@/lib/data/choropleth";
@@ -57,9 +60,54 @@ interface StateYearEntry {
   change?: number;
 }
 
+/** Resolve a metric at the latest available year ≤ selected year (else its overall latest) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getMetric(years: any, metric: string, year: number): StateYearEntry | undefined {
-  return years?.[year]?.[metric] as StateYearEntry | undefined;
+function getMetricResolved(years: any, metric: string, year: number): { value: StateYearEntry; year: number } | undefined {
+  if (!years) return undefined;
+  const byYear: Record<number, StateYearEntry> = {};
+  for (const key of Object.keys(years)) {
+    const entry = years[key]?.[metric] as StateYearEntry | undefined;
+    if (entry != null) byYear[Number(key)] = entry;
+  }
+  return resolveLatestYear(byYear, year);
+}
+
+/** Resolve a per-state-per-year breakdown at the best vintage, aggregating across states for the national view */
+function resolveBreakdown<T, R>(
+  byState: Record<string, Record<number, T>> | undefined,
+  state: string | null,
+  year: number,
+  aggregate: (entries: T[]) => R | undefined
+): { value: R; year: number } | undefined {
+  if (!byState) return undefined;
+  if (state) {
+    const resolved = resolveLatestYear(byState[state], year);
+    if (!resolved) return undefined;
+    const agg = aggregate([resolved.value]);
+    return agg != null ? { value: agg, year: resolved.year } : undefined;
+  }
+  const yearsSeen: Record<number, true> = {};
+  for (const stateYears of Object.values(byState)) {
+    for (const key of Object.keys(stateYears)) yearsSeen[Number(key)] = true;
+  }
+  const resolved = resolveLatestYear(yearsSeen, year);
+  if (!resolved) return undefined;
+  const entries: T[] = [];
+  for (const stateYears of Object.values(byState)) {
+    const entry = stateYears[resolved.year];
+    if (entry != null) entries.push(entry);
+  }
+  const agg = aggregate(entries);
+  return agg != null ? { value: agg, year: resolved.year } : undefined;
+}
+
+/** Dim vintage tag overlaid on a breakdown panel header */
+function PanelVintage({ year }: { year: number }) {
+  return (
+    <div className="absolute top-3.5 right-3.5 text-[10px] tracking-[1px] text-[var(--color-text-dim)]">
+      ({year})
+    </div>
+  );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,7 +151,7 @@ function useStateBriefData(data: CacheData, selectedState: string | null, select
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const years = useMemo(() => (stateData as any)?.years, [stateData]);
 
-  const populationMetric = useMemo(() => getMetric(years, "population", selectedYear), [years, selectedYear]);
+  const populationResolved = useMemo(() => getMetricResolved(years, "population", selectedYear), [years, selectedYear]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nationalYears = useMemo(() => (data.national as any)?.years, [data]);
@@ -116,7 +164,7 @@ function useStateBriefData(data: CacheData, selectedState: string | null, select
     : "Capital: Kuala Lumpur";
   const flagSrc = getFlagSrc(selectedState);
 
-  return { stateInfo, years, populationMetric, nationalYears, displayName, subtitle, flagSrc };
+  return { stateInfo, years, populationResolved, nationalYears, displayName, subtitle, flagSrc };
 }
 
 /** Mobile peek header — shows flag + name + active metric */
@@ -130,7 +178,8 @@ export function StateBriefPeek({
   const { years, displayName, flagSrc } = useStateBriefData(data, selectedState, selectedYear);
   const categoryMetrics = CATEGORY_METRICS[selectedCategory] ?? [];
   const activeConfig = categoryMetrics.find((m) => m.key === selectedMetric) ?? categoryMetrics[0];
-  const activeMetric = activeConfig ? getMetric(years, activeConfig.key, selectedYear) : undefined;
+  const activeResolved = activeConfig ? getMetricResolved(years, activeConfig.key, selectedYear) : undefined;
+  const activeMetric = activeResolved?.value;
 
   return (
     <div className="flex items-center gap-3">
@@ -155,6 +204,11 @@ export function StateBriefPeek({
           </div>
           <div className="text-base font-bold text-[var(--color-text-bright)]">
             {formatMetricValue(activeConfig.key, activeMetric?.value)}
+            {activeResolved && activeResolved.year !== selectedYear && (
+              <span className="ml-1 text-[9px] font-normal tracking-[1px] text-[var(--color-text-dim)] align-middle">
+                {formatVintage(activeResolved.year)}
+              </span>
+            )}
           </div>
           {activeMetric?.change != null && (
             <div
@@ -170,6 +224,7 @@ export function StateBriefPeek({
                       : "var(--color-red)",
               }}
             >
+              <span aria-hidden="true">{activeMetric.change >= 0 ? "▲" : "▼"}</span>{" "}
               {formatChange(activeMetric.change, getChangeSuffix(activeConfig.key), getChangeUnit(activeConfig.key))}
             </div>
           )}
@@ -187,8 +242,118 @@ export function StateBriefContent({
   selectedCategory,
   selectedMetric,
 }: StateBriefProps) {
-  const { years, populationMetric, nationalYears } = useStateBriefData(data, selectedState, selectedYear);
+  const { years, populationResolved, nationalYears } = useStateBriefData(data, selectedState, selectedYear);
   const categoryMetrics = CATEGORY_METRICS[selectedCategory] ?? [];
+
+  const gdpPanel = useMemo(
+    () =>
+      selectedMetric === "gdp"
+        ? resolveBreakdown(data.gdpSectors, selectedState, selectedYear, (entries) => {
+            const sums: Record<string, number> = {};
+            for (const entry of entries) {
+              for (const [k, v] of Object.entries(entry)) {
+                if (typeof v === "number") sums[k] = (sums[k] || 0) + v;
+              }
+            }
+            return Object.keys(sums).length > 0 ? sums : undefined;
+          })
+        : undefined,
+    [data.gdpSectors, selectedMetric, selectedState, selectedYear]
+  );
+
+  const crimePanel = useMemo(
+    () =>
+      selectedMetric === "crime"
+        ? resolveBreakdown(data.crimeBreakdown, selectedState, selectedYear, (entries) => {
+            const sums = { assault: 0, property: 0 };
+            for (const entry of entries) {
+              sums.assault += entry.assault;
+              sums.property += entry.property;
+            }
+            return sums.assault + sums.property > 0 ? sums : undefined;
+          })
+        : undefined,
+    [data.crimeBreakdown, selectedMetric, selectedState, selectedYear]
+  );
+
+  const bloodPanel = useMemo(
+    () =>
+      selectedMetric === "bloodDonations"
+        ? resolveBreakdown(data.bloodGroups, selectedState, selectedYear, (entries) => {
+            const sums = { a: 0, b: 0, ab: 0, o: 0 };
+            for (const entry of entries) {
+              sums.a += entry.a;
+              sums.b += entry.b;
+              sums.ab += entry.ab;
+              sums.o += entry.o;
+            }
+            return sums.a + sums.b + sums.ab + sums.o > 0 ? sums : undefined;
+          })
+        : undefined,
+    [data.bloodGroups, selectedMetric, selectedState, selectedYear]
+  );
+
+  const enrolmentPanel = useMemo(
+    () =>
+      selectedMetric === "enrolment"
+        ? resolveBreakdown(data.enrolmentBreakdown, selectedState, selectedYear, (entries) => {
+            const sums = { primary: 0, secondary: 0 };
+            for (const entry of entries) {
+              sums.primary += entry.primary;
+              sums.secondary += entry.secondary;
+            }
+            return sums.primary + sums.secondary > 0 ? sums : undefined;
+          })
+        : undefined,
+    [data.enrolmentBreakdown, selectedMetric, selectedState, selectedYear]
+  );
+
+  const electricityPanel = useMemo(() => {
+    if (selectedMetric !== "electricityConsumption") return undefined;
+    if (selectedState) {
+      return resolveLatestYear(data.energy?.electricityConsumption?.[selectedState], selectedYear);
+    }
+    const resolved = resolveLatestYear(data.energy?.nationalConsumptionBySector, selectedYear);
+    if (!resolved) return undefined;
+    const sectors = resolved.value;
+    const total = Object.values(sectors).reduce((sum, v) => sum + v, 0);
+    if (total <= 0) return undefined;
+    return {
+      year: resolved.year,
+      value: {
+        domestic: sectors["Residential"] ?? 0,
+        commercial: sectors["Commercial"] ?? 0,
+        industrial: sectors["Industrial"] ?? 0,
+        mining: 0,
+        publicLighting: 0,
+        agriculture: sectors["Agriculture"] ?? 0,
+        transport: sectors["Transport"] ?? 0,
+        total,
+      },
+    };
+  }, [data.energy, selectedMetric, selectedState, selectedYear]);
+
+  const generationPanel = useMemo(() => {
+    if (selectedState || selectedCategory !== "energy") return undefined;
+    return resolveLatestYear(data.energy?.generationByFuel, selectedYear);
+  }, [data.energy, selectedCategory, selectedState, selectedYear]);
+
+  const capacityPanel = useMemo(() => {
+    if (selectedState || selectedCategory !== "energy") return undefined;
+    const byRegion = data.energy?.capacityByRegion;
+    if (!byRegion) return undefined;
+    const yearsSeen: Record<number, true> = {};
+    for (const regionYears of Object.values(byRegion)) {
+      for (const key of Object.keys(regionYears)) yearsSeen[Number(key)] = true;
+    }
+    const resolved = resolveLatestYear(yearsSeen, selectedYear);
+    if (!resolved) return undefined;
+    const rows = Object.entries(byRegion)
+      .map(([region, regionYears]) => ({ region, mw: regionYears[resolved.year] }))
+      .filter((row) => row.mw != null)
+      .sort((a, b) => b.mw - a.mw);
+    return rows.length > 0 ? { value: rows, year: resolved.year } : undefined;
+  }, [data.energy, selectedCategory, selectedState, selectedYear]);
 
   return (
     <>
@@ -198,8 +363,9 @@ export function StateBriefContent({
         style={{ background: "rgba(0, 212, 255, 0.05)", padding: 1 }}
       >
         {categoryMetrics.map((config) => {
-          const m = getMetric(years, config.key, selectedYear);
-          const spark = getSparkline(years, config.key, selectedYear);
+          const resolved = getMetricResolved(years, config.key, selectedYear);
+          const m = resolved?.value;
+          const spark = getSparkline(years, config.key, resolved?.year ?? selectedYear);
           return (
             <MetricCard
               key={config.key}
@@ -210,6 +376,7 @@ export function StateBriefContent({
               sparklineData={spark}
               sparklineColor={config.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(0, 212, 255, 0.4)"}
               description={config.description}
+              vintage={resolved && resolved.year !== selectedYear ? formatVintage(resolved.year) : undefined}
             />
           );
         })}
@@ -221,16 +388,22 @@ export function StateBriefContent({
               POPULATION
             </div>
             <div className="text-xl font-bold text-[var(--color-text-bright)]">
-              {formatPopulationCompact(populationMetric?.value)}
+              {formatPopulationCompact(populationResolved?.value.value)}
+              {populationResolved && populationResolved.year !== selectedYear && (
+                <span className="ml-1.5 text-[10px] font-normal tracking-[1px] text-[var(--color-text-dim)] align-middle">
+                  {formatVintage(populationResolved.year)}
+                </span>
+              )}
             </div>
-            {populationMetric?.change != null && (
+            {populationResolved?.value.change != null && (
               <div
                 className="text-[10px] mt-0.5"
                 style={{
-                  color: populationMetric.change >= 0 ? "var(--color-green)" : "var(--color-red)",
+                  color: populationResolved.value.change >= 0 ? "var(--color-green)" : "var(--color-red)",
                 }}
               >
-                {formatChange(populationMetric.change, "YoY")}
+                <span aria-hidden="true">{populationResolved.value.change >= 0 ? "▲" : "▼"}</span>{" "}
+                {formatChange(populationResolved.value.change, "YoY")}
               </div>
             )}
           </div>
@@ -241,102 +414,33 @@ export function StateBriefContent({
       {selectedMetric === "gdp" && (
         <div className="border-t border-[var(--color-border)]">
           <GdpSectors
-            sectors={
-              selectedState
-                ? data.gdpSectors?.[selectedState]?.[selectedYear]
-                : (() => {
-                    const national: Record<string, number> = {};
-                    if (data.gdpSectors) {
-                      for (const stateData of Object.values(data.gdpSectors)) {
-                        const yearData = stateData[selectedYear];
-                        if (yearData) {
-                          for (const [k, v] of Object.entries(yearData)) {
-                            national[k] = (national[k] || 0) + (v as number);
-                          }
-                        }
-                      }
-                    }
-                    return Object.keys(national).length > 0 ? national : undefined;
-                  })()
-            }
+            sectors={gdpPanel?.value}
+            vintageYear={gdpPanel && gdpPanel.year !== selectedYear ? gdpPanel.year : undefined}
           />
         </div>
       )}
 
       {/* Crime Breakdown (shown when crime index is selected) */}
       {selectedMetric === "crime" && (
-        <div className="border-t border-[var(--color-border)]">
-          <CrimeBreakdown
-            breakdown={
-              selectedState
-                ? data.crimeBreakdown?.[selectedState]?.[selectedYear]
-                : (() => {
-                    const national = { assault: 0, property: 0 };
-                    if (data.crimeBreakdown) {
-                      for (const stateData of Object.values(data.crimeBreakdown)) {
-                        const yearData = stateData[selectedYear];
-                        if (yearData) {
-                          national.assault += yearData.assault;
-                          national.property += yearData.property;
-                        }
-                      }
-                    }
-                    return national.assault + national.property > 0 ? national : undefined;
-                  })()
-            }
-          />
+        <div className="border-t border-[var(--color-border)] relative">
+          {crimePanel && crimePanel.year !== selectedYear && <PanelVintage year={crimePanel.year} />}
+          <CrimeBreakdown breakdown={crimePanel?.value} />
         </div>
       )}
 
       {/* Blood Group Breakdown (shown when blood donations is selected) */}
       {selectedMetric === "bloodDonations" && (
-        <div className="border-t border-[var(--color-border)]">
-          <BloodGroups
-            groups={
-              selectedState
-                ? data.bloodGroups?.[selectedState]?.[selectedYear]
-                : (() => {
-                    const national = { a: 0, b: 0, ab: 0, o: 0 };
-                    if (data.bloodGroups) {
-                      for (const stateData of Object.values(data.bloodGroups)) {
-                        const yearData = stateData[selectedYear];
-                        if (yearData) {
-                          national.a += yearData.a;
-                          national.b += yearData.b;
-                          national.ab += yearData.ab;
-                          national.o += yearData.o;
-                        }
-                      }
-                    }
-                    return national.a + national.b + national.ab + national.o > 0 ? national : undefined;
-                  })()
-            }
-          />
+        <div className="border-t border-[var(--color-border)] relative">
+          {bloodPanel && bloodPanel.year !== selectedYear && <PanelVintage year={bloodPanel.year} />}
+          <BloodGroups groups={bloodPanel?.value} />
         </div>
       )}
 
       {/* Enrolment Breakdown (shown when enrolment is selected) */}
       {selectedMetric === "enrolment" && (
-        <div className="border-t border-[var(--color-border)]">
-          <EnrolmentBreakdown
-            breakdown={
-              selectedState
-                ? data.enrolmentBreakdown?.[selectedState]?.[selectedYear]
-                : (() => {
-                    const national = { primary: 0, secondary: 0 };
-                    if (data.enrolmentBreakdown) {
-                      for (const stateData of Object.values(data.enrolmentBreakdown)) {
-                        const yearData = stateData[selectedYear];
-                        if (yearData) {
-                          national.primary += yearData.primary;
-                          national.secondary += yearData.secondary;
-                        }
-                      }
-                    }
-                    return national.primary + national.secondary > 0 ? national : undefined;
-                  })()
-            }
-          />
+        <div className="border-t border-[var(--color-border)] relative">
+          {enrolmentPanel && enrolmentPanel.year !== selectedYear && <PanelVintage year={enrolmentPanel.year} />}
+          <EnrolmentBreakdown breakdown={enrolmentPanel?.value} />
         </div>
       )}
 
@@ -346,18 +450,26 @@ export function StateBriefContent({
           {!selectedState && (
             <div className="px-4 pt-3 pb-1">
               <p className="text-[10px] leading-relaxed text-[var(--color-text-dim)] italic">
-                {selectedYear >= 2023
-                  ? `National electricity total not available for ${selectedYear}. State-level data covers 11 Peninsular states only — Sabah, Sarawak, KL, Putrajaya & Labuan not available via API.`
-                  : "National electricity total includes all of Malaysia. State-level data covers 11 Peninsular states only — summing states will not match the national figure."}
+                National electricity figures include all of Malaysia. State-level data covers 11
+                Peninsular states only — summing states will not match the national figure.
               </p>
             </div>
           )}
           <ElectricitySectors
-            sectors={
-              selectedState
-                ? data.energy?.electricityConsumption?.[selectedState]?.[selectedYear]
-                : undefined
-            }
+            sectors={electricityPanel?.value}
+            vintageYear={electricityPanel && electricityPanel.year !== selectedYear ? electricityPanel.year : undefined}
+          />
+        </div>
+      )}
+
+      {/* National generation by fuel + installed capacity (energy category, national view) */}
+      {generationPanel && (
+        <div className="border-t border-[var(--color-border)]">
+          <GenerationByFuel
+            fuels={generationPanel.value}
+            vintageYear={generationPanel.year !== selectedYear ? generationPanel.year : undefined}
+            capacity={capacityPanel?.value}
+            capacityVintageYear={capacityPanel && capacityPanel.year !== selectedYear ? capacityPanel.year : undefined}
           />
         </div>
       )}
@@ -375,8 +487,9 @@ export function StateBriefContent({
             style={{ background: "rgba(0, 212, 255, 0.05)", padding: 1 }}
           >
             {NATIONAL_ECONOMY_INDICATORS.map((ind) => {
-              const m = getMetric(nationalYears, ind.key, selectedYear);
-              const spark = getSparkline(nationalYears, ind.key, selectedYear);
+              const resolved = getMetricResolved(nationalYears, ind.key, selectedYear);
+              const m = resolved?.value;
+              const spark = getSparkline(nationalYears, ind.key, resolved?.year ?? selectedYear);
               return (
                 <MetricCard
                   key={ind.key}
@@ -387,6 +500,7 @@ export function StateBriefContent({
                   sparklineData={spark}
                   sparklineColor={ind.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(0, 212, 255, 0.4)"}
                   description={ind.description}
+                  vintage={resolved && resolved.year !== selectedYear ? formatVintage(resolved.year) : undefined}
                 />
               );
             })}

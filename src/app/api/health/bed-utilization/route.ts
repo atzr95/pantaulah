@@ -15,6 +15,6 @@ import bedutilCache from "@/lib/data/cache/bedutil.json";
 
 export async function GET() {
   return NextResponse.json(bedutilCache, {
-    headers: { "Cache-Control": "public, max-age=3600" },
+    headers: { "Cache-Control": "public, max-age=3600, stale-while-revalidate=3600" },
   });
 }

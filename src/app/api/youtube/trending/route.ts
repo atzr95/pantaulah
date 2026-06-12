@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { cachedJson } from "@/lib/server/edge-cache";
 
 
 export interface TrendingVideo {
@@ -22,9 +23,7 @@ interface TrendingResponse {
   fetchedAt: string;
 }
 
-// ── In-memory cache ──
-let cached: { body: string; time: number } | null = null;
-const CACHE_TTL_MS = 15 * 60_000; // 15 minutes
+const CACHE_TTL_SECONDS = 900; // 15 minutes
 
 /** Parse ISO 8601 duration to seconds */
 function parseDuration(iso: string): number {
@@ -47,16 +46,6 @@ export async function GET() {
       { error: "YOUTUBE_API_KEY not configured" },
       { status: 503 }
     );
-  }
-
-  // Serve from cache if fresh
-  if (cached && Date.now() - cached.time < CACHE_TTL_MS) {
-    return new NextResponse(cached.body, {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=300, stale-while-revalidate=900",
-      },
-    });
   }
 
   try {
@@ -85,53 +74,63 @@ export async function GET() {
       });
     }
 
-    // Fetch page 1
-    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-    url.searchParams.set("part", "snippet,statistics,contentDetails");
-    url.searchParams.set("chart", "mostPopular");
-    url.searchParams.set("regionCode", "MY");
-    url.searchParams.set("maxResults", "50");
-    url.searchParams.set("key", apiKey);
+    const data = await cachedJson<TrendingResponse>(
+      "yt:trending",
+      CACHE_TTL_SECONDS,
+      async () => {
+        // Fetch page 1
+        const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+        url.searchParams.set("part", "snippet,statistics,contentDetails");
+        url.searchParams.set("chart", "mostPopular");
+        url.searchParams.set("regionCode", "MY");
+        url.searchParams.set("maxResults", "50");
+        url.searchParams.set("key", apiKey);
 
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-      const err = await res.text();
-      console.error("YouTube API error:", err);
-      return NextResponse.json(
-        { error: "YouTube API request failed" },
-        { status: 502 }
-      );
-    }
+        const res = await fetch(url.toString(), {
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          console.error("YouTube API error:", err);
+          throw new Error("yt-api-failed");
+        }
 
-    const json = await res.json();
-    let allVideos = parseItems(json.items ?? []);
+        const json = await res.json();
+        let allVideos = parseItems(json.items ?? []);
 
-    // Fetch page 2 if there's a next page token
-    if (json.nextPageToken) {
-      url.searchParams.set("pageToken", json.nextPageToken);
-      const res2 = await fetch(url.toString());
-      if (res2.ok) {
-        const json2 = await res2.json();
-        allVideos = allVideos.concat(parseItems(json2.items ?? []));
+        // Fetch page 2 if there's a next page token
+        if (json.nextPageToken) {
+          url.searchParams.set("pageToken", json.nextPageToken);
+          const res2 = await fetch(url.toString(), {
+            signal: AbortSignal.timeout(8_000),
+          });
+          if (res2.ok) {
+            const json2 = await res2.json();
+            allVideos = allVideos.concat(parseItems(json2.items ?? []));
+          }
+        }
+
+        return {
+          videos: allVideos.filter((v) => !v.isShort).slice(0, 30),
+          shorts: allVideos.filter((v) => v.isShort).slice(0, 30),
+          fetchedAt: new Date().toISOString(),
+        };
       }
-    }
+    );
 
-    const data: TrendingResponse = {
-      videos: allVideos.filter((v) => !v.isShort).slice(0, 30),
-      shorts: allVideos.filter((v) => v.isShort).slice(0, 30),
-      fetchedAt: new Date().toISOString(),
-    };
-
-    const body = JSON.stringify(data);
-    cached = { body, time: Date.now() };
-
-    return new NextResponse(body, {
+    return new NextResponse(JSON.stringify(data), {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=300, stale-while-revalidate=900",
       },
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "yt-api-failed") {
+      return NextResponse.json(
+        { error: "YouTube API request failed" },
+        { status: 502 }
+      );
+    }
     console.error("YouTube trending fetch failed:", err);
     return NextResponse.json(
       { error: "Failed to fetch trending videos" },

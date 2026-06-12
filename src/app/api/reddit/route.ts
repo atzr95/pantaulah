@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cachedJson } from "@/lib/server/edge-cache";
 
 
 interface RedditPost {
@@ -23,9 +24,7 @@ interface RedditResponse {
   fetchedAt: string;
 }
 
-// ── In-memory cache ──
-let cached: { body: string; time: number } | null = null;
-const CACHE_TTL_MS = 10 * 60_000; // 10 minutes
+const CACHE_TTL_SECONDS = 600; // 10 minutes
 
 const USER_AGENT = "pantaulah:v1.0.0 (malaysia-intelligence-terminal)";
 
@@ -64,7 +63,7 @@ function parseRedditChildren(
 async function fetchRedditJson(url: string): Promise<RedditPost[]> {
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT },
-    next: { revalidate: 600 },
+    signal: AbortSignal.timeout(8_000),
   });
   if (!res.ok) return [];
   const json = await res.json();
@@ -72,35 +71,28 @@ async function fetchRedditJson(url: string): Promise<RedditPost[]> {
 }
 
 export async function GET() {
-  // Serve from cache if fresh
-  if (cached && Date.now() - cached.time < CACHE_TTL_MS) {
-    return new NextResponse(cached.body, {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
-      },
-    });
-  }
+  const data = await cachedJson<RedditResponse>(
+    "reddit:posts",
+    CACHE_TTL_SECONDS,
+    async () => {
+      const [subredditPosts, globalPosts] = await Promise.all([
+        fetchRedditJson(
+          "https://www.reddit.com/r/malaysia+bolehland+malaysians/hot.json?limit=20"
+        ),
+        fetchRedditJson(
+          "https://www.reddit.com/search.json?q=malaysia+OR+malaysian+OR+kuala+lumpur&sort=hot&t=day&limit=10"
+        ),
+      ]);
 
-  const [subredditPosts, globalPosts] = await Promise.all([
-    fetchRedditJson(
-      "https://www.reddit.com/r/malaysia+bolehland+malaysians/hot.json?limit=20"
-    ),
-    fetchRedditJson(
-      "https://www.reddit.com/search.json?q=malaysia+OR+malaysian+OR+kuala+lumpur&sort=hot&t=day&limit=10"
-    ),
-  ]);
+      return {
+        subredditPosts,
+        globalPosts,
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+  );
 
-  const data: RedditResponse = {
-    subredditPosts,
-    globalPosts,
-    fetchedAt: new Date().toISOString(),
-  };
-
-  const body = JSON.stringify(data);
-  cached = { body, time: Date.now() };
-
-  return new NextResponse(body, {
+  return new NextResponse(JSON.stringify(data), {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "public, max-age=300, stale-while-revalidate=600",

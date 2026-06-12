@@ -30,9 +30,9 @@ const MIN_YEAR = 2010; // Ignore data before this — other metrics start around
 /** Ingest tiers — each tier fetches independently based on its own staleness threshold */
 type Tier = "daily" | "monthly" | "annual";
 const TIER_STALE_DAYS: Record<Tier, number> = {
-  daily: 1,    // organ pledges, PEKA B40, blood donations
-  monthly: 30, // CPI, unemployment, trade, inflation, IPI, FDI, economic indicators
-  annual: 90,  // GDP, population, crime, education, hospital beds, deaths, births, etc.
+  daily: 1,    // organ pledges, PEKA B40, blood donations (compared by UTC calendar date)
+  monthly: 29, // CPI, unemployment, trade, inflation, IPI, FDI, economic indicators
+  annual: 89,  // GDP, population, crime, education, hospital beds, deaths, births, etc.
 };
 const TIER_META_PATH = join(process.cwd(), "src", "lib", "data", "cache", "ingest-meta.json");
 
@@ -87,12 +87,57 @@ function saveTierMeta(meta: Record<Tier, string | null>): void {
   writeFileSync(TIER_META_PATH, JSON.stringify(meta, null, 2));
 }
 
-/** Check if a tier needs re-fetching */
+/**
+ * Check if a tier needs re-fetching.
+ * Daily compares UTC calendar dates — the timestamp is saved mid-run, so a
+ * float 24h threshold would see ~0.98d at the next cron and skip every other day.
+ * Monthly/annual thresholds carry a margin for the same reason (29/89 days).
+ */
 function isTierStale(tier: Tier, meta: Record<Tier, string | null>): boolean {
   const lastFetched = meta[tier];
   if (!lastFetched) return true;
-  const age = (Date.now() - new Date(lastFetched).getTime()) / (1000 * 60 * 60 * 24);
+  const last = new Date(lastFetched);
+  if (isNaN(last.getTime())) return true;
+  if (tier === "daily") {
+    return last.toISOString().slice(0, 10) !== new Date().toISOString().slice(0, 10);
+  }
+  const age = (Date.now() - last.getTime()) / (1000 * 60 * 60 * 24);
   return age >= TIER_STALE_DAYS[tier];
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Recursive sorted-key replacer so output is deterministic across runs */
+function sortKeysReplacer(_key: string, value: unknown): unknown {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const k of Object.keys(obj).sort()) sorted[k] = obj[k];
+    return sorted;
+  }
+  return value;
+}
+
+function stableStringify(data: object): string {
+  return JSON.stringify(data, sortKeysReplacer);
+}
+
+/**
+ * Write minified JSON only if content (ignoring fetchedAt) actually changed.
+ * Skipping the write preserves the old fetchedAt and produces no git diff.
+ */
+function writeJsonIfChanged(path: string, data: object): boolean {
+  if (existsSync(path)) {
+    try {
+      const { fetchedAt: _prev, ...prevRest } = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+      const { fetchedAt: _next, ...nextRest } = data as Record<string, unknown>;
+      if (stableStringify(prevRest) === stableStringify(nextRest)) return false;
+    } catch { /* unreadable — rewrite */ }
+  }
+  writeFileSync(path, stableStringify(data));
+  return true;
 }
 
 /** Check if the main cache exists at all */
@@ -688,98 +733,115 @@ function processVitalRate(rows: unknown[]): MetricStore {
 
 // ── Transport processors ─────────────────────────────────
 
-/** Download yearly vehicle registration CSVs from JPJ/DOSM storage and count per state */
-async function fetchVehicleRegistrations(): Promise<MetricStore> {
-  const store: MetricStore = {};
-  const currentYear = new Date().getFullYear();
+/**
+ * Per-year state counts cache for JPJ registration dumps. Historical years are
+ * immutable, so once counted they never need re-downloading (the files are huge).
+ */
+const VEHICLE_REG_CACHE_PATH = join(CACHE_DIR, "vehicle-reg-counts.json");
+const REG_FETCH_CONCURRENCY = 4; // storage.data.gov.my is a CDN, not the rate-limited API
 
-  for (let year = MIN_YEAR; year <= currentYear; year++) {
-    const url = `${DOSM_STORAGE.replace("storage.dosm.gov.my", "storage.data.gov.my")}/transportation/cars_${year}.csv`;
-    console.log(`  Downloading vehicle registrations ${year}...`);
-
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
-      if (!res.ok) {
-        console.log(`    Not found (${res.status})`);
-        continue;
-      }
-
-      const text = await res.text();
-      const lines = text.split("\n");
-      const counts: Record<string, number> = {};
-
-      // Skip header, count rows per state (last CSV column)
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line) continue;
-        const lastComma = line.lastIndexOf(",");
-        const state = line.substring(lastComma + 1).trim();
-        const topo = toTopoName(state);
-        if (topo) {
-          counts[topo] = (counts[topo] || 0) + 1;
-        }
-      }
-
-      for (const [topo, count] of Object.entries(counts)) {
-        if (!store[topo]) store[topo] = {};
-        store[topo][year] = { value: count, year };
-      }
-
-      const total = Object.values(counts).reduce((a, b) => a + b, 0);
-      console.log(`    ${year}: ${total.toLocaleString()} registrations across ${Object.keys(counts).length} states`);
-    } catch (err) {
-      console.error(`    Error fetching ${year}: ${err instanceof Error ? err.message : err}`);
-    }
-  }
-
-  return store;
+type RegistrationCounts = Record<number, Record<string, number>>;
+interface VehicleRegCache {
+  cars: RegistrationCounts;
+  motorcycles: RegistrationCounts;
 }
 
-/** Download yearly motorcycle registration CSVs from JPJ/DOSM storage and count per state */
-async function fetchMotorcycleRegistrations(): Promise<MetricStore> {
-  const store: MetricStore = {};
+function loadVehicleRegCache(): VehicleRegCache {
+  try {
+    if (existsSync(VEHICLE_REG_CACHE_PATH)) {
+      const parsed = JSON.parse(readFileSync(VEHICLE_REG_CACHE_PATH, "utf-8"));
+      return { cars: parsed.cars ?? {}, motorcycles: parsed.motorcycles ?? {} };
+    }
+  } catch { /* corrupted, re-fetch all */ }
+  return { cars: {}, motorcycles: {} };
+}
+
+/** Download one yearly registration CSV and count rows per state, or null on failure */
+async function countRegistrationsForYear(kind: "cars" | "motorcycles", year: number): Promise<Record<string, number> | null> {
+  const url = `${DOSM_STORAGE.replace("storage.dosm.gov.my", "storage.data.gov.my")}/transportation/${kind}_${year}.csv`;
+  console.log(`  Downloading ${kind} registrations ${year}...`);
+
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+    if (!res.ok) {
+      console.log(`    ${kind} ${year}: not found (${res.status})`);
+      return null;
+    }
+
+    const text = await res.text();
+    const lines = text.split("\n");
+    const counts: Record<string, number> = {};
+
+    // Skip header, count rows per state (last CSV column)
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const lastComma = line.lastIndexOf(",");
+      const state = line.substring(lastComma + 1).trim();
+      const topo = toTopoName(state);
+      if (topo) {
+        counts[topo] = (counts[topo] || 0) + 1;
+      }
+    }
+
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    console.log(`    ${kind} ${year}: ${total.toLocaleString()} registrations across ${Object.keys(counts).length} states`);
+    return counts;
+  } catch (err) {
+    console.error(`    Error fetching ${kind} ${year}: ${err instanceof Error ? err.message : err}`);
+    return null;
+  }
+}
+
+/**
+ * Build registration MetricStore: re-fetch only the current + previous year,
+ * reuse cached counts for immutable historical years, and backfill any missing
+ * years with limited concurrency.
+ */
+async function fetchRegistrations(
+  kind: "cars" | "motorcycles",
+  cachedCounts: RegistrationCounts,
+): Promise<{ store: MetricStore; counts: RegistrationCounts }> {
   const currentYear = new Date().getFullYear();
+  const counts: RegistrationCounts = {};
+  const toFetch: number[] = [];
 
   for (let year = MIN_YEAR; year <= currentYear; year++) {
-    const url = `${DOSM_STORAGE.replace("storage.dosm.gov.my", "storage.data.gov.my")}/transportation/motorcycles_${year}.csv`;
-    console.log(`  Downloading motorcycle registrations ${year}...`);
-
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
-      if (!res.ok) {
-        console.log(`    Not found (${res.status})`);
-        continue;
-      }
-
-      const text = await res.text();
-      const lines = text.split("\n");
-      const counts: Record<string, number> = {};
-
-      // Skip header, count rows per state (last CSV column)
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line) continue;
-        const lastComma = line.lastIndexOf(",");
-        const state = line.substring(lastComma + 1).trim();
-        const topo = toTopoName(state);
-        if (topo) {
-          counts[topo] = (counts[topo] || 0) + 1;
-        }
-      }
-
-      for (const [topo, count] of Object.entries(counts)) {
-        if (!store[topo]) store[topo] = {};
-        store[topo][year] = { value: count, year };
-      }
-
-      const total = Object.values(counts).reduce((a, b) => a + b, 0);
-      console.log(`    ${year}: ${total.toLocaleString()} motorcycle registrations across ${Object.keys(counts).length} states`);
-    } catch (err) {
-      console.error(`    Error fetching ${year}: ${err instanceof Error ? err.message : err}`);
+    const cached = cachedCounts[year];
+    if (year < currentYear - 1 && cached && Object.keys(cached).length > 0) {
+      counts[year] = cached;
+    } else {
+      toFetch.push(year);
     }
   }
 
-  return store;
+  if (Object.keys(counts).length > 0) {
+    console.log(`  ${kind}: reusing cached counts for ${Object.keys(counts).length} historical years`);
+  }
+
+  for (let i = 0; i < toFetch.length; i += REG_FETCH_CONCURRENCY) {
+    const batch = toFetch.slice(i, i + REG_FETCH_CONCURRENCY);
+    const results = await Promise.all(batch.map((year) => countRegistrationsForYear(kind, year)));
+    batch.forEach((year, idx) => {
+      const fetched = results[idx];
+      if (fetched && Object.keys(fetched).length > 0) {
+        counts[year] = fetched;
+      } else if (cachedCounts[year] && Object.keys(cachedCounts[year]).length > 0) {
+        console.warn(`    WARNING: ${kind} ${year} fetch failed — keeping cached counts.`);
+        counts[year] = cachedCounts[year];
+      }
+    });
+  }
+
+  const store: MetricStore = {};
+  for (const [yearStr, byState] of Object.entries(counts)) {
+    const year = parseInt(yearStr);
+    for (const [topo, count] of Object.entries(byState)) {
+      if (!store[topo]) store[topo] = {};
+      store[topo][year] = { value: count, year };
+    }
+  }
+  return { store, counts };
 }
 
 /** Public transit ridership — daily national data, aggregate to yearly totals + rail/bus split */
@@ -1242,8 +1304,12 @@ async function main() {
   let motorcycleReg: MetricStore = {};
   if (fetchAnnual) {
     console.log("\n  Fetching Transport datasets...");
-    vehicleReg = await fetchVehicleRegistrations();
-    motorcycleReg = await fetchMotorcycleRegistrations();
+    const vehicleRegCache = loadVehicleRegCache();
+    const cars = await fetchRegistrations("cars", vehicleRegCache.cars);
+    const motorcycles = await fetchRegistrations("motorcycles", vehicleRegCache.motorcycles);
+    vehicleReg = cars.store;
+    motorcycleReg = motorcycles.store;
+    writeJsonIfChanged(VEHICLE_REG_CACHE_PATH, { cars: cars.counts, motorcycles: motorcycles.counts });
   }
 
   // Excel publications (annual tier)
@@ -1255,13 +1321,14 @@ async function main() {
     crimeExcel = await fetchCrimeExcel();
   }
 
-  // Load existing cache to preserve data from skipped tiers
+  // Always load the existing cache: it backfills skipped tiers AND protects
+  // against failed/empty upstream fetches silently wiping good data on full runs.
   let existingCache: Record<string, unknown> | null = null;
   const cachePath = join(CACHE_DIR, "data.json");
-  if (existsSync(cachePath) && (!fetchDaily || !fetchMonthly || !fetchAnnual)) {
+  if (existsSync(cachePath)) {
     try {
       existingCache = JSON.parse(readFileSync(cachePath, "utf-8"));
-      console.log("  Loaded existing cache for tier merge.");
+      console.log("  Loaded existing cache for merge + sanity checks.");
     } catch { /* will rebuild from scratch */ }
   }
 
@@ -1338,7 +1405,7 @@ async function main() {
       const year = parseInt(yearStr);
       const pop = population[topo]?.[year];
       if (pop && pop.value > 0) {
-        const value = (gdpMetric.value / pop.value) * 1000; // RM per person
+        const value = round2((gdpMetric.value / pop.value) * 1000); // RM per person
         gdpPerCapita[topo][year] = { value, year };
       }
     }
@@ -1352,7 +1419,7 @@ async function main() {
       const year = parseInt(yearStr);
       const pop = population[topo]?.[year];
       if (pop && pop.value > 0) {
-        const value = (crimeMetric.value / (pop.value * 1000)) * 100000;
+        const value = round2((crimeMetric.value / (pop.value * 1000)) * 100000);
         crimeRate[topo][year] = { value, year };
       }
     }
@@ -1366,7 +1433,7 @@ async function main() {
       const year = parseInt(yearStr);
       const pop = population[topo]?.[year];
       if (pop && pop.value > 0) {
-        const value = (docMetric.value / (pop.value * 1000)) * 10000;
+        const value = round2((docMetric.value / (pop.value * 1000)) * 10000);
         doctorsPerCapita[topo][year] = { value, year };
       }
     }
@@ -1380,7 +1447,7 @@ async function main() {
       const year = parseInt(yearStr);
       const pop = population[topo]?.[year];
       if (pop && pop.value > 0) {
-        const value = (bedMetric.value / (pop.value * 1000)) * 10000;
+        const value = round2((bedMetric.value / (pop.value * 1000)) * 10000);
         bedsPerCapita[topo][year] = { value, year };
       }
     }
@@ -1394,7 +1461,7 @@ async function main() {
       const year = parseInt(yearStr);
       const teach = teachers[topo]?.[year];
       if (teach && teach.value > 0) {
-        const value = enrolMetric.value / teach.value;
+        const value = round2(enrolMetric.value / teach.value);
         studentTeacherRatio[topo][year] = { value, year };
       }
     }
@@ -1419,6 +1486,33 @@ async function main() {
     lei: econIndicators.lei,
     cei: econIndicators.cei,
   };
+
+  // Sanity gate: a fetched tier that comes back empty or sparse must not be
+  // mistaken for real data. The merge below backfills every missing metric/year
+  // from the existing cache, so old values survive — but warn loudly.
+  if (existingCache) {
+    const DAILY_METRICS = new Set(["organPledges", "healthScreenings", "bloodDonations"]);
+    const MONTHLY_METRICS = new Set(["cpi", "unemployment"]);
+    const tierFetched: Record<Tier, boolean> = { daily: fetchDaily, monthly: fetchMonthly, annual: fetchAnnual };
+    const prevStates = (existingCache as { states?: Record<string, { years?: Record<string, Record<string, unknown>> }> }).states ?? {};
+    for (const [metricName, store] of Object.entries(ALL_METRICS)) {
+      const tier: Tier = DAILY_METRICS.has(metricName) ? "daily" : MONTHLY_METRICS.has(metricName) ? "monthly" : "annual";
+      if (!tierFetched[tier]) continue;
+      let prevCount = 0;
+      for (const sc of Object.values(prevStates)) {
+        for (const yearData of Object.values(sc.years ?? {})) {
+          if (yearData[metricName]) prevCount++;
+        }
+      }
+      if (prevCount === 0) continue;
+      const newCount = Object.values(store).reduce((n, years) => n + Object.keys(years).length, 0);
+      if (newCount === 0) {
+        console.warn(`!! WARNING: ${metricName} returned no data this run (cache has ${prevCount} entries) — keeping cached values.`);
+      } else if (newCount < prevCount * 0.5) {
+        console.warn(`!! WARNING: ${metricName} returned ${newCount} entries vs ${prevCount} cached (<50%) — cached values backfill the gaps.`);
+      }
+    }
+  }
 
   for (const topo of uniqueNames) {
     states[topo] = {};
@@ -1495,7 +1589,7 @@ async function main() {
         const val = states[topo][year]?.[metric];
         if (val) { total += val.value; count++; }
       }
-      if (count > 0) entry[metric] = { value: total, year };
+      if (count > 0) entry[metric] = { value: round2(total), year };
     }
     // Average for rate/index metrics
     for (const metric of ["unemployment", "cpi", "householdIncome", "gdpPerCapita", "crimeRate", "homicideRate", "doctorsPerCapita", "bedsPerCapita", "deathRate", "birthRate", "completion", "literacy", "studentTeacherRatio"]) {
@@ -1505,7 +1599,7 @@ async function main() {
         const val = states[topo][year]?.[metric];
         if (val) { total += val.value; count++; }
       }
-      if (count > 0) entry[metric] = { value: total / count, year };
+      if (count > 0) entry[metric] = { value: round2(total / count), year };
     }
     // National-only metrics
     for (const [metricName, store] of Object.entries(NATIONAL_ONLY)) {
@@ -1596,23 +1690,46 @@ async function main() {
         }
       }
     }
-    // Preserve breakdown data from existing if not re-fetched
-    if (!fetchAnnual) {
-      const ec = existingCache as Record<string, unknown>;
-      if (ec.gdpSectors) cache.gdpSectors = ec.gdpSectors as typeof cache.gdpSectors;
-      if (ec.crimeBreakdown) cache.crimeBreakdown = ec.crimeBreakdown as typeof cache.crimeBreakdown;
-      if (ec.enrolmentBreakdown) cache.enrolmentBreakdown = ec.enrolmentBreakdown as typeof cache.enrolmentBreakdown;
-    }
-    if (!fetchDaily) {
-      const ec = existingCache as Record<string, unknown>;
-      if (ec.bloodGroups) cache.bloodGroups = ec.bloodGroups as typeof cache.bloodGroups;
-      if (ec.ridership) cache.ridership = ec.ridership as typeof cache.ridership;
+    // Preserve breakdown sections when this run skipped them OR fetched nothing
+    const ec = existingCache as Record<string, unknown>;
+    const BREAKDOWN_TIERS = {
+      gdpSectors: fetchAnnual, crimeBreakdown: fetchAnnual, enrolmentBreakdown: fetchAnnual,
+      bloodGroups: fetchDaily, ridership: fetchDaily,
+    } as const;
+    for (const key of Object.keys(BREAKDOWN_TIERS) as Array<keyof typeof BREAKDOWN_TIERS>) {
+      const prev = ec[key] as object | undefined;
+      if (!prev || Object.keys(prev).length === 0) continue;
+      if (Object.keys(cache[key] as object).length === 0) {
+        if (BREAKDOWN_TIERS[key]) {
+          console.warn(`!! WARNING: ${key} returned no data this run — keeping previous section.`);
+        }
+        (cache as Record<string, unknown>)[key] = prev;
+      }
     }
   }
 
-  // Write cache
-  writeFileSync(cachePath, JSON.stringify(cache, null, 2));
-  console.log(`\nCache written to ${cachePath}`);
+  // Recompute year coverage from the POST-merge cache so years contributed by
+  // skipped tiers (or backfilled from the old cache) still count.
+  const mergedYears = new Set<number>();
+  for (const stateCache of Object.values(cacheStates) as Array<{ years: Record<string, unknown> }>) {
+    for (const y of Object.keys(stateCache.years)) mergedYears.add(parseInt(y));
+  }
+  for (const y of Object.keys(cache.national.years)) mergedYears.add(parseInt(y));
+  const mergedSortedYears = [...mergedYears].filter((y) => y >= MIN_YEAR).sort((a, b) => a - b);
+  const mergedLatestYear = mergedSortedYears[mergedSortedYears.length - 1] || latestYear;
+  cache.availableYears = mergedSortedYears;
+  cache.national.latestYear = mergedLatestYear;
+  for (const stateCache of Object.values(cacheStates) as Array<{ latestYear: number }>) {
+    stateCache.latestYear = mergedLatestYear;
+  }
+
+  // Write cache — skipped entirely when content is unchanged, so fetchedAt
+  // only bumps (and CI only commits/deploys) on real data changes.
+  if (writeJsonIfChanged(cachePath, cache)) {
+    console.log(`\nCache written to ${cachePath}`);
+  } else {
+    console.log(`\nCache content unchanged — write skipped.`);
+  }
 
   // Save tier metadata
   saveTierMeta(tierMeta);
@@ -1623,11 +1740,12 @@ async function main() {
   const metrics = Object.keys(ALL_METRICS);
 
   for (const topo of uniqueNames) {
+    const mergedStateYears = (cacheStates[topo] as { years: Record<string, Record<string, unknown>> }).years;
     for (const metric of metrics) {
-      const missingYears = allSortedYears.filter(
-        (y) => !states[topo][y]?.[metric]
+      const missingYears = mergedSortedYears.filter(
+        (y) => !mergedStateYears[y]?.[metric]
       );
-      if (missingYears.length > 0 && missingYears.length < allSortedYears.length) {
+      if (missingYears.length > 0 && missingYears.length < mergedSortedYears.length) {
         gaps.push({ state: topo, metric, years: missingYears });
       }
     }
@@ -1635,12 +1753,12 @@ async function main() {
 
   const gapsData = { fetchedAt: new Date().toISOString(), gaps };
   const gapsPath = join(CACHE_DIR, "data-gaps.json");
-  writeFileSync(gapsPath, JSON.stringify(gapsData, null, 2));
+  writeJsonIfChanged(gapsPath, gapsData);
 
   // Summary
   console.log(`\nSUMMARY`);
   console.log(`  States: ${uniqueNames.length}`);
-  console.log(`  Years: ${allSortedYears[0]}-${allSortedYears[allSortedYears.length - 1]} (${allSortedYears.length} years)`);
+  console.log(`  Years: ${mergedSortedYears[0]}-${mergedSortedYears[mergedSortedYears.length - 1]} (${mergedSortedYears.length} years)`);
   console.log(`  Data gaps: ${gaps.length}`);
   if (gaps.length > 0) {
     console.log(`  Gap details:`);
@@ -1652,4 +1770,7 @@ async function main() {
   console.log("\nDone.");
 }
 
-main().catch(console.error);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -1,28 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TickerData } from "@/lib/data/types";
+import { fetchTickerData, reportFeedStatus } from "@/lib/feed-status";
 import { formatRate } from "@/lib/utils/format";
+
+const RETRY_MS = 90 * 1000;
 
 export default function NewsTicker() {
   const [tickerData, setTickerData] = useState<TickerData | null>(null);
+  const [failed, setFailed] = useState(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadTicker = useCallback(async (force = false) => {
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+    }
+    try {
+      const data = await fetchTickerData(force);
+      setTickerData(data);
+      setFailed(false);
+      reportFeedStatus("ticker", true);
+    } catch {
+      setFailed(true);
+      reportFeedStatus("ticker", false);
+      retryTimer.current = setTimeout(() => loadTicker(true), RETRY_MS);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchTicker = async () => {
-      try {
-        const res = await fetch("/api/ticker");
-        if (res.ok) {
-          const data = await res.json();
-          setTickerData(data);
-        }
-      } catch {
-        // Silently fail, ticker shows placeholder
-      }
+    loadTicker();
+    const interval = setInterval(() => loadTicker(true), 60 * 60 * 1000); // Refresh hourly
+    return () => {
+      clearInterval(interval);
+      if (retryTimer.current) clearTimeout(retryTimer.current);
     };
-    fetchTicker();
-    const interval = setInterval(fetchTicker, 60 * 60 * 1000); // Refresh hourly
-    return () => clearInterval(interval);
-  }, []);
+  }, [loadTicker]);
 
   const headlines = tickerData?.headlines ?? [];
   const rates = tickerData?.rates ?? [];
@@ -58,6 +72,13 @@ export default function NewsTicker() {
               </span>
             ))}
           </div>
+        ) : failed ? (
+          <button
+            onClick={() => loadTicker(true)}
+            className="text-[11px] tracking-wider text-[var(--color-amber)] hover:text-[var(--color-text-bright)] transition-colors cursor-pointer"
+          >
+            FEED OFFLINE — RETRY
+          </button>
         ) : (
           <span className="text-[11px] text-[var(--color-text-muted)]">
             Loading headlines...

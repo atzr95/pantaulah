@@ -29,22 +29,22 @@ jobs:
 
       - run: npm install
 
+      # Each ingest is isolated: one script failing must not discard the
+      # others' data. A final step fails the job if any of them failed.
       - name: Run data ingest
+        id: ingest
+        continue-on-error: true
         run: ${{ github.event.inputs.force == 'true' && 'npm run ingest:force' || 'npm run ingest' }}
 
       - name: Run energy ingest
+        id: energy
+        continue-on-error: true
         run: npm run ingest:energy
 
       - name: Run bed utilization ingest
+        id: bedutil
+        continue-on-error: true
         run: npm run ingest:bedutil
-
-      - name: Minify cache JSON
-        run: |
-          for f in src/lib/data/cache/data.json src/lib/data/cache/energy-data.json src/lib/data/cache/bedutil.json; do
-            if [ -f "$f" ]; then
-              node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('$f','utf8')); fs.writeFileSync('$f',JSON.stringify(d));"
-            fi
-          done
 
       - name: Commit and push if changed
         id: commit
@@ -56,16 +56,29 @@ jobs:
             echo "No data changes"
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
+            # Only app-visible cache files warrant a deploy; ingest metadata
+            # (ingest-meta, vehicle-reg-counts, data-gaps) is committed silently.
+            if git diff --cached --name-only | grep -qE '^src/lib/data/cache/(data|energy-data|bedutil)\.json$'; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Only ingest metadata changed — skipping deploy"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
             git commit -m "chore(data): automated ingest $(date -u +%Y-%m-%d)"
             git push
-            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Deploy to Cloudflare Pages
         if: steps.commit.outputs.changed == 'true'
         run: |
           npx opennextjs-cloudflare build
-          npx opennextjs-cloudflare deploy > /dev/null 2>&1
+          npx opennextjs-cloudflare deploy
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Fail if any ingest step failed
+        if: steps.ingest.outcome == 'failure' || steps.energy.outcome == 'failure' || steps.bedutil.outcome == 'failure'
+        run: |
+          echo "ingest: ${{ steps.ingest.outcome }}, energy: ${{ steps.energy.outcome }}, bedutil: ${{ steps.bedutil.outcome }}"
+          exit 1

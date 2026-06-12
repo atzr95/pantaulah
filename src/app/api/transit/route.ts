@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
+import { cachedJson } from "@/lib/server/edge-cache";
 
 interface TransitVehicle {
   id: string;
@@ -69,10 +70,16 @@ async function fetchFeed(
 }
 
 export async function GET() {
-  const results = await Promise.all(FEEDS.map(fetchFeed));
-  const vehicles = results.flat();
+  const data = await cachedJson(
+    "transit:vehicles",
+    25,
+    async (): Promise<{ vehicles: TransitVehicle[]; time: number }> => {
+      const results = await Promise.all(FEEDS.map(fetchFeed));
+      return { vehicles: results.flat(), time: Date.now() };
+    }
+  );
 
-  return new NextResponse(JSON.stringify({ vehicles, time: Date.now() }), {
+  return new NextResponse(JSON.stringify(data), {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "public, max-age=15, stale-while-revalidate=30",

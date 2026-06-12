@@ -1,58 +1,78 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { subscribeFeedStatus, getFeedStatuses } from "@/lib/feed-status";
+import PillButton from "./pill-button";
 
 export interface CategoryConfig {
   key: string;
   label: string;
-  available: boolean;
 }
 
 export const CATEGORIES: CategoryConfig[] = [
-  { key: "economy", label: "ECONOMY", available: true },
-  { key: "crime", label: "CRIME & SAFETY", available: true },
-  { key: "health", label: "HEALTH", available: true },
-  { key: "transport", label: "TRANSPORT", available: true },
-  { key: "education", label: "EDUCATION", available: true },
-  { key: "energy", label: "ENERGY & WATER", available: true },
-  { key: "weather", label: "WEATHER", available: true },
-  { key: "media", label: "MEDIA", available: true },
+  { key: "economy", label: "ECONOMY" },
+  { key: "crime", label: "CRIME & SAFETY" },
+  { key: "health", label: "HEALTH" },
+  { key: "transport", label: "TRANSPORT" },
+  { key: "education", label: "EDUCATION" },
+  { key: "energy", label: "ENERGY & WATER" },
+  { key: "weather", label: "WEATHER" },
+  { key: "media", label: "MEDIA" },
 ];
 
-interface ApiStatus {
-  name: string;
-  color: string;
+function CategoryTabs({
+  selectedCategory,
+  onCategoryChange,
+}: {
+  selectedCategory: string;
+  onCategoryChange: (category: string) => void;
+}) {
+  return (
+    <>
+      {CATEGORIES.map((cat) => (
+        <PillButton
+          key={cat.key}
+          active={selectedCategory === cat.key}
+          onClick={() => onCategoryChange(cat.key)}
+        >
+          {cat.label}
+        </PillButton>
+      ))}
+    </>
+  );
 }
 
-const API_SOURCES: ApiStatus[] = [
-  { name: "DATA.GOV.MY", color: "var(--color-green)" },
-  { name: "BNM API", color: "var(--color-green)" },
-  { name: "OPEN-METEO", color: "var(--color-green)" },
-  { name: "ENERGY API", color: "var(--color-green)" },
-];
+const FEED_LABELS: Record<string, string> = {
+  ticker: "NEWS FEED",
+  rates: "RATES",
+  weather: "WEATHER",
+};
 
 interface TopBarProps {
   selectedCategory: string;
   onCategoryChange: (category: string) => void;
   lastSync: string;
+  syncStale?: boolean;
 }
 
 export default function TopBar({
   selectedCategory,
   onCategoryChange,
   lastSync,
+  syncStale,
 }: TopBarProps) {
   const [showApiPopover, setShowApiPopover] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const allHealthy = API_SOURCES.every(
-    (s) => s.color === "var(--color-green)"
+  const feedStatuses = useSyncExternalStore(
+    subscribeFeedStatus,
+    getFeedStatuses,
+    getFeedStatuses
   );
+  const feeds = [...feedStatuses.entries()];
+  const allHealthy = feeds.every(([, s]) => s.ok);
   const summaryColor = allHealthy ? "var(--color-green)" : "var(--color-amber)";
-  const healthyCount = API_SOURCES.filter(
-    (s) => s.color === "var(--color-green)"
-  ).length;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -93,25 +113,10 @@ export default function TopBar({
 
         {/* Category tabs — inline on large screens, wrap when needed */}
         <div className="hidden lg:flex flex-wrap gap-1 justify-end">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.key}
-              onClick={() => cat.available && onCategoryChange(cat.key)}
-              disabled={!cat.available}
-              className={`px-2.5 py-1 text-[10px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
-                selectedCategory === cat.key
-                  ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_10px_rgba(0,212,255,0.1)]"
-                  : cat.available
-                    ? "border-[rgba(0,212,255,0.25)] text-[var(--color-text-muted)] hover:border-[rgba(0,212,255,0.5)] hover:text-[var(--color-text)] cursor-pointer"
-                    : "border-[rgba(255,255,255,0.08)] text-[var(--color-text-dim)] opacity-40 cursor-not-allowed"
-              }`}
-            >
-              {cat.label}
-              {!cat.available && (
-                <span className="ml-1 text-[10px] opacity-60">SOON</span>
-              )}
-            </button>
-          ))}
+          <CategoryTabs
+            selectedCategory={selectedCategory}
+            onCategoryChange={onCategoryChange}
+          />
         </div>
 
         {/* System status */}
@@ -119,7 +124,9 @@ export default function TopBar({
           <div className="relative" ref={popoverRef}>
             <button
               onClick={() => setShowApiPopover((v) => !v)}
-              className="flex items-center gap-1.5 hover:text-[var(--color-text)] transition-colors cursor-pointer"
+              aria-expanded={showApiPopover}
+              aria-label="Feed status"
+              className="flex items-center gap-1.5 min-h-[44px] md:min-h-0 hover:text-[var(--color-text)] transition-colors cursor-pointer"
             >
               <span
                 className="inline-block w-1.5 h-1.5 rounded-full"
@@ -128,11 +135,7 @@ export default function TopBar({
                   boxShadow: `0 0 6px ${summaryColor}`,
                 }}
               />
-              <span>
-                {allHealthy
-                  ? "ALL SYSTEMS"
-                  : `${healthyCount}/${API_SOURCES.length} APIs`}
-              </span>
+              <span>{allHealthy ? "ALL SYSTEMS" : "DEGRADED"}</span>
               <svg
                 className={`w-2.5 h-2.5 opacity-50 transition-transform ${showApiPopover ? "rotate-180" : ""}`}
                 viewBox="0 0 10 6"
@@ -158,31 +161,55 @@ export default function TopBar({
                 }}
               >
                 <div className="text-[10px] tracking-[1.5px] text-[var(--color-text-dim)] mb-2">
-                  API STATUS
+                  FEED STATUS
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  {API_SOURCES.map((api) => (
-                    <div
-                      key={api.name}
-                      className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]"
-                    >
-                      <span
-                        className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{
-                          backgroundColor: api.color,
-                          boxShadow: `0 0 6px ${api.color}`,
-                        }}
-                      />
-                      {api.name}
+                  {feeds.length === 0 ? (
+                    <div className="text-[10px] text-[var(--color-text-dim)]">
+                      AWAITING FEEDS...
                     </div>
-                  ))}
+                  ) : (
+                    feeds.map(([feed, status]) => {
+                      const color = status.ok
+                        ? "var(--color-green)"
+                        : "var(--color-red)";
+                      return (
+                        <div
+                          key={feed}
+                          className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]"
+                        >
+                          <span
+                            className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{
+                              backgroundColor: color,
+                              boxShadow: `0 0 6px ${color}`,
+                            }}
+                          />
+                          {FEED_LABELS[feed] ?? feed.toUpperCase()}
+                          {!status.ok && (
+                            <span className="text-[var(--color-red)] ml-auto">
+                              OFFLINE
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-                <Link
-                  href="/about"
-                  className="block md:hidden mt-2 pt-2 border-t border-[rgba(0,212,255,0.1)] text-[10px] tracking-[1.5px] text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
-                >
-                  ABOUT PANTAULAH
-                </Link>
+                <div className="md:hidden mt-2 pt-2 border-t border-[var(--color-border)] flex flex-col gap-1.5">
+                  <div
+                    className={`text-[10px] tracking-[1.5px] ${syncStale ? "text-[var(--color-amber)]" : "text-[var(--color-text-muted)]"}`}
+                    title={syncStale ? "Cached data is more than 2 days old" : undefined}
+                  >
+                    SYNC: {lastSync}
+                  </div>
+                  <Link
+                    href="/about"
+                    className="text-[10px] tracking-[1.5px] text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
+                  >
+                    ABOUT PANTAULAH
+                  </Link>
+                </div>
               </div>
             )}
           </div>
@@ -190,7 +217,12 @@ export default function TopBar({
           <span className="text-[var(--color-text-dim)] opacity-50 hidden md:inline">
             |
           </span>
-          <span className="hidden md:inline">SYNC: {lastSync}</span>
+          <span
+            className={`hidden md:inline ${syncStale ? "text-[var(--color-amber)]" : ""}`}
+            title={syncStale ? "Cached data is more than 2 days old" : undefined}
+          >
+            SYNC: {lastSync}
+          </span>
           <span className="text-[var(--color-text-dim)] opacity-50 hidden md:inline">
             |
           </span>
@@ -206,27 +238,12 @@ export default function TopBar({
       {/* Bottom row: Category tabs on small/medium screens */}
       <div
         className="flex lg:hidden gap-1 px-3 pb-2 flex-wrap"
-        style={{ borderTop: "1px solid rgba(0, 212, 255, 0.07)" }}
+        style={{ borderTop: "1px solid var(--color-border-faint)" }}
       >
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.key}
-            onClick={() => cat.available && onCategoryChange(cat.key)}
-            disabled={!cat.available}
-            className={`px-2.5 py-1 text-[10px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
-              selectedCategory === cat.key
-                ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_10px_rgba(0,212,255,0.1)]"
-                : cat.available
-                  ? "border-[rgba(0,212,255,0.25)] text-[var(--color-text-muted)] hover:border-[rgba(0,212,255,0.5)] hover:text-[var(--color-text)] cursor-pointer"
-                  : "border-[rgba(255,255,255,0.08)] text-[var(--color-text-dim)] opacity-40 cursor-not-allowed"
-            }`}
-          >
-            {cat.label}
-            {!cat.available && (
-              <span className="ml-1 text-[10px] opacity-60">SOON</span>
-            )}
-          </button>
-        ))}
+        <CategoryTabs
+          selectedCategory={selectedCategory}
+          onCategoryChange={onCategoryChange}
+        />
       </div>
     </div>
   );

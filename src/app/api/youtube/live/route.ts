@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import {
+  cachedJson,
+  edgeGet,
+  edgePut,
+  runInBackground,
+} from "@/lib/server/edge-cache";
 
 
 interface LiveChannel {
@@ -21,66 +27,70 @@ const CHANNELS = [
   { name: "CNA", handle: "channelnewsasia", description: "Asia / World News" },
 ];
 
-// ── In-memory cache ──
-let cached: { body: string; time: number; ttl: number } | null = null;
-const CACHE_TTL_OK_MS = 5 * 60_000;
-const CACHE_TTL_EMPTY_MS = 2 * 60_000;
+// ── Cache config ──
+// Edge-cached (shared across isolates):
+//   - yt:live:response  → assembled response. 5 min when something is live, 2 min when not.
+//   - yt:channelMeta:*  → channelId + uploads playlist ID, 24h (effectively never changes).
+//   - yt:lastKnownLive  → handle → last-known-live videoId, 1h. Used for cheap
+//     re-verification so we don't re-pay 100-unit search.list every refresh.
+const RESPONSE_CACHE_KEY = "yt:live:response";
+const RESPONSE_TTL_OK = 300;
+const RESPONSE_TTL_EMPTY = 120;
+const CHANNEL_META_TTL = 86_400;
+const LAST_KNOWN_LIVE_KEY = "yt:lastKnownLive";
+const LAST_KNOWN_LIVE_TTL = 3_600;
 
 const UPLOADS_LOOKBACK = 50;
-
-// Per-isolate caches.
-//   - Channel handle → channelId + uploads playlist ID. Permanent (never changes).
-//   - Channel handle → last-known-live videoId. Used for cheap re-verification
-//     so we don't re-pay 100-unit search.list every refresh.
-const channelMetaCache = new Map<
-  string,
-  { channelId: string; uploadsPlaylistId: string } | null
->();
-const lastKnownLiveCache = new Map<string, string>();
 
 async function resolveChannelMeta(
   handle: string,
   apiKey: string
 ): Promise<{ channelId: string; uploadsPlaylistId: string } | null> {
-  if (channelMetaCache.has(handle)) return channelMetaCache.get(handle)!;
-
-  const url = new URL("https://www.googleapis.com/youtube/v3/channels");
-  url.searchParams.set("part", "id,contentDetails");
-  url.searchParams.set("forHandle", handle);
-  url.searchParams.set("key", apiKey);
-
   try {
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-      console.error(`channels.list failed for @${handle}:`, await res.text());
-      channelMetaCache.set(handle, null);
-      return null;
-    }
-    const json = (await res.json()) as {
-      items?: Array<{
-        id: string;
-        contentDetails?: { relatedPlaylists?: { uploads?: string } };
-      }>;
-    };
-    const item = json.items?.[0];
-    const uploads = item?.contentDetails?.relatedPlaylists?.uploads;
-    const meta =
-      item?.id && uploads
+    return await cachedJson<{
+      channelId: string;
+      uploadsPlaylistId: string;
+    } | null>(`yt:channelMeta:${handle}`, CHANNEL_META_TTL, async () => {
+      const url = new URL("https://www.googleapis.com/youtube/v3/channels");
+      url.searchParams.set("part", "id,contentDetails");
+      url.searchParams.set("forHandle", handle);
+      url.searchParams.set("key", apiKey);
+
+      const res = await fetch(url.toString(), {
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) {
+        // API failure — throw so it's never cached as "no such channel"
+        console.error(`channels.list failed for @${handle}:`, await res.text());
+        throw new Error(`channels.list ${res.status}`);
+      }
+      const json = (await res.json()) as {
+        items?: Array<{
+          id: string;
+          contentDetails?: { relatedPlaylists?: { uploads?: string } };
+        }>;
+      };
+      const item = json.items?.[0];
+      const uploads = item?.contentDetails?.relatedPlaylists?.uploads;
+      return item?.id && uploads
         ? { channelId: item.id, uploadsPlaylistId: uploads }
         : null;
-    channelMetaCache.set(handle, meta);
-    return meta;
+    });
   } catch (err) {
     console.error(`channels.list error for @${handle}:`, err);
     return null;
   }
 }
 
-/** Batch-check which of the given video IDs are currently live. 1 quota unit. */
+/**
+ * Batch-check which of the given video IDs are currently live. 1 quota unit.
+ * Returns null when the API call itself failed (vs. "none of these are live"),
+ * so callers can avoid evicting cached IDs on transient errors.
+ */
 async function checkLiveBatch(
   videoIds: string[],
   apiKey: string
-): Promise<Set<string>> {
+): Promise<Set<string> | null> {
   if (videoIds.length === 0) return new Set();
 
   const url = new URL("https://www.googleapis.com/youtube/v3/videos");
@@ -90,10 +100,12 @@ async function checkLiveBatch(
   url.searchParams.set("key", apiKey);
 
   try {
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(8_000),
+    });
     if (!res.ok) {
       console.error("videos.list (live check) failed:", await res.text());
-      return new Set();
+      return null;
     }
     const json = (await res.json()) as {
       items?: Array<{
@@ -108,7 +120,7 @@ async function checkLiveBatch(
     );
   } catch (err) {
     console.error("videos.list (live check) error:", err);
-    return new Set();
+    return null;
   }
 }
 
@@ -124,7 +136,9 @@ async function findLiveInRecentUploads(
   itemsUrl.searchParams.set("key", apiKey);
 
   try {
-    const res = await fetch(itemsUrl.toString());
+    const res = await fetch(itemsUrl.toString(), {
+      signal: AbortSignal.timeout(8_000),
+    });
     if (!res.ok) return null;
     const json = (await res.json()) as {
       items?: Array<{ contentDetails: { videoId: string } }>;
@@ -132,6 +146,7 @@ async function findLiveInRecentUploads(
     const ids = (json.items ?? []).map((it) => it.contentDetails.videoId);
     if (ids.length === 0) return null;
     const live = await checkLiveBatch(ids, apiKey);
+    if (!live) return null;
     return ids.find((id) => live.has(id)) ?? null;
   } catch (err) {
     console.error(`playlistItems.list error for ${uploadsPlaylistId}:`, err);
@@ -153,7 +168,9 @@ async function searchLiveVideoId(
   url.searchParams.set("key", apiKey);
 
   try {
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(8_000),
+    });
     if (!res.ok) {
       console.error(`search.list (live) failed for ${channelId}:`, await res.text());
       return null;
@@ -194,44 +211,49 @@ export async function GET() {
     );
   }
 
-  if (cached && Date.now() - cached.time < cached.ttl) {
-    return new NextResponse(cached.body, {
+  const cachedData = await edgeGet<LiveResponse>(RESPONSE_CACHE_KEY);
+  if (cachedData) {
+    const anyLive = cachedData.channels.some((c) => c.videoId);
+    return new NextResponse(JSON.stringify(cachedData), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": cached.ttl === CACHE_TTL_OK_MS
+        "Cache-Control": anyLive
           ? "public, max-age=120, stale-while-revalidate=300"
           : "public, max-age=60, stale-while-revalidate=120",
       },
     });
   }
 
-  // Step 1 — batch-verify all cached video IDs in a single 1-unit call.
-  const cachedPairs = CHANNELS.map((ch) => ({
-    handle: ch.handle,
-    videoId: lastKnownLiveCache.get(ch.handle),
-  })).filter((p): p is { handle: string; videoId: string } => !!p.videoId);
+  const lastKnownLive =
+    (await edgeGet<Record<string, string>>(LAST_KNOWN_LIVE_KEY)) ?? {};
 
-  const stillLive = await checkLiveBatch(
-    cachedPairs.map((p) => p.videoId),
-    apiKey
+  // Step 1 — batch-verify all cached video IDs in a single 1-unit call.
+  const cachedIds = CHANNELS.map((ch) => lastKnownLive[ch.handle]).filter(
+    (id): id is string => !!id
   );
+  const stillLive = await checkLiveBatch(cachedIds, apiKey);
 
   // Step 2 — for channels with no valid cached ID, discover via cheap → expensive paths.
   const results = await Promise.all(
     CHANNELS.map(async (ch) => {
-      const cachedVid = lastKnownLiveCache.get(ch.handle);
-      if (cachedVid && stillLive.has(cachedVid)) {
-        return {
-          name: ch.name,
-          handle: ch.handle,
-          description: ch.description,
-          videoId: cachedVid,
-        };
+      const cachedVid = lastKnownLive[ch.handle];
+      if (cachedVid) {
+        // Live check failed (vs. "not live") — keep the cached ID rather than
+        // evicting and re-paying discovery over a transient error.
+        if (stillLive === null || stillLive.has(cachedVid)) {
+          return {
+            name: ch.name,
+            handle: ch.handle,
+            description: ch.description,
+            videoId: cachedVid,
+          };
+        }
+        // API explicitly said this video is no longer live.
+        delete lastKnownLive[ch.handle];
       }
 
       const videoId = await discoverLiveForChannel(ch.handle, apiKey);
-      if (videoId) lastKnownLiveCache.set(ch.handle, videoId);
-      else lastKnownLiveCache.delete(ch.handle);
+      if (videoId) lastKnownLive[ch.handle] = videoId;
 
       return {
         name: ch.name,
@@ -248,11 +270,18 @@ export async function GET() {
   };
 
   const hasAnyLive = results.some((r) => r.videoId);
-  const ttl = hasAnyLive ? CACHE_TTL_OK_MS : CACHE_TTL_EMPTY_MS;
-  const body = JSON.stringify(data);
-  cached = { body, time: Date.now(), ttl };
+  runInBackground(
+    edgePut(LAST_KNOWN_LIVE_KEY, lastKnownLive, LAST_KNOWN_LIVE_TTL)
+  );
+  runInBackground(
+    edgePut(
+      RESPONSE_CACHE_KEY,
+      data,
+      hasAnyLive ? RESPONSE_TTL_OK : RESPONSE_TTL_EMPTY
+    )
+  );
 
-  return new NextResponse(body, {
+  return new NextResponse(JSON.stringify(data), {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": hasAnyLive

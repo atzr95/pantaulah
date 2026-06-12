@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef, useTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import LoadingScreen from "@/components/ui/loading-screen";
@@ -13,8 +13,6 @@ import { StateBriefPeek, StateBriefContent } from "@/components/sidebar/state-br
 import NewsTicker from "@/components/ticker/news-ticker";
 import MobileRatesBar from "@/components/ticker/mobile-rates-bar";
 import BottomSheet from "@/components/ui/bottom-sheet";
-import WeatherView from "@/components/weather/weather-view";
-import MediaView from "@/components/media/media-view";
 import type { MetricKey, CacheData } from "@/lib/data/types";
 import { CATEGORY_METRICS } from "@/lib/data/choropleth";
 
@@ -23,6 +21,24 @@ const MalaysiaMap = dynamic(() => import("@/components/map/malaysia-map"), {
   loading: () => (
     <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
       LOADING MAP...
+    </div>
+  ),
+});
+
+const WeatherView = dynamic(() => import("@/components/weather/weather-view"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
+      LOADING WEATHER SYSTEMS...
+    </div>
+  ),
+});
+
+const MediaView = dynamic(() => import("@/components/media/media-view"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
+      LOADING MEDIA FEEDS...
     </div>
   ),
 });
@@ -46,6 +62,103 @@ const VALID_CATEGORIES = new Set([
   "weather",
   "media",
 ]);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mergeCacheData(mainMod: { default: unknown }, energyMod: { default: any } | null): CacheData {
+  const cacheData = mainMod.default as unknown as CacheData;
+
+  // Merge energy data into main cache if available
+  if (energyMod) {
+    const energyData = energyMod.default;
+    cacheData.energy = energyData;
+
+    // Inject energy metrics into state year data for choropleth
+    if (energyData.electricityTotal) {
+      for (const [state, years] of Object.entries(energyData.electricityTotal)) {
+        if (cacheData.states[state]) {
+          for (const [yearStr, metric] of Object.entries(years as Record<string, { value: number; year: number; change?: number }>)) {
+            const year = Number(yearStr);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const stateYears = (cacheData.states[state] as any).years;
+            if (!stateYears[year]) stateYears[year] = {};
+            stateYears[year].electricityConsumption = metric;
+          }
+        }
+      }
+    }
+
+    // Inject water metrics (state-level)
+    for (const [metricKey, dataKey] of [
+      ["waterConsumption", "waterConsumption"],
+      ["waterProduction", "waterProduction"],
+      ["waterAccess", "waterAccess"],
+    ] as const) {
+      const waterData = energyData[dataKey];
+      if (!waterData) continue;
+      for (const [state, years] of Object.entries(waterData)) {
+        if (!cacheData.states[state]) continue;
+        for (const [yearStr, val] of Object.entries(years as Record<string, number | { total: number }>)) {
+          const year = Number(yearStr);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const stateYears = (cacheData.states[state] as any).years;
+          if (!stateYears[year]) stateYears[year] = {};
+          const value = typeof val === "object" ? val.total : val;
+          stateYears[year][metricKey] = { value, year };
+        }
+      }
+    }
+
+    // Inject national totals into national.years
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const natYears = (cacheData.national as any).years;
+
+    // National electricity: sum from nationalConsumptionBySector (already in GWh)
+    if (energyData.nationalConsumptionBySector) {
+      for (const [yearStr, sectors] of Object.entries(energyData.nationalConsumptionBySector as Record<string, Record<string, number>>)) {
+        const year = Number(yearStr);
+        if (!natYears[year]) natYears[year] = {};
+        const total = Object.values(sectors).reduce((s: number, v: number) => s + v, 0);
+        natYears[year].electricityConsumption = { value: Math.round(total * 100) / 100, year };
+      }
+    }
+
+    // National water: sum all states per year
+    for (const metricKey of ["waterConsumption", "waterProduction", "waterAccess"] as const) {
+      const wd = energyData[metricKey];
+      if (!wd) continue;
+      const yearTotals: Record<number, { sum: number; count: number }> = {};
+      for (const years of Object.values(wd) as Array<Record<string, number | { total: number }>>) {
+        for (const [yearStr, val] of Object.entries(years)) {
+          const year = Number(yearStr);
+          const value = typeof val === "object" ? val.total : val;
+          if (!yearTotals[year]) yearTotals[year] = { sum: 0, count: 0 };
+          yearTotals[year].sum += value;
+          yearTotals[year].count += 1;
+        }
+      }
+      for (const [yearStr, { sum, count }] of Object.entries(yearTotals)) {
+        const year = Number(yearStr);
+        if (!natYears[year]) natYears[year] = {};
+        // For waterAccess use average %, for others use sum
+        const value = metricKey === "waterAccess"
+          ? Math.round((sum / count) * 10) / 10
+          : Math.round(sum * 100) / 100;
+        natYears[year][metricKey] = { value, year };
+      }
+    }
+  }
+
+  return cacheData;
+}
+
+// Module scope: the JSON chunks start downloading as soon as this chunk
+// evaluates, in parallel with hydration, instead of after the first effect.
+const cacheDataPromise: Promise<CacheData> = Promise.all([
+  import("@/lib/data/cache/data.json"),
+  import("@/lib/data/cache/energy-data.json").catch(() => null),
+]).then(([mainMod, energyMod]) => mergeCacheData(mainMod, energyMod));
+// Defer rejection handling to the consumer in Home; avoid unhandled-rejection noise.
+cacheDataPromise.catch(() => {});
 
 export default function Page() {
   return (
@@ -80,6 +193,7 @@ function Home() {
     return false;
   });
   const [data, setData] = useState<CacheData | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>(initialMetric);
@@ -87,6 +201,7 @@ function Home() {
   const [sheetSnap, setSheetSnap] = useState<"peek" | "half" | "full">("half");
   const [transitZoomed, setTransitZoomed] = useState(false);
   const bedUtilFetched = useRef(false);
+  const [, startTransition] = useTransition();
 
   // Sync state changes to URL search params
   const updateURL = useCallback(
@@ -101,10 +216,13 @@ function Home() {
     [router]
   );
 
-  // When metric changes, sync to URL
+  // When metric changes, sync to URL. The choropleth recompute is heavy, so
+  // mark it as a transition to keep the toggle buttons responsive.
   const handleMetricChange = useCallback(
     (metric: MetricKey) => {
-      setSelectedMetric(metric);
+      startTransition(() => {
+        setSelectedMetric(metric);
+      });
       updateURL(selectedCategory, metric);
     },
     [updateURL, selectedCategory]
@@ -112,11 +230,13 @@ function Home() {
 
   // When category changes, switch to first metric in that category
   const handleCategoryChange = useCallback((category: string) => {
-    setSelectedCategory(category);
     const metrics = CATEGORY_METRICS[category];
     const firstMetric = metrics?.[0]?.key;
+    startTransition(() => {
+      setSelectedCategory(category);
+      if (firstMetric) setSelectedMetric(firstMetric);
+    });
     if (firstMetric) {
-      setSelectedMetric(firstMetric);
       updateURL(category, firstMetric);
     } else {
       updateURL(category);
@@ -187,98 +307,19 @@ function Home() {
   }, [selectedMetric, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    Promise.all([
-      import("@/lib/data/cache/data.json"),
-      import("@/lib/data/cache/energy-data.json").catch(() => null),
-    ]).then(([mainMod, energyMod]) => {
-      const cacheData = mainMod.default as unknown as CacheData;
-
-      // Merge energy data into main cache if available
-      if (energyMod) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const energyData = energyMod.default as any;
-        cacheData.energy = energyData;
-
-        // Inject energy metrics into state year data for choropleth
-        if (energyData.electricityTotal) {
-          for (const [state, years] of Object.entries(energyData.electricityTotal)) {
-            if (cacheData.states[state]) {
-              for (const [yearStr, metric] of Object.entries(years as Record<string, { value: number; year: number; change?: number }>)) {
-                const year = Number(yearStr);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const stateYears = (cacheData.states[state] as any).years;
-                if (!stateYears[year]) stateYears[year] = {};
-                stateYears[year].electricityConsumption = metric;
-              }
-            }
-          }
-        }
-
-        // Inject water metrics (state-level)
-        for (const [metricKey, dataKey] of [
-          ["waterConsumption", "waterConsumption"],
-          ["waterProduction", "waterProduction"],
-          ["waterAccess", "waterAccess"],
-        ] as const) {
-          const waterData = energyData[dataKey];
-          if (!waterData) continue;
-          for (const [state, years] of Object.entries(waterData)) {
-            if (!cacheData.states[state]) continue;
-            for (const [yearStr, val] of Object.entries(years as Record<string, number | { total: number }>)) {
-              const year = Number(yearStr);
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const stateYears = (cacheData.states[state] as any).years;
-              if (!stateYears[year]) stateYears[year] = {};
-              const value = typeof val === "object" ? val.total : val;
-              stateYears[year][metricKey] = { value, year };
-            }
-          }
-        }
-
-        // Inject national totals into national.years
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const natYears = (cacheData.national as any).years;
-
-        // National electricity: sum from nationalConsumptionBySector (already in GWh)
-        if (energyData.nationalConsumptionBySector) {
-          for (const [yearStr, sectors] of Object.entries(energyData.nationalConsumptionBySector as Record<string, Record<string, number>>)) {
-            const year = Number(yearStr);
-            if (!natYears[year]) natYears[year] = {};
-            const total = Object.values(sectors).reduce((s: number, v: number) => s + v, 0);
-            natYears[year].electricityConsumption = { value: Math.round(total * 100) / 100, year };
-          }
-        }
-
-
-        // National water: sum all states per year
-        for (const metricKey of ["waterConsumption", "waterProduction", "waterAccess"] as const) {
-          const wd = energyData[metricKey];
-          if (!wd) continue;
-          const yearTotals: Record<number, { sum: number; count: number }> = {};
-          for (const years of Object.values(wd) as Array<Record<string, number | { total: number }>>) {
-            for (const [yearStr, val] of Object.entries(years)) {
-              const year = Number(yearStr);
-              const value = typeof val === "object" ? val.total : val;
-              if (!yearTotals[year]) yearTotals[year] = { sum: 0, count: 0 };
-              yearTotals[year].sum += value;
-              yearTotals[year].count += 1;
-            }
-          }
-          for (const [yearStr, { sum, count }] of Object.entries(yearTotals)) {
-            const year = Number(yearStr);
-            if (!natYears[year]) natYears[year] = {};
-            // For waterAccess use average %, for others use sum
-            const value = metricKey === "waterAccess"
-              ? Math.round((sum / count) * 10) / 10
-              : Math.round(sum * 100) / 100;
-            natYears[year][metricKey] = { value, year };
-          }
-        }
-      }
-
-      setData(cacheData);
-      setSelectedYear(findBestYear(cacheData, "population"));
-    });
+    let cancelled = false;
+    cacheDataPromise
+      .then((cacheData) => {
+        if (cancelled) return;
+        setData(cacheData);
+        setSelectedYear(findBestYear(cacheData, "population"));
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleBootComplete = useCallback(() => {
@@ -289,19 +330,42 @@ function Home() {
   if (!data) {
     return (
       <main className="h-screen bg-[var(--color-bg)] flex items-center justify-center">
-        <div className="text-[var(--color-text-dim)] text-xs tracking-wider">
-          AWAITING DATA SYNC...
-        </div>
+        {loadFailed ? (
+          <div className="flex flex-col items-center gap-3">
+            <div className="text-[var(--color-amber)] text-xs tracking-wider">
+              DATA SYNC FAILED
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-[var(--color-cyan)] text-xs tracking-[2px] border border-[rgba(0,212,255,0.3)] px-4 py-2 hover:bg-[rgba(0,212,255,0.08)] transition-colors"
+            >
+              RELOAD
+            </button>
+          </div>
+        ) : (
+          <div className="text-[var(--color-text-dim)] text-xs tracking-wider">
+            AWAITING DATA SYNC...
+          </div>
+        )}
       </main>
     );
   }
 
-  const lastSync = new Date(data.fetchedAt).toLocaleTimeString("en-MY", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
+  const fetchedDate = new Date(data.fetchedAt);
+  const syncAgeDays = (Date.now() - fetchedDate.getTime()) / 86_400_000;
+  // Same-day data shows the time; older data shows its date so users see
+  // exactly how fresh the snapshot is.
+  const lastSync =
+    syncAgeDays < 1
+      ? fetchedDate.toLocaleTimeString("en-MY", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }) + " MYT"
+      : fetchedDate
+          .toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric" })
+          .toUpperCase();
 
   return (
     <main className="h-screen bg-[var(--color-bg)] scan-lines grid-bg flex flex-col overflow-hidden">
@@ -310,7 +374,8 @@ function Home() {
       <TopBar
         selectedCategory={selectedCategory}
         onCategoryChange={handleCategoryChange}
-        lastSync={lastSync + " MYT"}
+        lastSync={lastSync}
+        syncStale={syncAgeDays > 2}
       />
 
       {selectedCategory === "weather" ? (

@@ -9,6 +9,7 @@ import {
   fetchFloodAlerts,
 } from "@/lib/data/data-gov-weather";
 import type { WeatherData } from "@/lib/data/weather-types";
+import { cachedJson } from "@/lib/server/edge-cache";
 
 /**
  * Weather API route.
@@ -25,58 +26,49 @@ const RADAR_IMAGES = {
   swirl: "https://api.met.gov.my/static/images/swirl-latest.gif",
 };
 
-// ── In-memory cache (avoids re-fetching on rapid requests) ──
-let cached: { body: string; time: number } | null = null;
-const CACHE_TTL_MS = 5 * 60_000; // 5 minutes
+const CACHE_TTL_SECONDS = 600; // 10 minutes
 
 export async function GET() {
-  // Serve from cache if fresh
-  if (cached && Date.now() - cached.time < CACHE_TTL_MS) {
-    return new NextResponse(cached.body, {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=120, stale-while-revalidate=300",
-      },
-    });
-  }
+  const data = await cachedJson<WeatherData>(
+    "weather:data",
+    CACHE_TTL_SECONDS,
+    async () => {
+      // Fetch all endpoints in parallel; each settles independently
+      const [forecastResult, warningResult, earthquakeResult, airQualityResult, floodResult] =
+        await Promise.allSettled([
+          fetchForecasts(),
+          fetchWarnings(),
+          fetchEarthquakes(),
+          fetchAirQuality(),
+          fetchFloodAlerts(),
+        ]);
 
-  // Fetch all endpoints in parallel; each settles independently
-  const [forecastResult, warningResult, earthquakeResult, airQualityResult, floodResult] =
-    await Promise.allSettled([
-      fetchForecasts(),
-      fetchWarnings(),
-      fetchEarthquakes(),
-      fetchAirQuality(),
-      fetchFloodAlerts(),
-    ]);
+      return {
+        forecasts:
+          forecastResult.status === "fulfilled" ? forecastResult.value : [],
+        warnings:
+          warningResult.status === "fulfilled" ? warningResult.value : [],
+        earthquakes:
+          earthquakeResult.status === "fulfilled" ? earthquakeResult.value : [],
+        marineForecast: [],
+        floodAlerts:
+          floodResult.status === "fulfilled"
+            ? floodResult.value
+            : { stations: [], fetchedAt: new Date().toISOString() },
+        airQuality:
+          airQualityResult.status === "fulfilled"
+            ? airQualityResult.value
+            : { readings: [], fetchedAt: new Date().toISOString() },
+        radar: {
+          ...RADAR_IMAGES,
+          updatedAt: new Date().toISOString(),
+        },
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+  );
 
-  const data: WeatherData = {
-    forecasts:
-      forecastResult.status === "fulfilled" ? forecastResult.value : [],
-    warnings:
-      warningResult.status === "fulfilled" ? warningResult.value : [],
-    earthquakes:
-      earthquakeResult.status === "fulfilled" ? earthquakeResult.value : [],
-    marineForecast: [],
-    floodAlerts:
-      floodResult.status === "fulfilled"
-        ? floodResult.value
-        : { stations: [], fetchedAt: new Date().toISOString() },
-    airQuality:
-      airQualityResult.status === "fulfilled"
-        ? airQualityResult.value
-        : { readings: [], fetchedAt: new Date().toISOString() },
-    radar: {
-      ...RADAR_IMAGES,
-      updatedAt: new Date().toISOString(),
-    },
-    fetchedAt: new Date().toISOString(),
-  };
-
-  const body = JSON.stringify(data);
-  cached = { body, time: Date.now() };
-
-  return new NextResponse(body, {
+  return new NextResponse(JSON.stringify(data), {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "public, max-age=120, stale-while-revalidate=300",

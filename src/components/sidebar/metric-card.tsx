@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
-import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import type { SparklinePoint } from "@/lib/data/types";
 
 interface MetricCardProps {
@@ -13,9 +12,40 @@ interface MetricCardProps {
   sparklineData?: SparklinePoint[];
   sparklineColor?: string;
   description?: string;
+  /** Vintage tag (e.g. "'22") shown when the displayed value is from an older year */
+  vintage?: string;
 }
 
-function MetricTooltip({ description, anchorRef }: { description: string; anchorRef: React.RefObject<HTMLSpanElement | null> }) {
+function Sparkline({ data, color }: { data: SparklinePoint[]; color: string }) {
+  const gradientId = useId();
+  const w = 100;
+  const h = 24;
+  const pad = 2;
+  const values = data.map((d) => d.value);
+  const min = Math.min(...values);
+  const range = Math.max(...values) - min || 1;
+  const pts = data.map((d, i) => [
+    (i / (data.length - 1)) * w,
+    h - pad - ((d.value - min) / range) * (h - pad * 2),
+  ]);
+  const line = pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
+  const area = `M${pts[0][0].toFixed(2)},${h} L${line.split(" ").join(" L")} L${pts[pts.length - 1][0].toFixed(2)},${h} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block w-full h-full" aria-hidden="true">
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gradientId})`} />
+      <polyline points={line} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+function MetricTooltip({ description, anchorRef }: { description: string; anchorRef: React.RefObject<HTMLElement | null> }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
@@ -61,9 +91,10 @@ export default function MetricCard({
   sparklineData,
   sparklineColor = "rgba(0, 212, 255, 0.4)",
   description,
+  vintage,
 }: MetricCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
-  const iconRef = useRef<HTMLSpanElement>(null);
+  const iconRef = useRef<HTMLButtonElement>(null);
   const changeIsNegative = change?.startsWith("-") || change?.includes("down");
   const changeColor = isAlert
     ? "var(--color-red)"
@@ -78,47 +109,44 @@ export default function MetricCard({
       >
         {label}
         {description && (
-          <span
+          <button
+            type="button"
             ref={iconRef}
-            className="relative inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-[rgba(0,212,255,0.3)] text-[10px] text-[var(--color-text-dim)] cursor-help shrink-0 leading-none"
+            aria-label={`About ${label}`}
+            aria-expanded={showTooltip}
+            className="relative inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-[var(--color-border-bright)] text-[10px] text-[var(--color-text-dim)] cursor-help shrink-0 leading-none before:absolute before:-inset-2 before:content-['']"
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
+            onFocus={() => setShowTooltip(true)}
+            onBlur={() => setShowTooltip(false)}
+            onClick={() => setShowTooltip(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setShowTooltip(false);
+            }}
           >
             ?
             {showTooltip && <MetricTooltip description={description} anchorRef={iconRef} />}
-          </span>
+          </button>
         )}
       </div>
       <div
         className={`text-xl font-bold ${isAlert ? "text-[var(--color-amber)]" : "text-[var(--color-text-bright)]"}`}
       >
         {value}
+        {vintage && (
+          <span className="ml-1.5 text-[10px] font-normal tracking-[1px] text-[var(--color-text-dim)] align-middle">
+            {vintage}
+          </span>
+        )}
       </div>
       {change && (
         <div className="text-[10px] mt-0.5" style={{ color: changeColor }}>
-          {change}
+          <span aria-hidden="true">{changeIsNegative ? "▼" : "▲"}</span> {change}
         </div>
       )}
       {sparklineData && sparklineData.length >= 3 && (
         <div className="mt-2 h-6">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sparklineData}>
-              <defs>
-                <linearGradient id={`grad-${label}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={sparklineColor} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={sparklineColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={sparklineColor}
-                strokeWidth={1.5}
-                fill={`url(#grad-${label})`}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <Sparkline data={sparklineData} color={sparklineColor} />
         </div>
       )}
     </div>

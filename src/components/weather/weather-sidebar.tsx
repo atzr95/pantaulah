@@ -9,6 +9,7 @@ import type {
   FloodAlertData,
 } from "@/lib/data/weather-types";
 import { getAirQualityColor, getFloodAlertSeverity, getFloodTrendIcon } from "@/lib/data/weather-types";
+import EmptyState from "@/components/ui/empty-state";
 
 function getWeatherIcon(forecast: string): string {
   const f = forecast.toLowerCase();
@@ -209,13 +210,11 @@ export default function WeatherSidebar({
           </div>
         </div>
       ) : !selectedState ? (
-        <div className="px-4 py-6 border-b border-[var(--color-border)] text-center">
-          <div className="text-[var(--color-text-dim)] text-sm mb-1">
-            {"\u{1F321}\uFE0F"}
-          </div>
-          <div className="text-[10px] text-[var(--color-text-dim)]">
-            Click a state to view its 3-day forecast
-          </div>
+        <div className="px-4 py-4 border-b border-[var(--color-border)]">
+          <EmptyState
+            icon={"\u{1F321}\uFE0F"}
+            title="Click a state to view its 3-day forecast"
+          />
         </div>
       ) : null}
 
@@ -327,17 +326,11 @@ export default function WeatherSidebar({
 
         {(selectedState ? stateWarnings : activeWarnings).length === 0 ? (
           <div className="px-4 pb-4">
-            <div
-              className="border border-[var(--color-border)] rounded-sm p-4 text-center"
-              style={{ background: "rgba(13, 13, 20, 0.8)" }}
-            >
-              <div className="text-[var(--color-green)] text-sm mb-0.5">
-                {"\u2713"} ALL CLEAR
-              </div>
-              <div className="text-[10px] text-[var(--color-text-dim)]">
-                No active warnings{selectedState ? ` for ${selectedState}` : ""}
-              </div>
-            </div>
+            <EmptyState
+              tone="positive"
+              title={"\u2713 ALL CLEAR"}
+              detail={`No active warnings${selectedState ? ` for ${selectedState}` : ""}`}
+            />
           </div>
         ) : (
           <div className="px-4 pb-4 space-y-2">
@@ -350,7 +343,6 @@ export default function WeatherSidebar({
                   style={{
                     background: "rgba(13, 13, 20, 0.8)",
                     borderColor: severityColor,
-                    borderLeftWidth: "3px",
                   }}
                 >
                   <div className="flex items-center gap-2 mb-1.5">
@@ -379,7 +371,7 @@ export default function WeatherSidebar({
                       className="text-[10px] p-1.5 rounded-sm mb-2"
                       style={{
                         background: `${severityColor}08`,
-                        borderLeft: `2px solid ${severityColor}60`,
+                        border: `1px solid ${severityColor}40`,
                         color: "var(--color-text)",
                       }}
                     >
@@ -446,17 +438,11 @@ export default function WeatherSidebar({
 
             {stateFloodAlerts.length === 0 ? (
               <div className="px-4 pb-4">
-                <div
-                  className="border border-[var(--color-border)] rounded-sm p-4 text-center"
-                  style={{ background: "rgba(13, 13, 20, 0.8)" }}
-                >
-                  <div className="text-[var(--color-green)] text-sm mb-0.5">
-                    {"\u2713"} ALL CLEAR
-                  </div>
-                  <div className="text-[10px] text-[var(--color-text-dim)]">
-                    No flood alerts{selectedState ? ` for ${selectedState}` : ""}
-                  </div>
-                </div>
+                <EmptyState
+                  tone="positive"
+                  title={"\u2713 ALL CLEAR"}
+                  detail={`No flood alerts${selectedState ? ` for ${selectedState}` : ""}`}
+                />
               </div>
             ) : (
               <div className="px-4 pb-4 space-y-2">

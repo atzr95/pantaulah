@@ -4,8 +4,12 @@
   --color-bg: #0a0a0f;
   --color-bg-panel: #0d0d14;
   --color-bg-card: #111118;
+  /* Border tiers — use these three instead of ad-hoc rgba(0,212,255,x) opacities */
+  --color-border-faint: rgba(0, 212, 255, 0.08);
   --color-border: rgba(0, 212, 255, 0.1);
+  --color-border-mid: rgba(0, 212, 255, 0.2);
   --color-border-bright: rgba(0, 212, 255, 0.3);
+  --color-border-hover: rgba(0, 212, 255, 0.5);
   --color-cyan: #00d4ff;
   --color-amber: #ff9500;
   --color-text: #dce1e8;
@@ -14,6 +18,11 @@
   --color-text-bright: #f4f5f7;
   --color-green: #22c55e;
   --color-red: #ef4444;
+  /* Map marker (POI) colors — keep in sync with POI_COLORS in src/lib/ui/colors.ts */
+  --color-poi-airport: #ff9f43;
+  --color-poi-flight: #ff6b6b;
+  --color-poi-train: #e879f9;
+  --color-poi-bus: #fb923c;
 }
 
 body {
@@ -63,19 +72,42 @@ body {
   border-radius: 50%;
 }
 
-/* Remove default focus outline on all SVG elements */
+/* Type tiers — micro-type stays within these three sizes (floor: 9px) */
+.type-label {
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+.type-meta {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+}
+.type-fine {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+/* Focus: invisible for pointer interaction, clearly visible for keyboard */
 svg:focus,
-svg:focus-visible,
-svg *:focus,
-svg *:focus-visible,
-.recharts-wrapper:focus,
-.recharts-wrapper:focus-visible,
-.recharts-surface:focus,
-.recharts-surface:focus-visible {
-  outline: none !important;
-  outline-offset: 0 !important;
-  box-shadow: none !important;
-  -webkit-focus-ring-color: transparent;
+svg *:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Keyboard focus on interactive SVG shapes (map states, markers) */
+svg [role="button"]:focus-visible,
+svg [tabindex]:focus-visible {
+  outline: none;
+  stroke: var(--color-cyan);
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 0 4px rgba(0, 212, 255, 0.7));
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+[role="button"]:focus-visible {
+  outline: 1px solid var(--color-cyan);
+  outline-offset: 2px;
 }
 
 /* Scrollbar */
@@ -122,4 +154,20 @@ svg *:focus-visible,
 
 .blink-cursor {
   animation: cursor-blink 1s infinite;
+}
+
+/* Reduced motion: stop looping/decorative animations; keep state feedback instant */
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot,
+  .ticker-animate,
+  .blink-cursor {
+    animation: none;
+  }
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

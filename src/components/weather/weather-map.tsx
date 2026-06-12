@@ -148,6 +148,13 @@ export default function WeatherMap({
 
   const overlay = (
     <>
+      {Object.keys(stateForecastMap).length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="text-[var(--color-text-dim)] text-xs tracking-wider">
+            AWAITING FORECAST DATA...
+          </span>
+        </div>
+      )}
       {hoveredState && (() => {
         const forecast = stateForecastMap[hoveredState];
         return (

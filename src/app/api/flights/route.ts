@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cachedJson } from "@/lib/server/edge-cache";
 
 
 /** ICAO airline code → name lookup for common airlines in Malaysia airspace */
@@ -121,59 +122,58 @@ function parseOpenSky(states: unknown[][]): Flight[] {
     });
 }
 
-/** Try OpenSky first (better coverage), fall back to adsb.lol */
-export async function GET() {
-  // Try OpenSky first — works from residential IPs (localhost)
-  try {
-    const res = await fetch(OPENSKY_URL, {
-      signal: AbortSignal.timeout(10_000),
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) throw new Error(`OpenSky ${res.status}`);
+/** OpenSky — works from residential IPs (localhost) but not cloud. Throws on empty. */
+async function fetchOpenSky(): Promise<{ flights: Flight[]; time: number }> {
+  const res = await fetch(OPENSKY_URL, {
+    signal: AbortSignal.timeout(3_000),
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`OpenSky ${res.status}`);
 
-    const data = await res.json();
-    const flights = parseOpenSky(data.states || []);
-    if (flights.length > 0) {
-      const body = JSON.stringify({ flights, time: data.time });
-      return new NextResponse(body, {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
-        },
-      });
-    }
-  } catch {
-    // fall through to adsb.lol
+  const data = await res.json();
+  const flights = parseOpenSky(data.states || []);
+  if (flights.length === 0) throw new Error("OpenSky returned no flights");
+  return { flights, time: data.time };
+}
+
+/** adsb.lol — fetch multiple regions in parallel (works from cloud IPs). Throws on empty. */
+async function fetchAdsbLol(): Promise<{ flights: Flight[]; time: number }> {
+  const responses = await Promise.all(
+    ADSB_LOL_URLS.map((url) =>
+      fetch(url, {
+        signal: AbortSignal.timeout(8_000),
+        headers: { Accept: "application/json" },
+      }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+    )
+  );
+
+  const allAc: AcState[] = [];
+  for (const data of responses) {
+    if (data?.ac) allAc.push(...data.ac);
   }
 
-  // Fallback: adsb.lol — fetch multiple regions in parallel (works from cloud IPs)
+  // Deduplicate by icao24 hex code
+  const seen = new Set<string>();
+  const unique = allAc.filter((a) => {
+    const key = a.hex || "";
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const flights = parseAdsbLol(unique);
+  if (flights.length === 0) throw new Error("adsb.lol returned no flights");
+  return { flights, time: Date.now() };
+}
+
+/** Race OpenSky and adsb.lol — first NON-EMPTY result wins (empty = failure). */
+export async function GET() {
   try {
-    const responses = await Promise.all(
-      ADSB_LOL_URLS.map((url) =>
-        fetch(url, {
-          signal: AbortSignal.timeout(10_000),
-          headers: { Accept: "application/json" },
-        }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
-      )
+    const data = await cachedJson("flights:data", 30, () =>
+      Promise.any([fetchOpenSky(), fetchAdsbLol()])
     );
 
-    const allAc: AcState[] = [];
-    for (const data of responses) {
-      if (data?.ac) allAc.push(...data.ac);
-    }
-
-    // Deduplicate by icao24 hex code
-    const seen = new Set<string>();
-    const unique = allAc.filter((a) => {
-      const key = a.hex || "";
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    const flights = parseAdsbLol(unique);
-    const body = JSON.stringify({ flights, time: Date.now() });
-    return new NextResponse(body, {
+    return new NextResponse(JSON.stringify(data), {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=15, stale-while-revalidate=30",

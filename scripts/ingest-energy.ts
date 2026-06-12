@@ -14,7 +14,7 @@
  * Run: npx tsx scripts/ingest-energy.ts
  */
 
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 
 const ENERGY_API = "https://myenergystats.st.gov.my/o/myenergystatsapi/energystats/aggregated-reports/topicSubTopic";
@@ -96,6 +96,48 @@ const WATER_STATES_MAP: Record<string, string> = {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Recursive sorted-key replacer so output is deterministic across runs */
+function sortKeysReplacer(_key: string, value: unknown): unknown {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const k of Object.keys(obj).sort()) sorted[k] = obj[k];
+    return sorted;
+  }
+  return value;
+}
+
+function stableStringify(data: object): string {
+  return JSON.stringify(data, sortKeysReplacer);
+}
+
+/**
+ * Write minified JSON only if content (ignoring fetchedAt) actually changed.
+ * Skipping the write preserves the old fetchedAt and produces no git diff.
+ */
+function writeJsonIfChanged(path: string, data: object): boolean {
+  if (existsSync(path)) {
+    try {
+      const { fetchedAt: _prev, ...prevRest } = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+      const { fetchedAt: _next, ...nextRest } = data as Record<string, unknown>;
+      if (stableStringify(prevRest) === stableStringify(nextRest)) return false;
+    } catch { /* unreadable — rewrite */ }
+  }
+  writeFileSync(path, stableStringify(data));
+  return true;
+}
+
+/** Keep the previously cached section when this run's fetch came back empty or sparse */
+function keepIfSparse<T extends object>(name: string, fresh: T, prev: T | undefined): T {
+  const freshN = Object.keys(fresh).length;
+  const prevN = prev ? Object.keys(prev).length : 0;
+  if (prevN > 0 && freshN < prevN * 0.5) {
+    console.warn(`!! WARNING: ${name} returned ${freshN} keys (previous cache has ${prevN}) — keeping previous data.`);
+    return prev as T;
+  }
+  return fresh;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,7 +273,7 @@ async function fetchStateConsumption(): Promise<EnergyCacheData["electricityCons
     for (const [yearStr, sectors] of Object.entries(stateData)) {
       const year = Number(yearStr);
       result[state.topoName][year] = {
-        total: Object.values(sectors).reduce((s, v) => s + v, 0),
+        total: Math.round(Object.values(sectors).reduce((s, v) => s + v, 0) * 100) / 100,
         domestic: sectors["DOME"] ?? 0,
         commercial: sectors["COMM"] ?? 0,
         industrial: sectors["IND"] ?? 0,
@@ -518,22 +560,41 @@ async function main() {
     mkdirSync(CACHE_DIR, { recursive: true });
   }
 
-  const consumption = await fetchStateConsumption();
+  // Load the previous cache so a failed/empty upstream fetch can't wipe a section
+  const outPath = join(CACHE_DIR, "energy-data.json");
+  let previous: Partial<EnergyCacheData> = {};
+  if (existsSync(outPath)) {
+    try {
+      previous = JSON.parse(readFileSync(outPath, "utf-8"));
+    } catch { /* corrupted — full rewrite */ }
+  }
+
+  const consumptionRaw = await fetchStateConsumption();
   await sleep(DELAY_MS);
 
-  const generationByRegion = await fetchGenerationByRegion();
+  const generationByRegionRaw = await fetchGenerationByRegion();
   await sleep(DELAY_MS);
 
-  const generationByFuel = await fetchGenerationByFuel();
+  const generationByFuelRaw = await fetchGenerationByFuel();
   await sleep(DELAY_MS);
 
-  const capacityByRegion = await fetchCapacityByRegion();
+  const capacityByRegionRaw = await fetchCapacityByRegion();
   await sleep(DELAY_MS);
 
-  const nationalConsumptionBySector = await fetchNationalConsumptionBySector();
+  const nationalConsumptionBySectorRaw = await fetchNationalConsumptionBySector();
   await sleep(DELAY_MS);
 
-  const { consumption: waterConsumption, production: waterProduction, access: waterAccess } = await fetchWaterData();
+  const water = await fetchWaterData();
+
+  // Only replace sections that returned (enough) data this run
+  const consumption = keepIfSparse("electricityConsumption", consumptionRaw, previous.electricityConsumption);
+  const generationByRegion = keepIfSparse("generationByRegion", generationByRegionRaw, previous.generationByRegion);
+  const generationByFuel = keepIfSparse("generationByFuel", generationByFuelRaw, previous.generationByFuel);
+  const capacityByRegion = keepIfSparse("capacityByRegion", capacityByRegionRaw, previous.capacityByRegion);
+  const nationalConsumptionBySector = keepIfSparse("nationalConsumptionBySector", nationalConsumptionBySectorRaw, previous.nationalConsumptionBySector);
+  const waterConsumption = keepIfSparse("waterConsumption", water.consumption, previous.waterConsumption);
+  const waterProduction = keepIfSparse("waterProduction", water.production, previous.waterProduction);
+  const waterAccess = keepIfSparse("waterAccess", water.access, previous.waterAccess);
 
   const electricityTotal = computeElectricityTotals(consumption);
 
@@ -557,11 +618,12 @@ async function main() {
     waterConsumption,
     waterProduction,
     waterAccess,
-    availableYears: [...allYears].sort(),
+    availableYears: [...allYears].sort((a, b) => a - b),
   };
 
-  const outPath = join(CACHE_DIR, "energy-data.json");
-  writeFileSync(outPath, JSON.stringify(cache, null, 2));
+  if (!writeJsonIfChanged(outPath, cache)) {
+    console.log("\n  Cache content unchanged — write skipped (fetchedAt preserved).");
+  }
 
   console.log("\n╔═══════════════════════════════════════════╗");
   console.log("║               INGEST COMPLETE              ║");
@@ -573,4 +635,7 @@ async function main() {
   console.log(`  Size: ${(JSON.stringify(cache).length / 1024).toFixed(1)} KB\n`);
 }
 
-main().catch(console.error);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

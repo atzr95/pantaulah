@@ -58,7 +58,10 @@ export default function WeatherView() {
     // Up to 2 quick automatic retries with short backoff before declaring failure
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const res = await fetch("/api/weather");
+        // no-store: each poll revalidates against the server (which still serves
+        // its short-lived edge cache) instead of the browser HTTP cache, so new
+        // seismic activity surfaces promptly.
+        const res = await fetch("/api/weather", { cache: "no-store" });
         if (res.ok) {
           setData(await res.json());
           setLoading(false);
@@ -78,7 +81,7 @@ export default function WeatherView() {
 
   useEffect(() => {
     fetchWeather();
-    const interval = setInterval(fetchWeather, 30 * 60 * 1000);
+    const interval = setInterval(fetchWeather, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchWeather]);
 

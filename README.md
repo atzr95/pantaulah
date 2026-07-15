@@ -27,7 +27,7 @@ Built with Next.js 16, React 19, D3-Geo, Tailwind CSS, and Recharts.
 **Live Data Feeds:**
 - Weather forecasts, warnings, earthquakes, and air quality
 - Flood alerts from JPS InfoBanjir (river water levels with WASPADA/AMARAN/BAHAYA status)
-- Highway CCTV (PLUS North/South & KL-Karak — the highways LLM.gov.my still publishes)
+- Highway CCTV (PLUS North/South, KL-Karak, LPT, LDP, DUKE, Guthrie & Besraya — every highway LLM.gov.my publishes)
 - Live public transit map (KTMB trains, Rapid KL/Penang/Kuantan buses, MRT feeders, MyBAS nationwide)
 - Rail line overlay (KTM Komuter, ETS, LRT, MRT, Monorail, KLIA Express/Transit)
 - Flight tracker (Malaysia airspace)

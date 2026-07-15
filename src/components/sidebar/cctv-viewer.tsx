@@ -20,6 +20,16 @@ const HIGHWAY_GROUPS: Record<string, { label: string; highways: Highway[] }> = {
     label: "East Coast",
     highways: [
       { code: "KLK", route: "E8", name: "KL-Karak" },
+      { code: "LPT", route: "E8", name: "Lebuhraya Pantai Timur" },
+    ],
+  },
+  "Klang Valley": {
+    label: "Klang Valley",
+    highways: [
+      { code: "LDP", route: "E11", name: "Damansara-Puchong" },
+      { code: "DUKE", route: "E33", name: "Duta-Ulu Kelang" },
+      { code: "GCE", route: "E35", name: "Guthrie Corridor" },
+      { code: "BES", route: "E9", name: "Besraya (Sungai Besi)" },
     ],
   },
 };

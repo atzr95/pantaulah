@@ -6,6 +6,11 @@ const HIGHWAYS = [
   { code: "PLS", name: "PLUS Utara (North)", operator: "PLUS" },
   { code: "SPL", name: "PLUS Selatan (South)", operator: "PLUS" },
   { code: "KLK", name: "KL-Karak", operator: "ANIH" },
+  { code: "LPT", name: "Lebuhraya Pantai Timur", operator: "ANIH" },
+  { code: "LDP", name: "Damansara-Puchong", operator: "Litrak" },
+  { code: "DUKE", name: "Duta-Ulu Kelang", operator: "Kesturi" },
+  { code: "GCE", name: "Guthrie Corridor", operator: "PROLINTAS" },
+  { code: "BES", name: "Besraya (Sungai Besi)", operator: "IJM" },
 ];
 
 const BROWSER_UA =

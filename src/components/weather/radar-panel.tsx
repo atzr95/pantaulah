@@ -45,10 +45,26 @@ function ZoomViewer({
   alt: string;
   onClose: () => void;
 }) {
-  const [scale, setScale] = useState(1);
-  const [translate, setTranslate] = useState({ x: 0, y: 0 });
-  const lastTouchRef = useRef<{ dist: number; cx: number; cy: number } | null>(null);
+  const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+  const transformRef = useRef(transform);
+  const lastTouchRef = useRef<{ dist: number } | null>(null);
   const panRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  // ponytail: pan clamp uses the viewport as the image bounds (viewer is fullscreen,
+  // image is object-contain) — close enough to keep the image from flying off-screen
+  const apply = useCallback((next: { scale: number; x: number; y: number }) => {
+    const maxX = ((next.scale - 1) * window.innerWidth) / 2;
+    const maxY = ((next.scale - 1) * window.innerHeight) / 2;
+    const clamped = {
+      scale: next.scale,
+      x: Math.max(-maxX, Math.min(maxX, next.x)),
+      y: Math.max(-maxY, Math.min(maxY, next.y)),
+    };
+    transformRef.current = clamped;
+    setTransform(clamped);
+  }, []);
+
+  const reset = useCallback(() => apply({ scale: 1, x: 0, y: 0 }), [apply]);
 
   const getTouchDist = (touches: React.TouchList) => {
     const dx = touches[0].clientX - touches[1].clientX;
@@ -56,47 +72,55 @@ function ZoomViewer({
     return Math.sqrt(dx * dx + dy * dy);
   };
 
+  const startPan = useCallback((touch: { clientX: number; clientY: number }) => {
+    panRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      origX: transformRef.current.x,
+      origY: transformRef.current.y,
+    };
+  }, []);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       // Pinch start
-      const dist = getTouchDist(e.touches);
-      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      lastTouchRef.current = { dist, cx, cy };
+      lastTouchRef.current = { dist: getTouchDist(e.touches) };
       panRef.current = null;
-    } else if (e.touches.length === 1 && scale > 1) {
+    } else if (e.touches.length === 1 && transformRef.current.scale > 1) {
       // Pan start (only when zoomed)
-      panRef.current = {
-        startX: e.touches[0].clientX,
-        startY: e.touches[0].clientY,
-        origX: translate.x,
-        origY: translate.y,
-      };
+      startPan(e.touches[0]);
       lastTouchRef.current = null;
     }
-  }, [scale, translate]);
+  }, [startPan]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2 && lastTouchRef.current) {
-      // Pinch zoom
+      // Pinch zoom — scale the pan with it so zooming out re-centers the image
       const dist = getTouchDist(e.touches);
       const ratio = dist / lastTouchRef.current.dist;
-      setScale((prev) => Math.max(1, Math.min(5, prev * ratio)));
       lastTouchRef.current.dist = dist;
-      e.preventDefault();
+      const t = transformRef.current;
+      const nextScale = Math.max(1, Math.min(5, t.scale * ratio));
+      const applied = nextScale / t.scale;
+      apply({ scale: nextScale, x: t.x * applied, y: t.y * applied });
     } else if (e.touches.length === 1 && panRef.current) {
       // Pan
       const dx = e.touches[0].clientX - panRef.current.startX;
       const dy = e.touches[0].clientY - panRef.current.startY;
-      setTranslate({ x: panRef.current.origX + dx, y: panRef.current.origY + dy });
-      e.preventDefault();
+      const t = transformRef.current;
+      apply({ scale: t.scale, x: panRef.current.origX + dx, y: panRef.current.origY + dy });
     }
-  }, []);
+  }, [apply]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     lastTouchRef.current = null;
-    panRef.current = null;
-  }, []);
+    // Lifting one finger of a pinch: hand off to panning with the remaining finger
+    if (e.touches.length === 1 && transformRef.current.scale > 1) {
+      startPan(e.touches[0]);
+    } else {
+      panRef.current = null;
+    }
+  }, [startPan]);
 
   // Double-tap to toggle zoom
   const lastTapRef = useRef(0);
@@ -104,15 +128,14 @@ function ZoomViewer({
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
       // Double tap
-      if (scale > 1) {
-        setScale(1);
-        setTranslate({ x: 0, y: 0 });
+      if (transformRef.current.scale > 1) {
+        reset();
       } else {
-        setScale(2.5);
+        apply({ scale: 2.5, x: 0, y: 0 });
       }
     }
     lastTapRef.current = now;
-  }, [scale]);
+  }, [apply, reset]);
 
   return (
     <div
@@ -124,12 +147,23 @@ function ZoomViewer({
         <span className="text-[10px] tracking-[2px] text-[var(--color-text-dim)]">
           PINCH TO ZOOM · DOUBLE-TAP TO RESET
         </span>
-        <button
-          onClick={onClose}
-          className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xl leading-none px-2"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-3">
+          {transform.scale > 1 && (
+            <button
+              onClick={reset}
+              className="text-[10px] tracking-[1.5px] text-[var(--color-cyan)] border border-[rgba(0,212,255,0.3)] rounded px-2.5 py-1"
+            >
+              RESET
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xl leading-none px-2"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* Zoomable image */}
@@ -146,8 +180,8 @@ function ZoomViewer({
           alt={alt}
           className="w-full h-full object-contain"
           style={{
-            transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
-            transition: scale === 1 ? "transform 0.2s ease" : "none",
+            transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+            transition: transform.scale === 1 ? "transform 0.2s ease" : "none",
           }}
           draggable={false}
         />

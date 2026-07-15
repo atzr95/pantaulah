@@ -364,8 +364,7 @@ function Home() {
       ? fetchedDate.toLocaleTimeString("en-MY", {
           hour: "2-digit",
           minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
+          hour12: true,
         }) + " MYT"
       : fetchedDate
           .toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric" })
@@ -483,6 +482,7 @@ function Home() {
               selectedYear={selectedYear}
               selectedCategory={selectedCategory}
               selectedMetric={selectedMetric}
+              onStateSelect={setSelectedState}
             />
           </div>
 
@@ -514,6 +514,7 @@ function Home() {
               selectedYear={selectedYear}
               selectedCategory={selectedCategory}
               selectedMetric={selectedMetric}
+              onStateSelect={setSelectedState}
             />
           </BottomSheet>
         </>

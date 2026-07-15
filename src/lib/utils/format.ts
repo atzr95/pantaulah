@@ -137,9 +137,9 @@ export function resolveLatestYear<T>(
   return { value: byYear[chosen], year: chosen };
 }
 
-/** Format a data-vintage year tag → "'22" */
+/** Format a data-vintage year tag → "(2022)" */
 export function formatVintage(year: number): string {
-  return `'${String(year).slice(-2)}`;
+  return `(${year})`;
 }
 
 /** Universal metric formatter — maps a metric key to its human-readable value with units */

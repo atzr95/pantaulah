@@ -9,6 +9,7 @@ import ElectricitySectors from "./electricity-sectors";
 import EnrolmentBreakdown from "./enrolment-breakdown";
 import GenerationByFuel from "./generation-by-fuel";
 import RidershipCard from "./ridership-card";
+import StateRanking from "./state-ranking";
 import CCTVViewer from "./cctv-viewer";
 import type { CacheData, SparklinePoint } from "@/lib/data/types";
 import {
@@ -19,7 +20,7 @@ import {
   resolveLatestYear,
 } from "@/lib/utils/format";
 import { MALAYSIA_STATES } from "@/lib/data/states";
-import { CATEGORY_METRICS, NATIONAL_ECONOMY_INDICATORS } from "@/lib/data/choropleth";
+import { CATEGORY_METRICS, NATIONAL_ECONOMY_INDICATORS, getMetricValues } from "@/lib/data/choropleth";
 
 /** Map topoName → flag SVG filename in /public/flags/ */
 const STATE_FLAG_FILE: Record<string, string> = {
@@ -52,6 +53,7 @@ interface StateBriefProps {
   selectedYear: number;
   selectedCategory: string;
   selectedMetric: string;
+  onStateSelect?: (topoName: string | null) => void;
 }
 
 interface StateYearEntry {
@@ -99,6 +101,18 @@ function resolveBreakdown<T, R>(
   }
   const agg = aggregate(entries);
   return agg != null ? { value: agg, year: resolved.year } : undefined;
+}
+
+/** Rank of a state among all states for a metric at a year → "#3/16" */
+function getStateRank(data: CacheData, metric: string, year: number, state: string): string | undefined {
+  const values = getMetricValues(data, metric, year);
+  const mine = values[state];
+  if (mine == null) return undefined;
+  const sorted = Object.values(values)
+    .filter((v): v is number => v != null)
+    .sort((a, b) => b - a);
+  if (sorted.length < 2) return undefined;
+  return `#${sorted.indexOf(mine) + 1}/${sorted.length}`;
 }
 
 /** Dim vintage tag overlaid on a breakdown panel header */
@@ -241,9 +255,11 @@ export function StateBriefContent({
   selectedYear,
   selectedCategory,
   selectedMetric,
+  onStateSelect,
 }: StateBriefProps) {
   const { years, populationResolved, nationalYears } = useStateBriefData(data, selectedState, selectedYear);
   const categoryMetrics = CATEGORY_METRICS[selectedCategory] ?? [];
+  const activeConfig = categoryMetrics.find((m) => m.key === selectedMetric);
 
   const gdpPanel = useMemo(
     () =>
@@ -377,6 +393,7 @@ export function StateBriefContent({
               sparklineColor={config.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(0, 212, 255, 0.4)"}
               description={config.description}
               vintage={resolved ? formatVintage(resolved.year) : undefined}
+              rank={selectedState && resolved ? getStateRank(data, config.key, resolved.year, selectedState) : undefined}
             />
           );
         })}
@@ -474,6 +491,17 @@ export function StateBriefContent({
         </div>
       )}
 
+      {/* All states ranked by the active metric */}
+      {activeConfig && (
+        <StateRanking
+          data={data}
+          config={activeConfig}
+          selectedYear={selectedYear}
+          selectedState={selectedState}
+          onStateSelect={onStateSelect}
+        />
+      )}
+
       {/* National Economy Indicators (shown for economy category) */}
       {selectedCategory === "economy" && (
         <div className="border-t border-[var(--color-border)]">
@@ -525,6 +553,7 @@ export default function StateBrief({
   selectedYear,
   selectedCategory,
   selectedMetric,
+  onStateSelect,
 }: StateBriefProps) {
   const { displayName, subtitle, flagSrc } = useStateBriefData(data, selectedState, selectedYear);
   const categoryLabel = selectedCategory.toUpperCase();
@@ -565,6 +594,7 @@ export default function StateBrief({
         selectedYear={selectedYear}
         selectedCategory={selectedCategory}
         selectedMetric={selectedMetric}
+        onStateSelect={onStateSelect}
       />
     </div>
   );

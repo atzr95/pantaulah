@@ -12,8 +12,10 @@ interface MetricCardProps {
   sparklineData?: SparklinePoint[];
   sparklineColor?: string;
   description?: string;
-  /** Vintage tag (e.g. "'22") shown when the displayed value is from an older year */
+  /** Vintage tag (e.g. "(2022)") shown when the displayed value is from an older year */
   vintage?: string;
+  /** Rank among states (e.g. "#3/16"), shown top-right when a state is selected */
+  rank?: string;
 }
 
 function Sparkline({ data, color }: { data: SparklinePoint[]; color: string }) {
@@ -92,6 +94,7 @@ export default function MetricCard({
   sparklineColor = "rgba(0, 212, 255, 0.4)",
   description,
   vintage,
+  rank,
 }: MetricCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const iconRef = useRef<HTMLButtonElement>(null);
@@ -127,6 +130,11 @@ export default function MetricCard({
             ?
             {showTooltip && <MetricTooltip description={description} anchorRef={iconRef} />}
           </button>
+        )}
+        {rank && (
+          <span className="ml-auto text-[10px] font-normal tracking-[1px] text-[var(--color-cyan)] shrink-0">
+            {rank}
+          </span>
         )}
       </div>
       <div

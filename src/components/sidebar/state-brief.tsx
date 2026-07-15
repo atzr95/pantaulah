@@ -127,7 +127,7 @@ function getChangeSuffix(key: string): string {
 }
 
 /** Metrics that are already rates/percentages — show change in pp, not % */
-const PP_METRICS = new Set(["unemployment", "inflation"]);
+const PP_METRICS = new Set(["unemployment", "inflation", "epfDividend"]);
 
 function getChangeUnit(key: string): "%" | "pp" {
   return PP_METRICS.has(key) ? "pp" : "%";
@@ -376,7 +376,7 @@ export function StateBriefContent({
               sparklineData={spark}
               sparklineColor={config.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(0, 212, 255, 0.4)"}
               description={config.description}
-              vintage={resolved && resolved.year !== selectedYear ? formatVintage(resolved.year) : undefined}
+              vintage={resolved ? formatVintage(resolved.year) : undefined}
             />
           );
         })}
@@ -500,7 +500,7 @@ export function StateBriefContent({
                   sparklineData={spark}
                   sparklineColor={ind.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(0, 212, 255, 0.4)"}
                   description={ind.description}
-                  vintage={resolved && resolved.year !== selectedYear ? formatVintage(resolved.year) : undefined}
+                  vintage={resolved ? formatVintage(resolved.year) : undefined}
                 />
               );
             })}

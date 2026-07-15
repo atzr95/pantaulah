@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import LoadingScreen from "@/components/ui/loading-screen";
 import TopBar from "@/components/ui/top-bar";
 import MetricToggles from "@/components/map/metric-toggles";
-import TerritoryList from "@/components/map/territory-list";
+import TerritoryList, { MobileTerritoryChips } from "@/components/map/territory-list";
 import TimeSlider from "@/components/ui/time-slider";
 import StateBrief from "@/components/sidebar/state-brief";
 import { StateBriefPeek, StateBriefContent } from "@/components/sidebar/state-brief";
@@ -249,11 +249,15 @@ function Home() {
     bedUtilFetched.current = true;
 
     let cancelled = false;
-    const currentYear = new Date().getFullYear();
     fetch("/api/health/bed-utilization")
       .then((r) => (r.ok ? r.json() : null))
       .then((bedUtil) => {
         if (!bedUtil || cancelled) return;
+        // File the values under the year the source was actually published
+        // (KKMNow updates irregularly), not the current year.
+        const currentYear = bedUtil.asOf
+          ? new Date(bedUtil.asOf).getFullYear()
+          : new Date().getFullYear();
         setData((prev) => {
           if (!prev) return prev;
           // Deep-clone to avoid mutating current state
@@ -329,7 +333,7 @@ function Home() {
 
   if (!data) {
     return (
-      <main className="h-screen bg-[var(--color-bg)] flex items-center justify-center">
+      <main className="h-dvh bg-[var(--color-bg)] flex items-center justify-center">
         {loadFailed ? (
           <div className="flex flex-col items-center gap-3">
             <div className="text-[var(--color-amber)] text-xs tracking-wider">
@@ -368,7 +372,7 @@ function Home() {
           .toUpperCase();
 
   return (
-    <main className="h-screen bg-[var(--color-bg)] scan-lines grid-bg flex flex-col overflow-hidden">
+    <main className="h-dvh bg-[var(--color-bg)] scan-lines grid-bg flex flex-col overflow-hidden">
       {!booted && <LoadingScreen onComplete={handleBootComplete} />}
 
       <TopBar
@@ -385,22 +389,24 @@ function Home() {
       ) : (
         <>
           <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 relative flex flex-col">
+            <div className="flex-1 min-w-0 relative flex flex-col">
               {/* Mobile: horizontal metric toggles strip */}
               <div
-                className="lg:hidden flex gap-1.5 px-3 py-2 overflow-x-auto scrollbar-none shrink-0"
+                className="lg:hidden flex items-center gap-1.5 px-3 py-2 shrink-0"
                 style={{
                   background: "rgba(13, 13, 20, 0.9)",
                   borderBottom: "1px solid rgba(0, 212, 255, 0.08)",
                 }}
               >
-                <MetricToggles
-                  selectedCategory={selectedCategory}
-                  selectedMetric={selectedMetric}
-                  onMetricChange={handleMetricChange}
-                />
+                <div className="flex-1 flex gap-1.5 overflow-x-auto scrollbar-none">
+                  <MetricToggles
+                    selectedCategory={selectedCategory}
+                    selectedMetric={selectedMetric}
+                    onMetricChange={handleMetricChange}
+                  />
+                </div>
                 <div
-                  className="text-xs font-bold tracking-[2px] text-[var(--color-cyan)] shrink-0 flex items-center pl-1"
+                  className="text-xs font-bold tracking-[2px] text-[var(--color-cyan)] shrink-0 pl-1"
                   style={{ textShadow: "0 0 10px rgba(0, 212, 255, 0.3)" }}
                 >
                   {selectedYear}
@@ -417,16 +423,22 @@ function Home() {
                 onTransitZoomChange={setTransitZoomed}
                 sheetSnap={sheetSnap}
                 mobileSlider={
-                  data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" ? (
-                    <TimeSlider
-                      availableYears={data.availableYears}
-                      selectedYear={selectedYear}
-                      selectedMetric={selectedMetric}
-                      data={data}
-                      onYearChange={setSelectedYear}
-                      inline
+                  <>
+                    <MobileTerritoryChips
+                      selectedState={selectedState}
+                      onStateSelect={setSelectedState}
                     />
-                  ) : undefined
+                    {data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" && (
+                      <TimeSlider
+                        availableYears={data.availableYears}
+                        selectedYear={selectedYear}
+                        selectedMetric={selectedMetric}
+                        data={data}
+                        onYearChange={setSelectedYear}
+                        inline
+                      />
+                    )}
+                  </>
                 }
               />
 

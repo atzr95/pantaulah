@@ -693,10 +693,13 @@ export default function MalaysiaMap({
   const renderLegendContent = (compact = false) => (
     <>
       <div
-        className={`tracking-[2px] ${compact ? "mb-1.5" : "mb-2"}`}
+        className="tracking-[2px] mb-0.5"
         style={{ color: "rgba(0, 212, 255, 0.75)" }}
       >
         {config.label}
+      </div>
+      <div className={`tracking-[1.5px] text-[var(--color-text-dim)] ${compact ? "mb-1.5" : "mb-2"}`}>
+        AS OF {selectedYear}
       </div>
       {terciles && (
         <>
@@ -888,7 +891,8 @@ export default function MalaysiaMap({
             {hoveredState.toUpperCase()}
           </div>
           <div className="text-[var(--color-text-dim)] mt-0.5">
-            {config.label}: {formatMetricValue(config.key, metricValues[hoveredState])}
+            {config.label}: {formatMetricValue(config.key, metricValues[hoveredState])}{" "}
+            <span className="opacity-60">({selectedYear})</span>
           </div>
         </div>
       );
@@ -988,7 +992,7 @@ export default function MalaysiaMap({
           style={{
             paddingBottom: sheetSnap === "full" ? "92vh"
               : sheetSnap === "half" ? "52vh"
-              : "180px",
+              : "140px",
           }}
         >
           {/* West Malaysia */}

@@ -81,6 +81,11 @@ async function main() {
   const res = await fetch(PARQUET_URL);
   if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
 
+  // Upstream publishes irregularly (frozen since mid-2025 as of writing), so
+  // record the file's Last-Modified as the true data vintage for the UI.
+  const lastModified = res.headers.get("last-modified");
+  const asOf = lastModified ? new Date(lastModified).toISOString() : null;
+
   const buf = await res.arrayBuffer();
   const rows: BedUtilRow[] = [];
 
@@ -129,7 +134,7 @@ async function main() {
     } catch { /* unreadable — rewrite */ }
   }
 
-  const output = { states, national, fetchedAt: new Date().toISOString() };
+  const output = { states, national, asOf, fetchedAt: new Date().toISOString() };
   if (writeJsonIfChanged(outPath, output)) {
     console.log(`Wrote ${outPath} (${Object.keys(states).length} states)`);
   } else {

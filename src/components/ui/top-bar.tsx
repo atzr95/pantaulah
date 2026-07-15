@@ -237,7 +237,7 @@ export default function TopBar({
 
       {/* Bottom row: Category tabs on small/medium screens */}
       <div
-        className="flex lg:hidden gap-1 px-3 pb-2 flex-wrap"
+        className="flex lg:hidden gap-1 px-3 py-1.5 overflow-x-auto scrollbar-none"
         style={{ borderTop: "1px solid var(--color-border-faint)" }}
       >
         <CategoryTabs

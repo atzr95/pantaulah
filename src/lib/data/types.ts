@@ -75,6 +75,9 @@ export interface StateYearData {
   fdi?: StateMetric;
   lei?: StateMetric;
   cei?: StateMetric;
+  epfDividend?: StateMetric;
+  // Demography
+  tfr?: StateMetric; // Total Fertility Rate (births per woman)
   // Energy & water metrics
   electricityConsumption?: StateMetric; // GWh total
   waterConsumption?: StateMetric; // MLD total

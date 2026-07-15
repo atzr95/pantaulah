@@ -155,6 +155,8 @@ export function formatMetricValue(key: string, value: number | undefined): strin
     case "doctorsPerCapita": return `${value.toFixed(1)} / 10K`;
     case "bedsPerCapita": return `${value.toFixed(1)} / 10K`;
     case "deathRate": return `${value.toFixed(1)} / 1K`;
+    case "tfr": return value.toFixed(2);
+    case "epfDividend": return `${value.toFixed(2)}%`;
     case "birthRate": return `${value.toFixed(1)} / 1K`;
     case "bloodDonations": return Math.round(value).toLocaleString("en-MY");
     case "unemployment": return formatPercentage(value);

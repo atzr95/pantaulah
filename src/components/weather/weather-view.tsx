@@ -143,7 +143,7 @@ export default function WeatherView() {
     <button
       key={tab.key}
       onClick={() => setActiveTab(tab.key)}
-      className={`px-2 lg:px-3 py-2 min-h-[40px] lg:py-1 lg:min-h-0 text-[10px] lg:text-[10px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
+      className={`px-2 lg:px-3 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-[10px] lg:text-[10px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
         activeTab === tab.key
           ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
           : "border-[rgba(0,212,255,0.2)] text-[var(--color-text-muted)] hover:border-[rgba(0,212,255,0.4)] hover:text-[var(--color-text)] bg-[rgba(10,10,15,0.7)] backdrop-blur-sm"
@@ -160,7 +160,7 @@ export default function WeatherView() {
           <button
             key={date}
             onClick={() => setSelectedDateIndex(i)}
-            className={`px-2.5 py-2 min-h-[40px] lg:py-1 lg:min-h-0 text-[10px] lg:text-[10px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
+            className={`px-2.5 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-[10px] lg:text-[10px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
               selectedDateIndex === i
                 ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
                 : "border-[rgba(0,212,255,0.2)] text-[var(--color-text-muted)] hover:border-[rgba(0,212,255,0.4)] hover:text-[var(--color-text)] bg-[rgba(10,10,15,0.7)] backdrop-blur-sm"

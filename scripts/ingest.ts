@@ -488,6 +488,25 @@ function processHomicideRate(rows: unknown[]): MetricStore {
   return store;
 }
 
+/** Total Fertility Rate by state — annual, take age_group=tfr rows */
+function processTfr(rows: unknown[]): MetricStore {
+  const store: MetricStore = {};
+  for (const row of rows as Array<Record<string, unknown>>) {
+    if (row.age_group !== "tfr") continue;
+    const apiName = row.state as string;
+    if (!apiName || apiName === "Malaysia") continue;
+    const topo = toTopoName(apiName);
+    if (!topo) continue;
+    const year = new Date(row.date as string).getFullYear();
+    if (year < MIN_YEAR) continue;
+    const value = row.fertility_rate as number;
+    if (typeof value !== "number" || isNaN(value)) continue;
+    if (!store[topo]) store[topo] = {};
+    store[topo][year] = { value, year };
+  }
+  return store;
+}
+
 /** Drug addicts — sum total across age groups per state per year */
 function processDrugAddicts(rows: unknown[]): MetricStore {
   const store: MetricStore = {};
@@ -1122,6 +1141,19 @@ function processFdi(rows: unknown[]): NationalMetricStore {
   return store;
 }
 
+/** EPF Dividend — annual conventional dividend rate (%) */
+function processEpfDividend(rows: unknown[]): NationalMetricStore {
+  const store: NationalMetricStore = {};
+  for (const row of rows as Array<Record<string, unknown>>) {
+    const year = new Date(row.date as string).getFullYear();
+    if (year < MIN_YEAR) continue;
+    const value = row.conventional as number;
+    if (typeof value !== "number" || isNaN(value)) continue;
+    store[year] = { value, year };
+  }
+  return store;
+}
+
 /** Economic Indicators (LEI/CEI) — monthly, take December (or latest) per year */
 function processEconomicIndicators(rows: unknown[]): { lei: NationalMetricStore; cei: NationalMetricStore } {
   const leiByYear: Record<number, { value: number; month: number }> = {};
@@ -1265,6 +1297,8 @@ async function main() {
   let completionRows: unknown[] = [];
   let literacyRows: unknown[] = [];
   let hhIncomeRows: unknown[] = [];
+  let fertilityRows: unknown[] = [];
+  let epfDividendRows: unknown[] = [];
   if (fetchAnnual) {
     console.log("\n── ANNUAL TIER ──");
     populationCSVRows = await fetchCSV("population/population_state.csv");
@@ -1295,6 +1329,10 @@ async function main() {
     literacyRows = await fetchDataset("sdg_04-6-1", { filter: "both@sex" });
     await sleep(DELAY_MS);
     hhIncomeRows = await fetchDataset("hh_income_state");
+    await sleep(DELAY_MS);
+    fertilityRows = await fetchDataset("fertility_state", { filter: "tfr@age_group" });
+    await sleep(DELAY_MS);
+    epfDividendRows = await fetchDataset("epf_dividend");
     await sleep(DELAY_MS);
     tierMeta.annual = new Date().toISOString();
   }
@@ -1384,6 +1422,8 @@ async function main() {
   // Process new economy datasets
   console.log("  Processing new Economy datasets...");
   const householdIncome = processHouseholdIncome(hhIncomeRows);
+  const tfr = processTfr(fertilityRows);
+  const epfDividend = processEpfDividend(epfDividendRows);
   const trade = processTrade(tradeRows);
   const inflation = processInflation(inflationRows);
   const ipi = processIpi(ipiRows);
@@ -1469,7 +1509,7 @@ async function main() {
 
   const ALL_METRICS: Record<string, MetricStore> = {
     population, crime, crimeRate, cpi, unemployment, gdp, gdpPerCapita, householdIncome,
-    organPledges, healthScreenings, doctorsPerCapita, bedsPerCapita, deathRate, birthRate, bloodDonations,
+    organPledges, healthScreenings, doctorsPerCapita, bedsPerCapita, deathRate, birthRate, tfr, bloodDonations,
     drugAddicts, homicideRate,
     vehicleReg, motorcycleReg,
     schools, enrolment, teachers, completion, literacy, studentTeacherRatio,
@@ -1485,6 +1525,7 @@ async function main() {
     fdi: fdi,
     lei: econIndicators.lei,
     cei: econIndicators.cei,
+    epfDividend: epfDividend,
   };
 
   // Sanity gate: a fetched tier that comes back empty or sparse must not be
@@ -1532,7 +1573,7 @@ async function main() {
   const latestYear = sortedYears[sortedYears.length - 1] || 2023;
 
   // Metrics that are already rates/percentages — use absolute (pp) difference, not % change
-  const PP_METRICS = new Set(["unemployment", "inflation"]);
+  const PP_METRICS = new Set(["unemployment", "inflation", "epfDividend"]);
 
   // Compute YoY changes
   const cacheStates: Record<string, unknown> = {};
@@ -1592,7 +1633,7 @@ async function main() {
       if (count > 0) entry[metric] = { value: round2(total), year };
     }
     // Average for rate/index metrics
-    for (const metric of ["unemployment", "cpi", "householdIncome", "gdpPerCapita", "crimeRate", "homicideRate", "doctorsPerCapita", "bedsPerCapita", "deathRate", "birthRate", "completion", "literacy", "studentTeacherRatio"]) {
+    for (const metric of ["unemployment", "cpi", "householdIncome", "gdpPerCapita", "crimeRate", "homicideRate", "doctorsPerCapita", "bedsPerCapita", "deathRate", "birthRate", "tfr", "completion", "literacy", "studentTeacherRatio"]) {
       let total = 0;
       let count = 0;
       for (const topo of uniqueNames) {
@@ -1628,7 +1669,7 @@ async function main() {
     const prevEntry = nationalYears[year - 1] as Record<string, { value: number }> | undefined;
     if (!prevEntry) continue;
     for (const metricName of ["population", "crime", "crimeRate", "gdp", "gdpPerCapita", "unemployment", "cpi", "householdIncome",
-                              "organPledges", "healthScreenings", "bloodDonations", "doctorsPerCapita", "bedsPerCapita", "deathRate", "birthRate",
+                              "organPledges", "healthScreenings", "bloodDonations", "doctorsPerCapita", "bedsPerCapita", "deathRate", "birthRate", "tfr",
                               "drugAddicts", "homicideRate", "vehicleReg", "motorcycleReg", "schools", "enrolment", "teachers", "completion", "literacy", "studentTeacherRatio"]) {
       const current = entry[metricName] as { value: number; year: number; change?: number } | undefined;
       const prev = prevEntry[metricName];

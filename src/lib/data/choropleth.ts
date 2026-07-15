@@ -42,9 +42,10 @@ export const CATEGORY_METRICS: Record<string, ChoroplethConfig[]> = {
     { key: "bedsPerCapita", label: "HOSPITAL BEDS / 10K", colorHue: "cyan", unit: "per 10K", description: "Number of hospital beds per 10,000 population. Indicates hospital capacity and healthcare infrastructure." },
     { key: "deathRate", label: "DEATH RATE", colorHue: "amber", unit: "per 1K", description: "Crude death rate per 1,000 population per year. Higher rates may indicate an aging population or health challenges." },
     { key: "birthRate", label: "BIRTH RATE", colorHue: "cyan", unit: "per 1K", description: "Crude birth rate per 1,000 population per year. Shows population growth dynamics by state." },
+    { key: "tfr", label: "FERTILITY (TFR)", colorHue: "cyan", unit: "births per woman", description: "Total Fertility Rate — average number of children a woman would bear over her lifetime. Below 2.1 means the population is not replacing itself." },
     { key: "bloodDonations", label: "BLOOD DONATIONS", colorHue: "cyan", unit: "donations", description: "Total blood donations collected per year. Covers all blood groups (A, B, AB, O)." },
-    { key: "bedUtilization", label: "BED UTILIZATION", colorHue: "amber", unit: "%", description: "Non-ICU hospital bed occupancy rate (%). Updated daily from KKMNow. Higher values indicate greater strain on hospital capacity." },
-    { key: "icuUtilization", label: "ICU UTILIZATION", colorHue: "amber", unit: "%", description: "ICU bed occupancy rate (%). Updated daily from KKMNow. Critical indicator of intensive care capacity pressure." },
+    { key: "bedUtilization", label: "BED UTILIZATION", colorHue: "amber", unit: "%", description: "Non-ICU hospital bed occupancy rate (%). Source: MOH KKMNow dashboard (updates irregularly). Higher values indicate greater strain on hospital capacity." },
+    { key: "icuUtilization", label: "ICU UTILIZATION", colorHue: "amber", unit: "%", description: "ICU bed occupancy rate (%). Source: MOH KKMNow dashboard (updates irregularly). Critical indicator of intensive care capacity pressure." },
   ],
   transport: [
     { key: "vehicleReg", label: "CAR REGISTRATIONS", colorHue: "cyan", unit: "cars", description: "New car registrations recorded by JPJ (Road Transport Department) per year." },
@@ -87,6 +88,7 @@ export const NATIONAL_ECONOMY_INDICATORS: NationalIndicatorConfig[] = [
   { key: "fdi", label: "NET FDI", colorHue: "cyan", changeSuffix: "YoY", description: "Net Foreign Direct Investment. Capital flowing into Malaysia from foreign investors." },
   { key: "lei", label: "LEI", colorHue: "cyan", changeSuffix: "YoY", description: "Leading Economic Index. Predicts the direction of the economy over the next 3-6 months." },
   { key: "cei", label: "CEI", colorHue: "cyan", changeSuffix: "YoY", description: "Coincident Economic Index. Reflects current economic conditions in real time." },
+  { key: "epfDividend", label: "EPF DIVIDEND", colorHue: "cyan", changeSuffix: "YoY", description: "Annual dividend rate declared by the Employees Provident Fund (KWSP) for conventional savings." },
 ];
 
 export type ChoroplethBucket = "low" | "medium" | "high" | "none";

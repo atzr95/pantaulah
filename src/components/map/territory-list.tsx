@@ -44,6 +44,25 @@ function TerritoryChip({
   );
 }
 
+/** Mobile: horizontal quick-select chips, rendered inline in the map scroll content */
+export function MobileTerritoryChips({
+  selectedState,
+  onStateSelect,
+}: TerritoryListProps) {
+  return (
+    <div className="flex lg:hidden gap-1.5 pb-2 overflow-x-auto scrollbar-none">
+      {SMALL_TERRITORIES.map((t) => (
+        <TerritoryChip
+          key={t.topoName}
+          territory={t}
+          selectedState={selectedState}
+          onStateSelect={onStateSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function TerritoryList({
   selectedState,
   onStateSelect,
@@ -55,18 +74,6 @@ export default function TerritoryList({
         <div className="type-meta text-[var(--color-text-dim)] mb-0.5">
           QUICK SELECT
         </div>
-        {SMALL_TERRITORIES.map((t) => (
-          <TerritoryChip
-            key={t.topoName}
-            territory={t}
-            selectedState={selectedState}
-            onStateSelect={onStateSelect}
-          />
-        ))}
-      </div>
-
-      {/* Mobile: horizontal chips, above time slider */}
-      <div className="absolute bottom-16 left-0 right-0 z-10 flex lg:hidden gap-1.5 px-3 overflow-x-auto scrollbar-none">
         {SMALL_TERRITORIES.map((t) => (
           <TerritoryChip
             key={t.topoName}

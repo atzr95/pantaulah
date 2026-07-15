@@ -162,7 +162,10 @@ export default function BottomSheet({
       ref={sheetRef}
       className="fixed bottom-0 left-0 right-0 z-40 flex flex-col lg:hidden"
       style={{
-        height: currentHeight,
+        // Snap math stays in plain px; the safe-area inset is added on top so
+        // content clears the home indicator on notched phones.
+        height: `calc(${currentHeight}px + env(safe-area-inset-bottom))`,
+        paddingBottom: "env(safe-area-inset-bottom)",
         transition: dragHeight != null ? "none" : "height 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
         background: "linear-gradient(180deg, #0d0d14 0%, #0a0a0f 100%)",
         borderTop: "1px solid rgba(0, 212, 255, 0.15)",

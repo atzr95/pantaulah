@@ -87,8 +87,8 @@ describe("getBucketColor", () => {
 });
 
 describe("METRIC_CONFIGS", () => {
-  it("has 31 metrics", () => {
-    expect(METRIC_CONFIGS).toHaveLength(31);
+  it("has 32 metrics", () => {
+    expect(METRIC_CONFIGS).toHaveLength(32);
   });
 
   it("has amber (concern) metrics", () => {
@@ -100,7 +100,7 @@ describe("METRIC_CONFIGS", () => {
     const cyan = METRIC_CONFIGS.filter((c) => c.colorHue === "cyan");
     expect(cyan.map((c) => c.key).sort()).toEqual([
       "bedsPerCapita", "birthRate", "bloodDonations", "completion", "doctorsPerCapita", "electricityConsumption", "enrolment", "gdp", "gdpPerCapita",
-      "healthScreenings", "householdIncome", "literacy", "motorcycleReg", "organPledges", "population", "schools", "teachers", "vehicleReg",
+      "healthScreenings", "householdIncome", "literacy", "motorcycleReg", "organPledges", "population", "schools", "teachers", "tfr", "vehicleReg",
       "waterAccess", "waterConsumption", "waterProduction",
     ]);
   });

@@ -20,7 +20,7 @@ export default function MetricToggles({
   if (configs.length <= 1) return null; // No toggles needed for single-metric categories
 
   return (
-    <div className="flex flex-wrap justify-end gap-1.5 lg:flex-wrap lg:justify-end overflow-x-auto scrollbar-none">
+    <div className="flex flex-nowrap gap-1.5 lg:flex-wrap lg:justify-end">
       {configs.map((config) => (
         <PillButton
           key={config.key}

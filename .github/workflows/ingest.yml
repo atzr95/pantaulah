@@ -10,6 +10,10 @@ on:
         description: "Force re-fetch all data (bypass staleness check)"
         type: boolean
         default: false
+      deploy:
+        description: "Deploy even if no data changed (for code-only changes)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -69,7 +73,7 @@ jobs:
           fi
 
       - name: Deploy to Cloudflare Pages
-        if: steps.commit.outputs.changed == 'true'
+        if: steps.commit.outputs.changed == 'true' || github.event.inputs.deploy == 'true'
         run: |
           npx opennextjs-cloudflare build
           npx opennextjs-cloudflare deploy

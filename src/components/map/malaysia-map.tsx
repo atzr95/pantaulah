@@ -693,12 +693,12 @@ export default function MalaysiaMap({
   const renderLegendContent = (compact = false) => (
     <>
       <div
-        className="tracking-[2px] mb-0.5"
+        className="tracking-[0.08em] mb-0.5"
         style={{ color: "rgba(0, 212, 255, 0.75)" }}
       >
         {config.label}
       </div>
-      <div className={`tracking-[1.5px] text-[var(--color-text-dim)] ${compact ? "mb-1.5" : "mb-2"}`}>
+      <div className={`tracking-[0.06em] text-[var(--color-text-dim)] ${compact ? "mb-1.5" : "mb-2"}`}>
         AS OF {selectedYear}
       </div>
       {terciles && (
@@ -802,9 +802,9 @@ export default function MalaysiaMap({
         <div
           className="px-3 py-2 text-xs"
           style={{
-            background: "rgba(13, 13, 20, 0.95)",
+            background: "rgba(13, 24, 30, 0.98)",
             border: `1px solid ${color}40`, borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
+            color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
           }}
         >
           <div className="font-bold tracking-wider" style={{ color }}>
@@ -825,9 +825,9 @@ export default function MalaysiaMap({
         <div
           className="px-3 py-2 text-xs"
           style={{
-            background: "rgba(13, 13, 20, 0.95)",
+            background: "rgba(13, 24, 30, 0.98)",
             border: "1px solid rgba(255, 107, 107, 0.3)", borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
+            color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
           }}
         >
           <div className="font-bold tracking-wider" style={{ color: POI_COLORS.flight }}>
@@ -860,9 +860,9 @@ export default function MalaysiaMap({
         <div
           className="px-3 py-2 text-xs"
           style={{
-            background: "rgba(13, 13, 20, 0.95)",
+            background: "rgba(13, 24, 30, 0.98)",
             border: `1px solid ${hoveredTransit.type === "train" ? "rgba(232, 121, 249, 0.3)" : "rgba(251, 146, 60, 0.3)"}`, borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
+            color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
           }}
         >
           <div className="font-bold tracking-wider" style={{ color: hoveredTransit.type === "train" ? POI_COLORS.train : POI_COLORS.bus }}>
@@ -882,9 +882,9 @@ export default function MalaysiaMap({
         <div
           className="px-3 py-2 text-xs"
           style={{
-            background: "rgba(13, 13, 20, 0.95)",
+            background: "rgba(13, 24, 30, 0.98)",
             border: "1px solid rgba(0, 212, 255, 0.3)", borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
+            color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
           }}
         >
           <div className="font-bold text-[var(--color-cyan)] tracking-wider">
@@ -920,8 +920,8 @@ export default function MalaysiaMap({
           <select
             value={transitZoomState || ""}
             onChange={(e) => setTransitZoomState(e.target.value || null)}
-            className="px-2 py-1 text-[10px] tracking-wider rounded border border-[rgba(251,146,60,0.3)] bg-[rgba(10,10,15,0.9)] text-[var(--color-text-muted)] backdrop-blur-sm cursor-pointer outline-none hover:border-[rgba(251,146,60,0.5)] transition-colors"
-            style={{ fontFamily: "var(--font-mono)" }}
+            className="px-2 py-1 text-xs tracking-wider rounded border border-[rgba(251,146,60,0.3)] bg-[rgba(13,24,30,0.96)] text-[var(--color-text-muted)] backdrop-blur-sm cursor-pointer outline-none hover:border-[rgba(251,146,60,0.5)] transition-colors"
+            style={{ fontFamily: "var(--font-jetbrains)" }}
           >
             <option value="">ALL MALAYSIA</option>
             {stateNames.map((name) => (
@@ -997,7 +997,7 @@ export default function MalaysiaMap({
         >
           {/* West Malaysia */}
           <div className="px-1">
-            <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] px-2 pt-2">
+            <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] px-2 pt-2">
               PENINSULAR MALAYSIA
             </div>
             <svg
@@ -1057,7 +1057,7 @@ export default function MalaysiaMap({
 
           {/* East Malaysia */}
           <div className="px-1">
-            <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] px-2 pt-2">
+            <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] px-2 pt-2">
               EAST MALAYSIA
             </div>
             <svg
@@ -1135,7 +1135,7 @@ export default function MalaysiaMap({
 
       {/* Legend — desktop: full, bottom-left, above slider area */}
       {!isMobile && (
-        <div className="absolute bottom-36 left-5 text-[10px] text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
+        <div className="absolute bottom-36 left-5 text-xs text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
           {renderLegendContent(false)}
         </div>
       )}
@@ -1147,7 +1147,7 @@ export default function MalaysiaMap({
             onClick={() => setLegendOpen((v) => !v)}
             aria-expanded={legendOpen}
             aria-label="Toggle map legend and layer options"
-            className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-[10px] tracking-wider rounded transition-all bg-[rgba(10,10,15,0.85)] backdrop-blur-sm border border-[var(--color-border-mid)] text-[var(--color-text-muted)]"
+            className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs tracking-wider rounded transition-all bg-[rgba(13,24,30,0.94)] backdrop-blur-sm border border-[var(--color-border-mid)] text-[var(--color-text-muted)]"
           >
             <div className="flex gap-0.5">
               <div className="w-2 h-2 rounded-sm" style={{ background: getBucketColor("high", config.colorHue) }} />
@@ -1161,8 +1161,8 @@ export default function MalaysiaMap({
           </button>
           {legendOpen && (
             <div
-              className="mt-1 px-3 py-2 rounded border border-[rgba(0,212,255,0.2)] text-[10px] text-[var(--color-text-muted)] space-y-1.5"
-              style={{ background: "rgba(10, 10, 15, 0.92)", backdropFilter: "blur(12px)" }}
+              className="mt-1 px-3 py-2 rounded border border-[var(--color-border-mid)] text-xs text-[var(--color-text-muted)] space-y-1.5"
+              style={{ background: "rgba(13, 24, 30, 0.97)", backdropFilter: "blur(12px)" }}
             >
               {renderLegendContent(true)}
             </div>
@@ -1171,8 +1171,8 @@ export default function MalaysiaMap({
             <select
               value={transitZoomState || ""}
               onChange={(e) => setTransitZoomState(e.target.value || null)}
-              className="mt-1 w-full px-2 py-1 text-[10px] tracking-wider rounded border border-[rgba(251,146,60,0.3)] bg-[rgba(10,10,15,0.9)] text-[var(--color-text-muted)] cursor-pointer outline-none"
-              style={{ fontFamily: "var(--font-mono)" }}
+              className="mt-1 w-full px-2 py-1 text-xs tracking-wider rounded border border-[rgba(251,146,60,0.3)] bg-[rgba(13,24,30,0.96)] text-[var(--color-text-muted)] cursor-pointer outline-none"
+              style={{ fontFamily: "var(--font-jetbrains)" }}
             >
               <option value="">ALL MALAYSIA</option>
               {stateNames.map((name) => (

@@ -57,7 +57,7 @@ function CameraImage({ src, alt, className, style }: { src: string; alt: string;
 
   if (error) {
     return (
-      <div style={style} className="bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[9px] text-[var(--color-text-dim)] tracking-wider">
+      <div style={style} className="bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-xs text-[var(--color-text-dim)] tracking-wider">
         FEED OFFLINE
       </div>
     );
@@ -74,7 +74,7 @@ function CameraImage({ src, alt, className, style }: { src: string; alt: string;
           onError={() => setError(true)}
         />
       ) : (
-        <div className="w-full h-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[9px] text-[var(--color-text-dim)] tracking-wider">
+        <div className="w-full h-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-xs text-[var(--color-text-dim)] tracking-wider">
           LOADING...
         </div>
       )}
@@ -151,11 +151,11 @@ export default function CCTVViewer() {
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
         >
-          <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+          <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
             HIGHWAY CCTV
             <span className="text-[var(--color-text-dim)] ml-2">/ LIVE</span>
           </div>
-          <span className="text-[10px] text-[var(--color-text-dim)]">
+          <span className="text-xs text-[var(--color-text-dim)]">
             {expanded ? "▲" : "▼"}
           </span>
         </button>
@@ -169,7 +169,7 @@ export default function CCTVViewer() {
                   <button
                     key={key}
                     onClick={() => setSelectedGroup(key)}
-                    className="w-full flex justify-between items-center px-3 py-2 text-[10px] tracking-wider border border-[rgba(0,212,255,0.15)] rounded hover:border-[rgba(0,212,255,0.3)] hover:text-[var(--color-text)] text-[var(--color-text-muted)] transition-all"
+                    className="w-full flex justify-between items-center px-3 py-2 text-xs tracking-wider border border-[var(--color-border)] rounded hover:border-[var(--color-border-bright)] hover:text-[var(--color-text)] text-[var(--color-text-muted)] transition-all"
                   >
                     <span>{group.label}</span>
                     <span className="text-[var(--color-text-dim)]">{group.highways.length} highways ▸</span>
@@ -183,11 +183,11 @@ export default function CCTVViewer() {
               <div>
                 <button
                   onClick={() => setSelectedGroup(null)}
-                  className="text-[10px] tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
+                  className="text-xs tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
                 >
                   ◂ BACK
                 </button>
-                <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] mb-1.5">
+                <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] mb-1.5">
                   {HIGHWAY_GROUPS[selectedGroup].label.toUpperCase()}
                 </div>
                 <div className="space-y-1">
@@ -195,7 +195,7 @@ export default function CCTVViewer() {
                     <button
                       key={h.code}
                       onClick={() => loadCameras(h.code)}
-                      className="w-full flex justify-between items-center px-3 py-1.5 text-[10px] tracking-wider border border-[rgba(0,212,255,0.15)] rounded hover:border-[rgba(0,212,255,0.3)] hover:text-[var(--color-text)] text-[var(--color-text-muted)] transition-all"
+                      className="w-full flex justify-between items-center px-3 py-1.5 text-xs tracking-wider border border-[var(--color-border)] rounded hover:border-[var(--color-border-bright)] hover:text-[var(--color-text)] text-[var(--color-text-muted)] transition-all"
                     >
                       <span>{h.name}</span>
                       <span className="text-[var(--color-text-dim)]">{h.route}</span>
@@ -210,31 +210,31 @@ export default function CCTVViewer() {
               <div>
                 <button
                   onClick={() => { setSelectedHighway(null); setCameras([]); }}
-                  className="text-[10px] tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
+                  className="text-xs tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
                 >
                   ◂ BACK TO HIGHWAYS
                 </button>
 
                 {loading && (
-                  <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] py-4 text-center">
+                  <div className="text-xs tracking-wider text-[var(--color-text-dim)] py-4 text-center">
                     LOADING CAMERAS...
                   </div>
                 )}
 
                 {!loading && cameras.length === 0 && (
-                  <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] py-2 text-center">
+                  <div className="text-xs tracking-wider text-[var(--color-text-dim)] py-2 text-center">
                     NO CAMERAS REPORTED
                   </div>
                 )}
 
                 {cameras.length > 0 && (
                   <>
-                    <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] mb-1.5 flex items-center justify-between">
+                    <div className="text-xs tracking-wider text-[var(--color-text-dim)] mb-1.5 flex items-center justify-between">
                       <span>{cameras.length} CAMERAS · TAP TO ENLARGE</span>
                       <button
                         onClick={refreshCameras}
                         disabled={refreshDisabled}
-                        className="text-[10px] tracking-wider text-[var(--color-cyan)] py-2 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                        className="text-xs tracking-wider text-[var(--color-cyan)] py-2 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
                       >
                         {loading ? "REFRESHING..." : refreshCooldown ? "WAIT..." : "REFRESH ↻"}
                       </button>
@@ -253,10 +253,10 @@ export default function CCTVViewer() {
                             <CameraImage
                               src={cam.image}
                               alt={cam.name}
-                              className="w-full rounded-sm border border-[rgba(255,255,255,0.08)] hover:border-[rgba(0,212,255,0.3)] transition-all"
+                              className="w-full rounded-sm border border-[rgba(255,255,255,0.08)] hover:border-[var(--color-border-bright)] transition-all"
                               style={{ aspectRatio: "16/9" }}
                             />
-                            <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 text-[9px] tracking-wider text-white bg-[rgba(0,0,0,0.7)]">
+                            <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 text-xs tracking-wider text-white bg-[rgba(0,0,0,0.7)]">
                               {shortName}
                             </div>
                           </button>
@@ -295,10 +295,10 @@ export default function CCTVViewer() {
               }}
               draggable={false}
             />
-            <div className="absolute bottom-0 left-0 right-0 px-3 py-2 text-[11px] tracking-wider text-white bg-[rgba(0,0,0,0.7)] rounded-b flex justify-between items-center">
+            <div className="absolute bottom-0 left-0 right-0 px-3 py-2 text-xs tracking-wider text-white bg-[rgba(0,0,0,0.7)] rounded-b flex justify-between items-center">
               <span>{fullscreenImg.name.replace(/^[A-Z]+-CAM-[A-Z0-9]+-/, "").replace(/-/g, " ")}</span>
               {zoom > 1 && (
-                <span className="text-[10px] text-[var(--color-text-dim)]">{zoom.toFixed(1)}x · scroll to zoom</span>
+                <span className="text-xs text-[var(--color-text-dim)]">{zoom.toFixed(1)}x · scroll to zoom</span>
               )}
             </div>
             <button

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { subscribeFeedStatus, getFeedStatuses } from "@/lib/feed-status";
+import { scrollHorizontallyOnWheel } from "@/lib/ui/horizontal-scroll";
 import PillButton from "./pill-button";
 
 export interface CategoryConfig {
@@ -94,8 +95,8 @@ export default function TopBar({
     <div
       className="flex flex-col shrink-0"
       style={{
-        background: "linear-gradient(180deg, #111118 0%, #0d0d14 100%)",
-        borderBottom: "1px solid rgba(0, 212, 255, 0.15)",
+        background: "linear-gradient(180deg, var(--color-bg-card) 0%, var(--color-bg-panel) 100%)",
+        borderBottom: "1px solid var(--color-border-mid)",
       }}
     >
       {/* Top row: Logo + System status */}
@@ -103,24 +104,29 @@ export default function TopBar({
         {/* Logo */}
         <div className="flex items-center gap-2 md:gap-2.5 shrink-0">
           <img src="/logo-64.png" alt="PANTAULAH" className="w-7 h-7" />
-          <span className="text-[var(--color-cyan)] text-sm md:text-base font-bold tracking-[3px] md:tracking-[4px] text-shadow-lg">
+          <span className="font-mono text-[var(--color-cyan)] text-sm md:text-base font-bold tracking-[0.12em] md:tracking-[0.16em]">
             PANTAULAH
           </span>
-          <span className="text-[var(--color-text-muted)] text-[10px] tracking-[2px] ml-3 hidden 2xl:inline">
+          <span className="text-[var(--color-text-muted)] text-xs tracking-[0.08em] ml-3 hidden 2xl:inline">
             MALAYSIA INTELLIGENCE TERMINAL
           </span>
         </div>
 
-        {/* Category tabs — inline on large screens, wrap when needed */}
-        <div className="hidden lg:flex flex-wrap gap-1 justify-end">
-          <CategoryTabs
-            selectedCategory={selectedCategory}
-            onCategoryChange={onCategoryChange}
-          />
+        {/* Category tabs — inline and horizontally scrollable on large screens */}
+        <div
+          className="hidden min-w-0 flex-1 overflow-x-auto overscroll-x-contain scrollbar-none lg:block"
+          onWheel={scrollHorizontallyOnWheel}
+        >
+          <div className="ml-auto flex w-max gap-1">
+            <CategoryTabs
+              selectedCategory={selectedCategory}
+              onCategoryChange={onCategoryChange}
+            />
+          </div>
         </div>
 
         {/* System status */}
-        <div className="flex items-center gap-3 text-[11px] text-[var(--color-text-muted)] shrink-0">
+        <div className="font-mono flex items-center gap-3 text-xs text-[var(--color-text-muted)] shrink-0">
           <div className="relative" ref={popoverRef}>
             <button
               onClick={() => setShowApiPopover((v) => !v)}
@@ -153,19 +159,19 @@ export default function TopBar({
 
             {showApiPopover && (
               <div
-                className="absolute right-0 top-full mt-2 py-2 px-3 rounded border border-[rgba(0,212,255,0.2)] z-50 min-w-[160px]"
+                className="absolute right-0 top-full mt-2 py-2 px-3 rounded border border-[var(--color-border-mid)] z-50 min-w-[160px]"
                 style={{
-                  background: "rgba(13, 13, 20, 0.95)",
+                  background: "rgba(13, 24, 30, 0.98)",
                   backdropFilter: "blur(12px)",
-                  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6)",
+                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.45)",
                 }}
               >
-                <div className="text-[10px] tracking-[1.5px] text-[var(--color-text-dim)] mb-2">
+                <div className="text-xs tracking-[0.06em] text-[var(--color-text-dim)] mb-2">
                   FEED STATUS
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {feeds.length === 0 ? (
-                    <div className="text-[10px] text-[var(--color-text-dim)]">
+                    <div className="text-xs text-[var(--color-text-dim)]">
                       AWAITING FEEDS...
                     </div>
                   ) : (
@@ -176,7 +182,7 @@ export default function TopBar({
                       return (
                         <div
                           key={feed}
-                          className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]"
+                          className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]"
                         >
                           <span
                             className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
@@ -198,14 +204,14 @@ export default function TopBar({
                 </div>
                 <div className="md:hidden mt-2 pt-2 border-t border-[var(--color-border)] flex flex-col gap-1.5">
                   <div
-                    className={`text-[10px] tracking-[1.5px] ${syncStale ? "text-[var(--color-amber)]" : "text-[var(--color-text-muted)]"}`}
+                    className={`text-xs tracking-[0.06em] ${syncStale ? "text-[var(--color-amber)]" : "text-[var(--color-text-muted)]"}`}
                     title={syncStale ? "Cached data is more than 2 days old" : undefined}
                   >
                     SYNC: {lastSync}
                   </div>
                   <Link
                     href="/about"
-                    className="text-[10px] tracking-[1.5px] text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
+                    className="text-xs tracking-[0.06em] text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
                   >
                     ABOUT PANTAULAH
                   </Link>
@@ -237,7 +243,8 @@ export default function TopBar({
 
       {/* Bottom row: Category tabs on small/medium screens */}
       <div
-        className="flex lg:hidden gap-1 px-3 py-1.5 overflow-x-auto scrollbar-none"
+        className="flex lg:hidden gap-1 overflow-x-auto overscroll-x-contain touch-pan-x px-3 py-1.5 scrollbar-none"
+        onWheel={scrollHorizontallyOnWheel}
         style={{ borderTop: "1px solid var(--color-border-faint)" }}
       >
         <CategoryTabs

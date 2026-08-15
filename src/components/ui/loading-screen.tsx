@@ -60,7 +60,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
           <circle cx="256" cy="256" r="105" fill="#0d1520" />
           <circle cx="256" cy="256" r="55" fill="#00d4ff" />
         </svg>
-        <div className="text-[var(--color-cyan)] text-xl tracking-[6px] font-bold">
+        <div className="text-[var(--color-cyan)] text-xl tracking-[0.2em] font-bold">
           PANTAULAH
         </div>
       </div>

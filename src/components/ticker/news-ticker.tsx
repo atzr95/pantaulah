@@ -51,11 +51,11 @@ export default function NewsTicker() {
     <div
       className="h-11 flex items-center px-5 gap-3 shrink-0 relative z-20"
       style={{
-        background: "linear-gradient(180deg, #0d0d14 0%, #111118 100%)",
+        background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg-card) 100%)",
         borderTop: "1px solid rgba(0, 212, 255, 0.1)",
       }}
     >
-      <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)] whitespace-nowrap shrink-0 pr-3 border-r border-[var(--color-border)]">
+      <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)] whitespace-nowrap shrink-0 pr-3 border-r border-[var(--color-border)]">
         LIVE FEED
       </div>
 
@@ -63,9 +63,9 @@ export default function NewsTicker() {
         {headlines.length > 0 ? (
           <div className="ticker-animate inline-block">
             {scrollContent.map((h, i) => (
-              <span key={i} className="text-[11px] text-[var(--color-text-muted)]">
+              <span key={i} className="text-xs text-[var(--color-text-muted)]">
                 {h.title}
-                <span className="text-[10px] text-[var(--color-text-muted)] ml-1">
+                <span className="text-xs text-[var(--color-text-muted)] ml-1">
                   [{h.source}]
                 </span>
                 <span className="text-[rgba(0,212,255,0.3)] mx-5">///</span>
@@ -75,18 +75,18 @@ export default function NewsTicker() {
         ) : failed ? (
           <button
             onClick={() => loadTicker(true)}
-            className="text-[11px] tracking-wider text-[var(--color-amber)] hover:text-[var(--color-text-bright)] transition-colors cursor-pointer"
+            className="text-xs tracking-wider text-[var(--color-amber)] hover:text-[var(--color-text-bright)] transition-colors cursor-pointer"
           >
             FEED OFFLINE — RETRY
           </button>
         ) : (
-          <span className="text-[11px] text-[var(--color-text-muted)]">
+          <span className="text-xs text-[var(--color-text-muted)]">
             Loading headlines...
           </span>
         )}
       </div>
 
-      <div className="flex gap-4 shrink-0 pl-3 border-l border-[var(--color-border)] text-[10px]">
+      <div className="flex gap-4 shrink-0 pl-3 border-l border-[var(--color-border)] text-xs">
         <span className="relative group/rates flex gap-4 cursor-default">
           {rates.slice(0, 2).map((r) => (
             <span key={r.currency}>
@@ -106,7 +106,7 @@ export default function NewsTicker() {
             <div
               className="absolute bottom-full right-0 mb-2 hidden group-hover/rates:block z-50"
               style={{
-                background: "linear-gradient(180deg, #16161e 0%, #111118 100%)",
+                background: "linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-card) 100%)",
                 border: "1px solid rgba(0, 212, 255, 0.15)",
                 borderRadius: "4px",
                 padding: "8px 12px",
@@ -114,7 +114,7 @@ export default function NewsTicker() {
                 boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
               }}
             >
-              <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)] mb-2">
+              <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-2">
                 EXCHANGE RATES
               </div>
               <div className="flex flex-col gap-1.5">
@@ -135,7 +135,7 @@ export default function NewsTicker() {
             <div
               className="absolute bottom-full right-0 mb-2 hidden group-hover/gold:block z-50"
               style={{
-                background: "linear-gradient(180deg, #16161e 0%, #111118 100%)",
+                background: "linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-card) 100%)",
                 border: "1px solid rgba(0, 212, 255, 0.15)",
                 borderRadius: "4px",
                 padding: "8px 12px",
@@ -143,7 +143,7 @@ export default function NewsTicker() {
                 boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
               }}
             >
-              <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)] mb-2">
+              <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-2">
                 GOLD PRICE / GRAM
               </div>
               <div className="flex flex-col gap-1.5">
@@ -156,10 +156,10 @@ export default function NewsTicker() {
                   <span className="text-[var(--color-text-bright)]">RM{gold.gold916.toFixed(2)}</span>
                 </div>
               </div>
-              <div className="text-[10px] text-[var(--color-text-dim)] mt-2 tracking-wider">
+              <div className="text-xs text-[var(--color-text-dim)] mt-2 tracking-wider">
                 SRC: BNM KIJANG EMAS
               </div>
-              <div className="text-[10px] text-[var(--color-text-dim)] tracking-wider">
+              <div className="text-xs text-[var(--color-text-dim)] tracking-wider">
                 EFF. {gold.effectiveDate}
               </div>
             </div>
@@ -172,7 +172,7 @@ export default function NewsTicker() {
             <div
               className="absolute bottom-full right-0 mb-2 hidden group-hover/fuel:block z-50"
               style={{
-                background: "linear-gradient(180deg, #16161e 0%, #111118 100%)",
+                background: "linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-card) 100%)",
                 border: "1px solid rgba(0, 212, 255, 0.15)",
                 borderRadius: "4px",
                 padding: "8px 12px",
@@ -180,7 +180,7 @@ export default function NewsTicker() {
                 boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
               }}
             >
-              <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)] mb-2">
+              <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-2">
                 FUEL PRICES
               </div>
               <div className="flex flex-col gap-1.5">
@@ -193,7 +193,7 @@ export default function NewsTicker() {
               </div>
               {(fuel.ron95Budi != null || fuel.dieselEastMsia != null) && (
                 <>
-                  <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)] mt-3 mb-2">
+                  <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mt-3 mb-2">
                     SUBSIDISED
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -212,7 +212,7 @@ export default function NewsTicker() {
                   </div>
                 </>
               )}
-              <div className="text-[10px] text-[var(--color-text-dim)] mt-2 tracking-wider">
+              <div className="text-xs text-[var(--color-text-dim)] mt-2 tracking-wider">
                 EFF. {fuel.date}
               </div>
             </div>

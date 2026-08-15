@@ -125,7 +125,7 @@ export default function AirQualityMap({
               <text x={centroid[0] + dx} y={centroid[1] + dy - 2} textAnchor="middle" fontSize={12} fontWeight="bold" fill={color} style={{ textShadow: "0 0 6px rgba(0,0,0,0.9)" }}>
                 {reading.apiValue}
               </text>
-              <text x={centroid[0] + dx} y={centroid[1] + dy + 10} textAnchor="middle" fontSize={9} fontWeight="bold" fill={color} opacity={0.85} style={{ textShadow: "0 0 4px rgba(0,0,0,0.9)" }}>
+              <text x={centroid[0] + dx} y={centroid[1] + dy + 10} textAnchor="middle" fontSize={11} fontWeight="bold" fill={color} opacity={0.95} style={{ textShadow: "0 0 4px rgba(0,0,0,0.9)" }}>
                 {reading.dominantPollutant}
               </text>
             </g>
@@ -148,7 +148,7 @@ export default function AirQualityMap({
       {hoveredState && (() => {
         const reading = stateReadingMap[hoveredState];
         return (
-          <div className="fixed z-50 pointer-events-none px-3 py-2.5 text-xs" style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 10, background: "rgba(13, 13, 20, 0.95)", border: `1px solid ${reading ? getAirQualityColor(reading.status) + "60" : "rgba(0,212,255,0.3)"}`, borderRadius: 4, color: "#e2e8f0", fontFamily: "var(--font-mono)", letterSpacing: "0.05em", minWidth: 200 }}>
+          <div className="fixed z-50 pointer-events-none px-3 py-2.5 text-xs" style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 10, background: "rgba(13, 24, 30, 0.98)", border: `1px solid ${reading ? getAirQualityColor(reading.status) + "60" : "rgba(0,212,255,0.3)"}`, borderRadius: 4, color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em", minWidth: 200 }}>
             <div className="font-bold text-[var(--color-cyan)] tracking-wider mb-1.5">{hoveredState.toUpperCase()}</div>
             {reading ? (
               <div className="space-y-1">
@@ -174,14 +174,14 @@ export default function AirQualityMap({
         );
       })()}
 
-      <div className="absolute bottom-5 left-5 text-[10px] text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
-        <div className="tracking-[2px] mb-2" style={{ color: "rgba(0, 212, 255, 0.75)" }}>AIR POLLUTANT INDEX</div>
+      <div className="absolute bottom-5 left-5 text-xs text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
+        <div className="tracking-[0.08em] mb-2" style={{ color: "rgba(0, 212, 255, 0.75)" }}>AIR POLLUTANT INDEX</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(34, 197, 94, 0.35)" }} /><span style={{ color: "var(--color-green)" }}>0–50 GOOD</span></div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(0, 212, 255, 0.35)" }} /><span style={{ color: "var(--color-cyan)" }}>51–100 MODERATE</span></div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(255, 149, 0, 0.4)" }} /><span style={{ color: "var(--color-amber)" }}>101–200 UNHEALTHY</span></div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(239, 68, 68, 0.45)" }} /><span style={{ color: "var(--color-red)" }}>201–300 V.UNHEALTHY</span></div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(139, 92, 246, 0.5)" }} /><span style={{ color: "#8b5cf6" }}>300+ HAZARDOUS</span></div>
-        <div className="mt-2 pt-2 border-t border-[rgba(255,255,255,0.06)]"><span className="text-[10px]">SOURCE: OPEN-METEO AIR QUALITY</span></div>
+        <div className="mt-2 pt-2 border-t border-[rgba(255,255,255,0.06)]"><span className="text-xs">SOURCE: OPEN-METEO AIR QUALITY</span></div>
       </div>
 
       <div className="absolute top-4 left-4 text-xs tracking-wider hidden lg:block" style={{ color: "var(--color-text-muted)" }}>

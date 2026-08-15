@@ -31,34 +31,34 @@ export default function RidershipCard({ data, selectedYear }: RidershipCardProps
   return (
     <div className="border-t border-[var(--color-border)]">
       <div className="px-4 py-2.5">
-        <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+        <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
           PUBLIC TRANSIT RIDERSHIP
           <span className="text-[var(--color-text-dim)] ml-2">/ NATIONAL</span>
         </div>
       </div>
       <div className="bg-[var(--color-bg)] p-3.5">
         <div className="flex justify-between items-baseline mb-2">
-          <span className="text-xl font-bold text-[var(--color-text-bright)]">
+          <span className="font-mono text-xl font-bold text-[var(--color-text-bright)]">
             {formatM(yearData.total)}
           </span>
           {change != null && (
             <span
-              className="text-[10px]"
+              className="text-xs"
               style={{ color: change >= 0 ? "var(--color-green)" : "var(--color-red)" }}
             >
               {change >= 0 ? "+" : ""}{change.toFixed(1)}% YoY
             </span>
           )}
         </div>
-        <div className="text-[10px] tracking-wider text-[var(--color-text-dim)] mb-2">
+        <div className="text-xs tracking-wider text-[var(--color-text-dim)] mb-2">
           TOTAL TRIPS IN {selectedYear}
         </div>
 
         <div className="space-y-2">
           <div>
             <div className="flex justify-between items-baseline mb-0.5">
-              <span className="text-[10px] text-[var(--color-text)] tracking-wider">Rail</span>
-              <span className="text-[10px] text-[var(--color-text-muted)]">
+              <span className="text-xs text-[var(--color-text)] tracking-wider">Rail</span>
+              <span className="text-xs text-[var(--color-text-muted)]">
                 {railPct.toFixed(0)}% · {formatM(yearData.rail)}
               </span>
             </div>
@@ -71,8 +71,8 @@ export default function RidershipCard({ data, selectedYear }: RidershipCardProps
           </div>
           <div>
             <div className="flex justify-between items-baseline mb-0.5">
-              <span className="text-[10px] text-[var(--color-text)] tracking-wider">Bus</span>
-              <span className="text-[10px] text-[var(--color-text-muted)]">
+              <span className="text-xs text-[var(--color-text)] tracking-wider">Bus</span>
+              <span className="text-xs text-[var(--color-text-muted)]">
                 {busPct.toFixed(0)}% · {formatM(yearData.bus)}
               </span>
             </div>

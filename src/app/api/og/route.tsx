@@ -16,7 +16,8 @@ export async function GET(request: Request) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#0a0a0f",
+          // ImageResponse does not load the app's :root CSS variables.
+          backgroundColor: "#071015",
           fontFamily: "monospace",
           position: "relative",
         }}

@@ -107,7 +107,7 @@ export default function WeatherView() {
           <div className="text-[var(--color-text-dim)] text-xs tracking-wider mb-1">
             FETCHING WEATHER DATA...
           </div>
-          <div className="text-[10px] text-[var(--color-text-dim)]">
+          <div className="text-xs text-[var(--color-text-dim)]">
             data.gov.my
           </div>
         </div>
@@ -122,12 +122,12 @@ export default function WeatherView() {
           <div className="text-[var(--color-red)] text-xs tracking-wider mb-1">
             DATA UNAVAILABLE
           </div>
-          <div className="text-[10px] text-[var(--color-text-dim)]">
+          <div className="text-xs text-[var(--color-text-dim)]">
             Could not fetch weather data
           </div>
           <button
             onClick={fetchWeather}
-            className="mt-4 px-4 py-2 text-[10px] tracking-[2px] border rounded transition-all cursor-pointer border-[rgba(0,212,255,0.25)] text-[var(--color-cyan)] hover:border-[var(--color-cyan)] hover:bg-[rgba(0,212,255,0.1)] hover:shadow-[0_0_10px_rgba(0,212,255,0.1)]"
+            className="mt-4 px-4 py-2 text-xs tracking-[0.08em] border rounded transition-all cursor-pointer border-[rgba(0,212,255,0.25)] text-[var(--color-cyan)] hover:border-[var(--color-cyan)] hover:bg-[rgba(0,212,255,0.1)] hover:shadow-[0_0_10px_rgba(0,212,255,0.1)]"
           >
             RETRY
           </button>
@@ -143,10 +143,10 @@ export default function WeatherView() {
     <button
       key={tab.key}
       onClick={() => setActiveTab(tab.key)}
-      className={`px-2 lg:px-3 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-[10px] lg:text-[10px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
+      className={`px-2 lg:px-3 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-xs lg:text-xs tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
         activeTab === tab.key
           ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
-          : "border-[rgba(0,212,255,0.2)] text-[var(--color-text-muted)] hover:border-[rgba(0,212,255,0.4)] hover:text-[var(--color-text)] bg-[rgba(10,10,15,0.7)] backdrop-blur-sm"
+          : "border-[var(--color-border-mid)] text-[var(--color-text-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] bg-[rgba(13,24,30,0.9)] backdrop-blur-sm"
       }`}
     >
       {tab.label}
@@ -160,10 +160,10 @@ export default function WeatherView() {
           <button
             key={date}
             onClick={() => setSelectedDateIndex(i)}
-            className={`px-2.5 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-[10px] lg:text-[10px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
+            className={`px-2.5 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-xs lg:text-xs tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
               selectedDateIndex === i
                 ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
-                : "border-[rgba(0,212,255,0.2)] text-[var(--color-text-muted)] hover:border-[rgba(0,212,255,0.4)] hover:text-[var(--color-text)] bg-[rgba(10,10,15,0.7)] backdrop-blur-sm"
+                : "border-[var(--color-border-mid)] text-[var(--color-text-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] bg-[rgba(13,24,30,0.9)] backdrop-blur-sm"
             }`}
           >
             {dateLabels[i] ?? `DAY ${i + 1}`}
@@ -232,7 +232,7 @@ export default function WeatherView() {
             >
               <span className="text-sm">{"\u26A0\uFE0F"}</span>
               {activeWarningCount > 0 && (
-                <span className="text-[10px] tracking-wider text-[var(--color-amber)] font-bold">
+                <span className="text-xs tracking-wider text-[var(--color-amber)] font-bold">
                   {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
                 </span>
               )}
@@ -240,11 +240,11 @@ export default function WeatherView() {
                 <span className="text-[var(--color-text-dim)] opacity-30">|</span>
               )}
               {floodAlertCount > 0 && (
-                <span className="text-[10px] tracking-wider text-[var(--color-cyan)] font-bold">
+                <span className="text-xs tracking-wider text-[var(--color-cyan)] font-bold">
                   {"\uD83C\uDF0A"} {floodAlertCount} FLOOD ALERT{floodAlertCount > 1 ? "S" : ""}
                 </span>
               )}
-              <span className="text-[10px] text-[var(--color-text-dim)] hidden sm:inline">
+              <span className="text-xs text-[var(--color-text-dim)] hidden sm:inline">
                 — see sidebar for details
               </span>
             </div>
@@ -254,7 +254,7 @@ export default function WeatherView() {
           <div
             className="lg:hidden shrink-0"
             style={{
-              background: "rgba(13, 13, 20, 0.9)",
+              background: "rgba(13, 24, 30, 0.96)",
               borderBottom: "1px solid rgba(0, 212, 255, 0.08)",
             }}
           >
@@ -297,15 +297,15 @@ export default function WeatherView() {
       <div
         className="h-11 hidden lg:flex items-center px-5 gap-5 shrink-0 relative z-20"
         style={{
-          background: "linear-gradient(180deg, #0d0d14 0%, #111118 100%)",
+          background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg-card) 100%)",
           borderTop: "1px solid rgba(0, 212, 255, 0.1)",
         }}
       >
         {/* National temp range */}
         {data.forecasts.length > 0 && (
           <>
-            <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
-              <span className="tracking-[1.5px] text-[var(--color-cyan)]">NATIONAL</span>
+            <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+              <span className="tracking-[0.06em] text-[var(--color-cyan)]">NATIONAL</span>
               <span>
                 {Math.min(...data.forecasts.map((f) => f.minTemp))}°–
                 {Math.max(...data.forecasts.map((f) => f.maxTemp))}°C
@@ -316,7 +316,7 @@ export default function WeatherView() {
         )}
 
         {/* Active warnings */}
-        <div className="flex items-center gap-1.5 text-[10px]">
+        <div className="flex items-center gap-1.5 text-xs">
           {activeWarningCount > 0 ? (
             <>
               <span
@@ -338,7 +338,7 @@ export default function WeatherView() {
         <span className="text-[var(--color-text-dim)] opacity-30">|</span>
 
         {/* Flood alerts */}
-        <div className="flex items-center gap-1.5 text-[10px]">
+        <div className="flex items-center gap-1.5 text-xs">
           {floodAlertCount > 0 ? (
             <>
               <span
@@ -362,8 +362,8 @@ export default function WeatherView() {
         {/* Latest earthquake */}
         {data.earthquakes.length > 0 && (
           <>
-            <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
-              <span className="tracking-[1.5px] text-[var(--color-text-dim)]">SEISMIC</span>
+            <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+              <span className="tracking-[0.06em] text-[var(--color-text-dim)]">SEISMIC</span>
               <span>
                 M{data.earthquakes[0].magnitude} — {data.earthquakes[0].location}
               </span>
@@ -381,8 +381,8 @@ export default function WeatherView() {
           );
           const aqColor = maxApi > 100 ? "var(--color-amber)" : "var(--color-green)";
           return (
-            <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
-              <span className="tracking-[1.5px] text-[var(--color-text-dim)]">AQI</span>
+            <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+              <span className="tracking-[0.06em] text-[var(--color-text-dim)]">AQI</span>
               <span>
                 AVG {avgApi}
               </span>
@@ -394,7 +394,7 @@ export default function WeatherView() {
         })()}
 
         {/* Last fetch time */}
-        <div className="ml-auto text-[10px] text-[var(--color-text-dim)]">
+        <div className="ml-auto text-xs text-[var(--color-text-dim)]">
           {new Date(data.fetchedAt).toLocaleTimeString("en-MY", {
             hour: "2-digit",
             minute: "2-digit",
@@ -414,19 +414,19 @@ export default function WeatherView() {
               <div className="text-sm font-bold text-[var(--color-text-bright)] tracking-wider truncate">
                 {displayName}
               </div>
-              <div className="text-[10px] tracking-[1.5px] text-[var(--color-text-dim)]">
+              <div className="text-xs tracking-[0.06em] text-[var(--color-text-dim)]">
                 {selectedState ? "STATE WEATHER" : "NATIONAL WEATHER"} / METMALAYSIA
               </div>
             </div>
             {(activeWarningCount > 0 || floodAlertCount > 0) && (
               <div className="shrink-0 text-right">
                 {activeWarningCount > 0 && (
-                  <div className="text-[10px] tracking-[1.5px] text-[var(--color-amber)]">
+                  <div className="text-xs tracking-[0.06em] text-[var(--color-amber)]">
                     {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
                   </div>
                 )}
                 {floodAlertCount > 0 && (
-                  <div className="text-[10px] tracking-[1.5px] text-[var(--color-cyan)]">
+                  <div className="text-xs tracking-[0.06em] text-[var(--color-cyan)]">
                     {floodAlertCount} FLOOD{floodAlertCount > 1 ? "S" : ""}
                   </div>
                 )}

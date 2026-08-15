@@ -144,14 +144,14 @@ function ZoomViewer({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
-        <span className="text-[10px] tracking-[2px] text-[var(--color-text-dim)]">
+        <span className="text-xs tracking-[0.08em] text-[var(--color-text-dim)]">
           PINCH TO ZOOM · DOUBLE-TAP TO RESET
         </span>
         <div className="flex items-center gap-3">
           {transform.scale > 1 && (
             <button
               onClick={reset}
-              className="text-[10px] tracking-[1.5px] text-[var(--color-cyan)] border border-[rgba(0,212,255,0.3)] rounded px-2.5 py-1"
+              className="text-xs tracking-[0.06em] text-[var(--color-cyan)] border border-[var(--color-border-bright)] rounded px-2.5 py-1"
             >
               RESET
             </button>
@@ -214,10 +214,10 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
               setActiveImage(config.key);
               setImageError(false);
             }}
-            className={`px-2 lg:px-3 py-1 text-[10px] lg:text-[10px] tracking-wider border rounded transition-all ${
+            className={`px-2 lg:px-3 py-1 text-xs lg:text-xs tracking-wider border rounded transition-all ${
               activeImage === config.key
                 ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
-                : "border-[rgba(0,212,255,0.2)] text-[var(--color-text-muted)] hover:border-[rgba(0,212,255,0.4)] hover:text-[var(--color-text)] bg-[rgba(10,10,15,0.7)]"
+                : "border-[var(--color-border-mid)] text-[var(--color-text-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] bg-[rgba(13,24,30,0.9)]"
             }`}
           >
             {config.label}
@@ -229,17 +229,17 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
       {/* Desktop: absolute fill; Mobile: scrollable with natural image sizing */}
       <div
         className="flex-1 relative overflow-hidden lg:block hidden"
-        style={{ background: "rgba(13, 13, 20, 0.8)" }}
+        style={{ background: "rgba(19, 33, 41, 0.94)" }}
       >
         {imageError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className="text-[var(--color-text-dim)] text-sm mb-2">
               IMAGE UNAVAILABLE
             </div>
-            <div className="text-[10px] text-[var(--color-text-dim)]">
+            <div className="text-xs text-[var(--color-text-dim)]">
               MetMalaysia image endpoint may be temporarily down
             </div>
-            <div className="text-[10px] text-[var(--color-text-dim)] mt-2 font-mono opacity-50">
+            <div className="text-xs text-[var(--color-text-dim)] mt-2 font-mono opacity-50">
               {imageUrl}
             </div>
           </div>
@@ -269,12 +269,12 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
         <div className="absolute bottom-3 right-3 w-5 h-5 border-b border-r border-[var(--color-cyan)] opacity-40" />
 
         {/* Description overlay */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[10px] tracking-[2px] text-[var(--color-text-dim)] bg-[rgba(10,10,15,0.7)] px-3 py-1 rounded backdrop-blur-sm text-center">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-xs tracking-[0.08em] text-[var(--color-text-dim)] bg-[rgba(13,24,30,0.9)] px-3 py-1 rounded backdrop-blur-sm text-center">
           {currentConfig.description.toUpperCase()}
         </div>
 
         {/* Updated time overlay */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-[var(--color-text-dim)] bg-[rgba(10,10,15,0.7)] px-3 py-1 rounded backdrop-blur-sm">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-[var(--color-text-dim)] bg-[rgba(13,24,30,0.9)] px-3 py-1 rounded backdrop-blur-sm">
           UPDATED: {new Date(radar.updatedAt).toLocaleTimeString("en-MY", {
             hour: "2-digit",
             minute: "2-digit",
@@ -287,10 +287,10 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
       {/* Mobile: scrollable layout */}
       <div
         className="flex-1 overflow-y-auto lg:hidden"
-        style={{ background: "rgba(13, 13, 20, 0.8)" }}
+        style={{ background: "rgba(19, 33, 41, 0.94)" }}
       >
         {/* Description */}
-        <div className="text-center text-[10px] tracking-[2px] text-[var(--color-text-dim)] px-3 py-2">
+        <div className="text-center text-xs tracking-[0.08em] text-[var(--color-text-dim)] px-3 py-2">
           {currentConfig.description.toUpperCase()}
         </div>
 
@@ -299,7 +299,7 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
             <div className="text-[var(--color-text-dim)] text-sm mb-2">
               IMAGE UNAVAILABLE
             </div>
-            <div className="text-[10px] text-[var(--color-text-dim)]">
+            <div className="text-xs text-[var(--color-text-dim)]">
               MetMalaysia image endpoint may be temporarily down
             </div>
           </div>
@@ -325,7 +325,7 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
 
         {/* Updated time + tap hint */}
         <div className="flex flex-col items-center gap-1 py-3 pb-48">
-          <div className="text-[10px] text-[var(--color-text-dim)] bg-[rgba(10,10,15,0.7)] px-3 py-1 rounded">
+          <div className="text-xs text-[var(--color-text-dim)] bg-[rgba(13,24,30,0.9)] px-3 py-1 rounded">
             UPDATED: {new Date(radar.updatedAt).toLocaleTimeString("en-MY", {
               hour: "2-digit",
               minute: "2-digit",
@@ -334,7 +334,7 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
             MYT
           </div>
           {!imageError && (
-            <div className="text-[10px] tracking-[1.5px] text-[var(--color-cyan)] opacity-60">
+            <div className="text-xs tracking-[0.06em] text-[var(--color-cyan)] opacity-60">
               TAP IMAGE TO ZOOM
             </div>
           )}

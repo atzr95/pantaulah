@@ -53,6 +53,7 @@ function formatTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: "Asia/Kuala_Lumpur",
   });
 }
 
@@ -61,6 +62,7 @@ function formatDate(iso: string): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Kuala_Lumpur",
   });
 }
 
@@ -122,38 +124,40 @@ export default function WeatherSidebar({
       className={
         variant === "mobile"
           ? "flex flex-col"
-          : "w-[380px] hidden lg:flex flex-col overflow-y-auto shrink-0"
+          : "w-[400px] hidden lg:flex flex-col overflow-y-auto shrink-0"
       }
       style={
         variant === "mobile"
           ? {}
           : {
-              background: "linear-gradient(180deg, #0d0d14 0%, #0a0a0f 100%)",
-              borderLeft: "1px solid rgba(0, 212, 255, 0.1)",
+              background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg) 100%)",
+              borderLeft: "1px solid var(--color-border-mid)",
             }
       }
     >
-      {/* Header */}
-      <div className="px-5 py-4 border-b border-[var(--color-border)]">
-        <div className="text-[12px] tracking-[3px] text-[var(--color-cyan)] mb-1">
-          {selectedState ? "STATE WEATHER BRIEF" : "NATIONAL WEATHER"}
-          <span className="text-[var(--color-text-dim)] ml-2">/ METMALAYSIA</span>
+      {/* The mobile sheet already has a persistent peek header. */}
+      {variant !== "mobile" && (
+        <div className="px-5 py-4 border-b border-[var(--color-border)]">
+          <div className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-1">
+            {selectedState ? "STATE WEATHER BRIEF" : "NATIONAL WEATHER"}
+            <span className="text-[var(--color-text-dim)] ml-2">/ METMALAYSIA</span>
+          </div>
+          <div className="text-[22px] font-bold text-[var(--color-text-bright)] tracking-[0.02em]">
+            {displayName}
+          </div>
+          <div className="text-xs text-[var(--color-text-dim)] mt-0.5">
+            {selectedState
+              ? "Click map to view another state"
+              : "Select a state on the map"}
+          </div>
         </div>
-        <div className="text-[22px] font-bold text-[var(--color-text-bright)] tracking-wider">
-          {displayName}
-        </div>
-        <div className="text-[10px] text-[var(--color-text-dim)] mt-0.5">
-          {selectedState
-            ? "Click map to view another state"
-            : "Select a state on the map"}
-        </div>
-      </div>
+      )}
 
       {/* State forecast */}
       {selectedState && stateForecasts.length > 0 ? (
         <div className="border-b border-[var(--color-border)]">
           <div className="px-4 py-2.5">
-            <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+            <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
               3-DAY FORECAST
             </div>
           </div>
@@ -167,16 +171,16 @@ export default function WeatherSidebar({
                 {/* Date + summary */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] tracking-wider text-[var(--color-text-bright)] font-bold">
+                    <span className="text-xs tracking-wider text-[var(--color-text-bright)] font-bold">
                       {dateLabels[i] ?? f.date.slice(5)}
                     </span>
-                    <span className="text-[10px] text-[var(--color-text-dim)]">
+                    <span className="text-xs text-[var(--color-text-dim)]">
                       {f.date.slice(5)}
                     </span>
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span
-                      className="text-lg font-bold"
+                      className="font-mono text-lg font-bold"
                       style={{ color: getTempColor(f.maxTemp) }}
                     >
                       {f.maxTemp}°
@@ -195,11 +199,11 @@ export default function WeatherSidebar({
                     { label: "NITE", value: f.nightForecast },
                   ].map((slot) => (
                     <div key={slot.label} className="flex items-center gap-2">
-                      <span className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] w-7 shrink-0">
+                      <span className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] w-7 shrink-0">
                         {slot.label}
                       </span>
                       <span className="text-sm">{getWeatherIcon(slot.value)}</span>
-                      <span className="text-[10px] text-[var(--color-text-muted)] truncate">
+                      <span className="text-xs text-[var(--color-text-muted)] truncate">
                         {slot.value}
                       </span>
                     </div>
@@ -229,7 +233,7 @@ export default function WeatherSidebar({
         return (
           <div className="border-b border-[var(--color-border)]">
             <div className="px-4 py-2.5">
-              <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+              <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
                 AIR QUALITY
               </div>
             </div>
@@ -245,18 +249,18 @@ export default function WeatherSidebar({
                   }}
                 >
                   <div
-                    className="text-2xl font-bold"
+                    className="font-mono text-2xl font-bold"
                     style={{ color: getAirQualityColor(reading.status) }}
                   >
                     {reading.apiValue}
                   </div>
                   <div
-                    className="text-[10px] font-bold tracking-wider"
+                    className="text-xs font-bold tracking-wider"
                     style={{ color: getAirQualityColor(reading.status) }}
                   >
                     {reading.status.replace("_", " ")}
                   </div>
-                  <div className="text-[10px] text-[var(--color-text-dim)] mt-1">
+                  <div className="text-xs text-[var(--color-text-dim)] mt-1">
                     {reading.stationName}
                   </div>
                 </div>
@@ -271,11 +275,11 @@ export default function WeatherSidebar({
                     { label: "SO\u2082", value: `${reading.so2} ppb`, dominant: false },
                     { label: "NO\u2082", value: `${reading.no2} ppb`, dominant: false },
                   ].map((p) => (
-                    <div key={p.label} className="flex items-center justify-between text-[10px]">
+                    <div key={p.label} className="flex items-center justify-between text-xs">
                       <span className="text-[var(--color-text-muted)] flex items-center gap-1.5">
                         {p.label}
                         {p.dominant && (
-                          <span className="text-[10px] px-1 py-0.5 rounded-sm bg-[rgba(255,149,0,0.15)] text-[var(--color-amber)]">
+                          <span className="text-xs px-1 py-0.5 rounded-sm bg-[rgba(255,149,0,0.15)] text-[var(--color-amber)]">
                             DOMINANT
                           </span>
                         )}
@@ -289,12 +293,12 @@ export default function WeatherSidebar({
               <div className="px-4 pb-4">
                 <div
                   className="rounded-sm p-3 text-center"
-                  style={{ background: "rgba(13, 13, 20, 0.8)", border: "1px solid var(--color-border)" }}
+                  style={{ background: "rgba(19, 33, 41, 0.94)", border: "1px solid var(--color-border)" }}
                 >
                   <div className="text-[var(--color-text-muted)] text-sm mb-0.5">
                     National Avg: <span className="font-bold text-[var(--color-text-bright)]">{avgApi}</span>
                   </div>
-                  <div className="text-[10px] text-[var(--color-text-dim)]">
+                  <div className="text-xs text-[var(--color-text-dim)]">
                     Click a state for detailed pollutant readings
                   </div>
                 </div>
@@ -307,12 +311,12 @@ export default function WeatherSidebar({
       {/* Warnings section — always visible */}
       <div className="flex-1">
         <div className="px-4 py-2.5 flex items-center gap-2">
-          <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+          <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
             {selectedState ? "STATE WARNINGS" : "ACTIVE WARNINGS"}
           </div>
           {(selectedState ? stateWarnings : activeWarnings).length > 0 && (
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold"
+              className="text-xs px-1.5 py-0.5 rounded-sm font-bold"
               style={{
                 background: "rgba(239, 68, 68, 0.15)",
                 color: "var(--color-red)",
@@ -341,17 +345,17 @@ export default function WeatherSidebar({
                   key={w.id}
                   className="border rounded-sm p-3"
                   style={{
-                    background: "rgba(13, 13, 20, 0.8)",
+                    background: "rgba(19, 33, 41, 0.94)",
                     borderColor: severityColor,
                   }}
                 >
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="text-sm">{getCategoryIcon(w.category)}</span>
-                    <span className="text-[10px] font-bold text-[var(--color-text-bright)] tracking-wider flex-1">
+                    <span className="text-xs font-bold text-[var(--color-text-bright)] tracking-wider flex-1">
                       {w.title.toUpperCase()}
                     </span>
                     <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold"
+                      className="text-xs px-1.5 py-0.5 rounded-sm font-bold"
                       style={{
                         background: `${severityColor}15`,
                         color: severityColor,
@@ -362,13 +366,13 @@ export default function WeatherSidebar({
                     </span>
                   </div>
 
-                  <p className="text-[10px] text-[var(--color-text-muted)] leading-relaxed mb-2">
+                  <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mb-2">
                     {w.text}
                   </p>
 
                   {w.instruction && (
                     <div
-                      className="text-[10px] p-1.5 rounded-sm mb-2"
+                      className="text-xs p-1.5 rounded-sm mb-2"
                       style={{
                         background: `${severityColor}08`,
                         border: `1px solid ${severityColor}40`,
@@ -383,7 +387,7 @@ export default function WeatherSidebar({
                     {w.affectedAreas.map((area) => (
                       <span
                         key={area}
-                        className="text-[10px] px-1 py-0.5 rounded-sm"
+                        className="text-xs px-1 py-0.5 rounded-sm"
                         style={{
                           background:
                             selectedState && area.toLowerCase() === selectedState.toLowerCase()
@@ -398,7 +402,7 @@ export default function WeatherSidebar({
                     ))}
                   </div>
 
-                  <div className="text-[10px] text-[var(--color-text-dim)]">
+                  <div className="text-xs text-[var(--color-text-dim)]">
                     VALID: {formatTime(w.validFrom)} — {formatTime(w.validTo)} MYT
                   </div>
                 </div>
@@ -419,12 +423,12 @@ export default function WeatherSidebar({
         return (
           <div className="border-t border-[var(--color-border)]">
             <div className="px-4 py-2.5 flex items-center gap-2">
-              <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+              <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
                 {selectedState ? "STATE FLOOD ALERTS" : "FLOOD ALERTS"}
               </div>
               {stateFloodAlerts.length > 0 && (
                 <span
-                  className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold"
+                  className="text-xs px-1.5 py-0.5 rounded-sm font-bold"
                   style={{
                     background: "rgba(239, 68, 68, 0.15)",
                     color: "var(--color-red)",
@@ -454,7 +458,7 @@ export default function WeatherSidebar({
                       key={`${s.state}-${s.stationName}-${i}`}
                       className="border rounded-sm p-3"
                       style={{
-                        background: "rgba(13, 13, 20, 0.8)",
+                        background: "rgba(19, 33, 41, 0.94)",
                         borderColor: severityColor,
                         borderLeftWidth: "3px",
                       }}
@@ -463,18 +467,18 @@ export default function WeatherSidebar({
                         <div className="flex items-start gap-2 min-w-0">
                           <span className="text-sm shrink-0 mt-0.5">{"\uD83C\uDF0A"}</span>
                           <div className="min-w-0">
-                            <div className="text-[10px] font-bold text-[var(--color-text-bright)] tracking-wider leading-snug">
+                            <div className="text-xs font-bold text-[var(--color-text-bright)] tracking-wider leading-snug">
                               {s.stationName.toUpperCase()}
                             </div>
                             {!selectedState && (
-                              <div className="text-[10px] text-[var(--color-text-dim)] mt-0.5">
+                              <div className="text-xs text-[var(--color-text-dim)] mt-0.5">
                                 {s.state}
                               </div>
                             )}
                           </div>
                         </div>
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold shrink-0"
+                          className="text-xs px-1.5 py-0.5 rounded-sm font-bold shrink-0"
                           style={{
                             background: `${severityColor}15`,
                             color: severityColor,
@@ -485,7 +489,7 @@ export default function WeatherSidebar({
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 text-[10px]">
+                      <div className="flex items-center gap-3 text-xs">
                         <span className="text-[var(--color-text-muted)]">
                           {s.waterLevel.toFixed(2)}m
                           {s.threshold > 0 && (
@@ -501,7 +505,7 @@ export default function WeatherSidebar({
                     </div>
                   );
                 })}
-                <div className="text-[10px] text-[var(--color-text-dim)]">
+                <div className="text-xs text-[var(--color-text-dim)]">
                   Source: JPS InfoBanjir
                 </div>
               </div>
@@ -513,7 +517,7 @@ export default function WeatherSidebar({
       {/* Seismic activity — always visible */}
       <div className="border-t border-[var(--color-border)]">
         <div className="px-4 py-2.5">
-          <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+          <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
             RECENT SEISMIC ACTIVITY
           </div>
         </div>
@@ -522,9 +526,9 @@ export default function WeatherSidebar({
           {earthquakes.length === 0 ? (
             <div
               className="border border-[var(--color-border)] rounded-sm p-3 text-center"
-              style={{ background: "rgba(13, 13, 20, 0.8)" }}
+              style={{ background: "rgba(19, 33, 41, 0.94)" }}
             >
-              <div className="text-[10px] text-[var(--color-text-dim)]">
+              <div className="text-xs text-[var(--color-text-dim)]">
                 No recent seismic activity
               </div>
             </div>
@@ -533,7 +537,7 @@ export default function WeatherSidebar({
               <div
                 key={i}
                 className="border border-[var(--color-border)] rounded-sm p-3 flex items-center gap-3 transition-all hover:border-[var(--color-border-bright)]"
-                style={{ background: "rgba(13, 13, 20, 0.8)" }}
+                style={{ background: "rgba(19, 33, 41, 0.94)" }}
               >
                 {/* Magnitude circle */}
                 <div
@@ -544,7 +548,7 @@ export default function WeatherSidebar({
                   }}
                 >
                   <span
-                    className="text-sm font-bold"
+                    className="font-mono text-sm font-bold"
                     style={{ color: getQuakeColor(eq.magnitude) }}
                   >
                     {eq.magnitude.toFixed(1)}
@@ -553,13 +557,13 @@ export default function WeatherSidebar({
 
                 {/* Details */}
                 <div className="flex-1 min-w-0">
-                  <div className="text-[10px] text-[var(--color-text-bright)] font-bold truncate">
+                  <div className="text-xs text-[var(--color-text-bright)] font-bold truncate">
                     {eq.location}
                   </div>
-                  <div className="text-[10px] text-[var(--color-text-dim)] mt-0.5">
+                  <div className="text-xs text-[var(--color-text-dim)] mt-0.5">
                     {formatDate(eq.datetime)} {formatTime(eq.datetime)} MYT
                   </div>
-                  <div className="flex gap-2 mt-0.5 text-[10px] text-[var(--color-text-dim)]">
+                  <div className="flex gap-2 mt-0.5 text-xs text-[var(--color-text-dim)]">
                     <span>DEPTH: {eq.depth} KM</span>
                     <span>{eq.magnitudeType.toUpperCase()}</span>
                     {eq.status !== "NORMAL" && (
@@ -578,6 +582,9 @@ export default function WeatherSidebar({
               </div>
             ))
           )}
+          <div className="text-xs text-[var(--color-text-dim)]">
+            Sources: USGS + MET Malaysia
+          </div>
         </div>
       </div>
     </div>

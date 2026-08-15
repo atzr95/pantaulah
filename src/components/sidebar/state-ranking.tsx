@@ -51,10 +51,10 @@ export default function StateRanking({
   return (
     <div className="border-t border-[var(--color-border)]">
       <div className="px-4 py-2.5 flex items-baseline justify-between">
-        <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+        <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
           STATE RANKING <span className="text-[var(--color-text-dim)]">/ {config.label}</span>
         </div>
-        <div className="text-[10px] tracking-[1px] text-[var(--color-text-dim)]">({ranking.year})</div>
+        <div className="text-xs tracking-[0.04em] text-[var(--color-text-dim)]">({ranking.year})</div>
       </div>
       <div className="px-4 pb-3 flex flex-col gap-0.5">
         {ranking.rows.map(([topoName, value], i) => {
@@ -76,16 +76,16 @@ export default function StateRanking({
                   opacity: isSelected ? 1 : 0.55,
                 }}
               />
-              <span className="relative w-6 shrink-0 text-[10px] tabular-nums text-[var(--color-text-dim)]">
+              <span className="relative w-6 shrink-0 text-xs tabular-nums text-[var(--color-text-dim)]">
                 #{i + 1}
               </span>
               <span
-                className={`relative flex-1 truncate text-[11px] tracking-[0.5px] ${isSelected ? "font-bold" : ""}`}
+                className={`relative flex-1 truncate text-xs tracking-[0.5px] ${isSelected ? "font-bold" : ""}`}
                 style={{ color: isSelected ? accent : "var(--color-text)" }}
               >
                 {topoName.toUpperCase()}
               </span>
-              <span className="relative shrink-0 text-[11px] tabular-nums text-[var(--color-text-bright)]">
+              <span className="relative shrink-0 text-xs tabular-nums text-[var(--color-text-bright)]">
                 {formatMetricValue(config.key, value)}
               </span>
             </button>

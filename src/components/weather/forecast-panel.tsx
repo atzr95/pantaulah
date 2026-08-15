@@ -50,10 +50,10 @@ export default function ForecastPanel({ forecasts }: ForecastPanelProps) {
           <button
             key={date}
             onClick={() => setSelectedDate(i)}
-            className={`px-3 py-1 text-[10px] tracking-wider border rounded transition-all ${
+            className={`px-3 py-1 text-xs tracking-wider border rounded transition-all ${
               selectedDate === i
                 ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
-                : "border-[rgba(0,212,255,0.2)] text-[var(--color-text-muted)] hover:border-[rgba(0,212,255,0.4)] hover:text-[var(--color-text)] bg-[rgba(10,10,15,0.7)]"
+                : "border-[var(--color-border-mid)] text-[var(--color-text-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] bg-[rgba(13,24,30,0.9)]"
             }`}
           >
             {dateLabels[i] ?? `DAY ${i + 1}`}
@@ -69,15 +69,15 @@ export default function ForecastPanel({ forecasts }: ForecastPanelProps) {
             <div
               key={f.location.locationId}
               className="border border-[var(--color-border)] rounded-sm p-3.5 transition-all hover:border-[var(--color-border-bright)]"
-              style={{ background: "rgba(13, 13, 20, 0.8)" }}
+              style={{ background: "rgba(19, 33, 41, 0.94)" }}
             >
               {/* Location header */}
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="text-[11px] font-bold text-[var(--color-text-bright)] tracking-wider">
+                  <div className="text-xs font-bold text-[var(--color-text-bright)] tracking-wider">
                     {f.location.locationName.toUpperCase()}
                   </div>
-                  <div className="text-[10px] text-[var(--color-text-dim)] tracking-wider">
+                  <div className="text-xs text-[var(--color-text-dim)] tracking-wider">
                     {f.location.state.toUpperCase()}
                   </div>
                 </div>
@@ -87,7 +87,7 @@ export default function ForecastPanel({ forecasts }: ForecastPanelProps) {
               {/* Temperature */}
               <div className="flex items-baseline gap-1 mb-3">
                 <span
-                  className="text-2xl font-bold"
+                  className="font-mono text-2xl font-bold"
                   style={{ color: getTempColor(f.maxTemp) }}
                 >
                   {f.maxTemp}°
@@ -104,11 +104,11 @@ export default function ForecastPanel({ forecasts }: ForecastPanelProps) {
                   { label: "NITE", value: f.nightForecast },
                 ].map((slot) => (
                   <div key={slot.label} className="flex items-center gap-2">
-                    <span className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] w-8 shrink-0">
+                    <span className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] w-8 shrink-0">
                       {slot.label}
                     </span>
                     <span className="text-sm">{getWeatherIcon(slot.value)}</span>
-                    <span className="text-[10px] text-[var(--color-text-muted)] truncate">
+                    <span className="text-xs text-[var(--color-text-muted)] truncate">
                       {slot.value}
                     </span>
                   </div>

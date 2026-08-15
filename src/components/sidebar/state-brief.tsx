@@ -118,7 +118,7 @@ function getStateRank(data: CacheData, metric: string, year: number, state: stri
 /** Dim vintage tag overlaid on a breakdown panel header */
 function PanelVintage({ year }: { year: number }) {
   return (
-    <div className="absolute top-3.5 right-3.5 text-[10px] tracking-[1px] text-[var(--color-text-dim)]">
+    <div className="absolute top-3.5 right-3.5 text-xs tracking-[0.04em] text-[var(--color-text-dim)]">
       ({year})
     </div>
   );
@@ -187,13 +187,8 @@ export function StateBriefPeek({
   selectedState,
   selectedYear,
   selectedCategory,
-  selectedMetric,
 }: StateBriefProps) {
-  const { years, displayName, flagSrc } = useStateBriefData(data, selectedState, selectedYear);
-  const categoryMetrics = CATEGORY_METRICS[selectedCategory] ?? [];
-  const activeConfig = categoryMetrics.find((m) => m.key === selectedMetric) ?? categoryMetrics[0];
-  const activeResolved = activeConfig ? getMetricResolved(years, activeConfig.key, selectedYear) : undefined;
-  const activeMetric = activeResolved?.value;
+  const { displayName, flagSrc } = useStateBriefData(data, selectedState, selectedYear);
 
   return (
     <div className="flex items-center gap-3">
@@ -207,43 +202,10 @@ export function StateBriefPeek({
         <div className="text-sm font-bold text-[var(--color-text-bright)] tracking-wider truncate">
           {displayName}
         </div>
-        <div className="text-[10px] tracking-[1.5px] text-[var(--color-text-dim)]">
+        <div className="text-xs tracking-[0.06em] text-[var(--color-text-dim)]">
           {selectedState ? "STATE BRIEF" : "NATIONAL"} / {selectedCategory.toUpperCase()}
         </div>
       </div>
-      {activeConfig && (
-        <div className="text-right shrink-0">
-          <div className="text-[10px] tracking-[1.5px] text-[var(--color-text-dim)]">
-            {activeConfig.label}
-          </div>
-          <div className="text-base font-bold text-[var(--color-text-bright)]">
-            {formatMetricValue(activeConfig.key, activeMetric?.value)}
-            {activeResolved && activeResolved.year !== selectedYear && (
-              <span className="ml-1 text-[9px] font-normal tracking-[1px] text-[var(--color-text-dim)] align-middle">
-                {formatVintage(activeResolved.year)}
-              </span>
-            )}
-          </div>
-          {activeMetric?.change != null && (
-            <div
-              className="text-[10px]"
-              style={{
-                color:
-                  activeMetric.change >= 0
-                    ? activeConfig.colorHue === "amber"
-                      ? "var(--color-red)"
-                      : "var(--color-green)"
-                    : activeConfig.colorHue === "amber"
-                      ? "var(--color-green)"
-                      : "var(--color-red)",
-              }}
-            >
-              <span aria-hidden="true">{activeMetric.change >= 0 ? "▲" : "▼"}</span>{" "}
-              {formatChange(activeMetric.change, getChangeSuffix(activeConfig.key), getChangeUnit(activeConfig.key))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -372,10 +334,10 @@ export function StateBriefContent({
   }, [data.energy, selectedCategory, selectedState, selectedYear]);
 
   return (
-    <>
+    <div className="w-full max-w-full min-w-0 overflow-x-hidden">
       {/* Metrics Grid - dynamic based on category */}
       <div
-        className="grid grid-cols-2 gap-px"
+        className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-px overflow-hidden"
         style={{ background: "rgba(0, 212, 255, 0.05)", padding: 1 }}
       >
         {categoryMetrics.map((config) => {
@@ -400,21 +362,21 @@ export function StateBriefContent({
 
         {/* Always show population as context row (skip if economy category already includes it) */}
         {!categoryMetrics.some((m) => m.key === "population") && (
-          <div className="col-span-2 bg-[var(--color-bg)] p-3.5">
-            <div className="text-[10px] tracking-[2px] text-[var(--color-text-muted)] mb-1.5">
+          <div className="col-span-2 min-w-0 bg-[var(--color-bg-panel)] p-4">
+            <div className="text-xs tracking-[0.08em] text-[var(--color-text-muted)] mb-1.5">
               POPULATION
             </div>
-            <div className="text-xl font-bold text-[var(--color-text-bright)]">
+            <div className="font-mono text-lg 2xl:text-xl font-bold text-[var(--color-text-bright)] whitespace-nowrap">
               {formatPopulationCompact(populationResolved?.value.value)}
               {populationResolved && populationResolved.year !== selectedYear && (
-                <span className="ml-1.5 text-[10px] font-normal tracking-[1px] text-[var(--color-text-dim)] align-middle">
+                <span className="block text-xs font-normal tracking-[0.04em] text-[var(--color-text-dim)] sm:ml-1.5 sm:inline">
                   {formatVintage(populationResolved.year)}
                 </span>
               )}
             </div>
             {populationResolved?.value.change != null && (
               <div
-                className="text-[10px] mt-0.5"
+                className="text-xs mt-0.5"
                 style={{
                   color: populationResolved.value.change >= 0 ? "var(--color-green)" : "var(--color-red)",
                 }}
@@ -466,7 +428,7 @@ export function StateBriefContent({
         <div className="border-t border-[var(--color-border)]">
           {!selectedState && (
             <div className="px-4 pt-3 pb-1">
-              <p className="text-[10px] leading-relaxed text-[var(--color-text-dim)] italic">
+              <p className="text-xs leading-relaxed text-[var(--color-text-dim)] italic">
                 National electricity figures include all of Malaysia. State-level data covers 11
                 Peninsular states only — summing states will not match the national figure.
               </p>
@@ -506,12 +468,12 @@ export function StateBriefContent({
       {selectedCategory === "economy" && (
         <div className="border-t border-[var(--color-border)]">
           <div className="px-4 py-2.5">
-            <div className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">
+            <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">
               NATIONAL INDICATORS
             </div>
           </div>
           <div
-            className="grid grid-cols-2 gap-px"
+            className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-px overflow-hidden"
             style={{ background: "rgba(0, 212, 255, 0.05)", padding: 1 }}
           >
             {NATIONAL_ECONOMY_INDICATORS.map((ind) => {
@@ -543,7 +505,7 @@ export function StateBriefContent({
           <CCTVViewer />
         </>
       )}
-    </>
+    </div>
   );
 }
 
@@ -560,19 +522,19 @@ export default function StateBrief({
 
   return (
     <div
-      className="w-[380px] hidden lg:flex flex-col overflow-y-auto shrink-0"
+      className="w-[400px] hidden lg:flex flex-col overflow-y-auto shrink-0"
       style={{
-        background: "linear-gradient(180deg, #0d0d14 0%, #0a0a0f 100%)",
-        borderLeft: "1px solid rgba(0, 212, 255, 0.1)",
+        background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg) 100%)",
+        borderLeft: "1px solid var(--color-border-mid)",
       }}
     >
       {/* Header */}
       <div className="px-5 py-4 border-b border-[var(--color-border)]">
-        <div className="text-[12px] tracking-[3px] text-[var(--color-cyan)] mb-1">
+        <div className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-1">
           {selectedState ? "STATE INTELLIGENCE BRIEF" : "NATIONAL OVERVIEW"}
           <span className="text-[var(--color-text-dim)] ml-2">/ {categoryLabel}</span>
         </div>
-        <div className="text-[22px] font-bold text-[var(--color-text-bright)] tracking-wider flex items-center gap-3">
+        <div className="text-[22px] font-bold text-[var(--color-text-bright)] tracking-[0.02em] flex items-center gap-3">
           <img
             src={flagSrc}
             alt={`${displayName} flag`}
@@ -582,7 +544,7 @@ export default function StateBrief({
           {displayName}
         </div>
         {subtitle && (
-          <div className="text-[10px] text-[var(--color-text-dim)] mt-0.5">
+          <div className="text-xs text-[var(--color-text-dim)] mt-0.5">
             {subtitle}
           </div>
         )}

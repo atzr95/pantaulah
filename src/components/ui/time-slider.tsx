@@ -110,8 +110,8 @@ export default function TimeSlider({
 
   if (dataYears.length === 0) {
     return (
-      <div className={inline ? "" : "absolute bottom-4 lg:bottom-16 left-3 right-3 lg:left-5 lg:right-[396px]"}>
-        <div className="text-[10px] tracking-wider text-[var(--color-red)]">
+      <div className={inline ? "" : "absolute bottom-4 lg:bottom-16 left-3 right-3 lg:left-5 lg:right-[416px]"}>
+        <div className="text-xs tracking-wider text-[var(--color-red)]">
           NO DATA AVAILABLE FOR THIS METRIC
         </div>
       </div>
@@ -123,14 +123,14 @@ export default function TimeSlider({
   return (
     <div className={
       inline
-        ? "flex flex-col gap-1 bg-[rgba(10,10,15,0.85)] backdrop-blur-sm rounded px-2 py-1.5"
-        : "absolute bottom-2 lg:bottom-10 left-3 right-3 lg:left-5 lg:right-[396px] flex flex-col gap-1 bg-[rgba(10,10,15,0.85)] lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none rounded lg:rounded-none px-2 py-1.5 lg:p-0"
+        ? "flex flex-col gap-1 bg-[rgba(13,24,30,0.94)] backdrop-blur-sm rounded px-2 py-1.5"
+        : "absolute bottom-2 lg:bottom-10 left-3 right-3 lg:left-5 lg:right-[416px] flex flex-col gap-1 bg-[rgba(13,24,30,0.94)] lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none rounded lg:rounded-none px-2 py-1.5 lg:p-0"
     }>
       {/* Mobile: selected year display */}
       <div className="flex lg:hidden items-center justify-between mb-0.5">
-        <span className="text-[10px] tracking-wider text-[var(--color-text-dim)]">YEAR</span>
+        <span className="text-xs tracking-wider text-[var(--color-text-dim)]">YEAR</span>
         <span
-          className="text-xs font-bold tracking-[2px] text-[var(--color-cyan)]"
+          className="text-xs font-bold tracking-[0.08em] text-[var(--color-cyan)]"
           style={{ textShadow: "0 0 8px rgba(0, 212, 255, 0.3)" }}
         >
           {displayYear}
@@ -139,7 +139,7 @@ export default function TimeSlider({
 
       {/* Slider row */}
       <div className="flex items-center gap-2 lg:gap-3">
-        <span className="text-[10px] tracking-wider text-[var(--color-text-dim)] shrink-0 w-[22px] text-right hidden lg:inline">
+        <span className="text-xs tracking-wider text-[var(--color-text-dim)] shrink-0 w-[22px] text-right hidden lg:inline">
           {dataYears[0]}
         </span>
         <div className="relative flex-1 h-6 flex items-center">
@@ -170,7 +170,7 @@ export default function TimeSlider({
               background: #00d4ff;
               box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
               cursor: pointer;
-              border: 2px solid #0a0a0f;
+              border: 2px solid var(--color-bg);
             }
             input[type="range"]::-moz-range-thumb {
               width: 14px;
@@ -179,11 +179,11 @@ export default function TimeSlider({
               background: #00d4ff;
               box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
               cursor: pointer;
-              border: 2px solid #0a0a0f;
+              border: 2px solid var(--color-bg);
             }
           `}</style>
         </div>
-        <span className="text-[10px] tracking-wider text-[var(--color-text-dim)] shrink-0 hidden lg:inline">
+        <span className="text-xs tracking-wider text-[var(--color-text-dim)] shrink-0 hidden lg:inline">
           {dataYears[dataYears.length - 1]}
         </span>
       </div>
@@ -192,7 +192,7 @@ export default function TimeSlider({
           Invisible copies of the end-year labels keep this row aligned with the
           track above, whatever the font metrics. */}
       <div className="hidden lg:flex items-center gap-3">
-        <span className="text-[10px] tracking-wider shrink-0 w-[22px] invisible" aria-hidden="true">
+        <span className="text-xs tracking-wider shrink-0 w-[22px] invisible" aria-hidden="true">
           {dataYears[0]}
         </span>
         <div ref={labelRowRef} className="relative h-4 flex-1">
@@ -211,7 +211,7 @@ export default function TimeSlider({
               <span key={y}>
                 {hasGap && (
                   <span
-                    className="absolute text-[9px] text-[var(--color-text-dim)] opacity-40 -translate-x-1/2 top-[2px] select-none"
+                    className="absolute text-xs text-[var(--color-text-dim)] opacity-40 -translate-x-1/2 top-[2px] select-none"
                     style={{ left: `${gapPct}%` }}
                   >
                     ···
@@ -220,7 +220,7 @@ export default function TimeSlider({
                 {showLabel && (
                   <button
                     onClick={() => selectYear(i)}
-                    className="absolute -translate-x-1/2 text-[10px] tracking-wider transition-all cursor-pointer px-1.5 py-1 -top-1"
+                    className="absolute -translate-x-1/2 text-xs tracking-wider transition-all cursor-pointer px-1.5 py-1 -top-1"
                     style={{
                       left: `${leftPct}%`,
                       color: isSelected ? "#00d4ff" : "var(--color-text-dim)",
@@ -235,19 +235,19 @@ export default function TimeSlider({
             );
           })}
         </div>
-        <span className="text-[10px] tracking-wider shrink-0 invisible" aria-hidden="true">
+        <span className="text-xs tracking-wider shrink-0 invisible" aria-hidden="true">
           {dataYears[dataYears.length - 1]}
         </span>
       </div>
 
       {/* Coverage badge */}
       <div className="hidden lg:flex items-center gap-3">
-        <span className="text-[10px] tracking-wider shrink-0 w-[22px] invisible" aria-hidden="true">
+        <span className="text-xs tracking-wider shrink-0 w-[22px] invisible" aria-hidden="true">
           {dataYears[0]}
         </span>
         <div className="flex items-center gap-2">
           <span
-            className="text-[10px] tracking-wider"
+            className="text-xs tracking-wider"
             style={{
               color: coverageRatio >= 0.8
                 ? "var(--color-green)"
@@ -259,7 +259,7 @@ export default function TimeSlider({
             {statesWithData}/{totalStates} STATES
           </span>
           {coverageRatio > 0 && coverageRatio < 0.5 && (
-            <span className="text-[10px] tracking-wider text-[var(--color-amber)]">
+            <span className="text-xs tracking-wider text-[var(--color-amber)]">
               PARTIAL COVERAGE
             </span>
           )}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PillButton from "@/components/ui/pill-button";
+import EmptyState from "@/components/ui/empty-state";
 
 // ── Types ──
 
@@ -102,11 +103,11 @@ function SectionHeader({ title, count }: { title: string; count?: number }) {
   return (
     <div className="flex items-center gap-2 mb-3">
       <div className="w-1 h-4 bg-[var(--color-cyan)] rounded-sm shadow-[0_0_6px_var(--color-cyan)]" />
-      <h2 className="text-[11px] tracking-[2px] text-[var(--color-cyan)] font-bold">
+      <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] font-bold">
         {title}
       </h2>
       {count != null && (
-        <span className="text-[10px] text-[var(--color-text-dim)] tracking-wider">
+        <span className="text-xs text-[var(--color-text-dim)] tracking-wider">
           ({count})
         </span>
       )}
@@ -205,7 +206,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
               />
               <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[rgba(0,0,0,0.75)] pointer-events-none">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_6px_var(--color-red)] animate-pulse" />
-                <span className="text-[10px] tracking-wider text-white font-bold">
+                <span className="text-xs tracking-wider text-white font-bold">
                   {current.name}
                 </span>
               </div>
@@ -218,12 +219,12 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                   className={`px-2.5 py-1.5 rounded border text-left transition-all ${
                     i === activeChannel
                       ? "bg-[rgba(0,212,255,0.08)] border-[var(--color-cyan)]"
-                      : "border-[var(--color-border)] hover:border-[rgba(0,212,255,0.3)] cursor-pointer"
+                      : "border-[var(--color-border)] hover:border-[var(--color-border-bright)] cursor-pointer"
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_4px_var(--color-red)]" />
-                    <span className={`text-[10px] font-bold tracking-wider ${
+                    <span className={`text-xs font-bold tracking-wider ${
                       i === activeChannel ? "text-[var(--color-cyan)]" : "text-[var(--color-text)]"
                     }`}>
                       {ch.name}
@@ -250,7 +251,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
               />
               <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[rgba(0,0,0,0.75)] pointer-events-none">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_6px_var(--color-red)] animate-pulse" />
-                <span className="text-[10px] tracking-wider text-white font-bold">
+                <span className="text-xs tracking-wider text-white font-bold">
                   {current.name}
                 </span>
               </div>
@@ -263,12 +264,12 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                   className={`px-2.5 py-1.5 rounded border text-left transition-all ${
                     i === activeChannel
                       ? "bg-[rgba(0,212,255,0.08)] border-[var(--color-cyan)]"
-                      : "border-[var(--color-border)] hover:border-[rgba(0,212,255,0.3)] cursor-pointer"
+                      : "border-[var(--color-border)] hover:border-[var(--color-border-bright)] cursor-pointer"
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_4px_var(--color-red)]" />
-                    <span className={`text-[10px] font-bold tracking-wider ${
+                    <span className={`text-xs font-bold tracking-wider ${
                       i === activeChannel ? "text-[var(--color-cyan)]" : "text-[var(--color-text)]"
                     }`}>
                       {ch.name}
@@ -296,7 +297,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                 />
                 <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[rgba(0,0,0,0.75)] pointer-events-none">
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_6px_var(--color-red)] animate-pulse" />
-                  <span className="text-[10px] tracking-wider text-white font-bold">
+                  <span className="text-xs tracking-wider text-white font-bold">
                     {ch.name}
                   </span>
                 </div>
@@ -312,7 +313,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
           <span className="text-[var(--color-amber)] text-xs tracking-wider">
             NO LIVE STREAMS DETECTED
           </span>
-          <span className="text-[var(--color-text-dim)] text-[10px] tracking-wider">
+          <span className="text-[var(--color-text-dim)] text-xs tracking-wider">
             Channels may be offline right now
           </span>
         </div>
@@ -331,7 +332,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
             >
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-text-dim)]" />
-                <span className="text-[10px] font-bold tracking-wider text-[var(--color-text-dim)]">
+                <span className="text-xs font-bold tracking-wider text-[var(--color-text-dim)]">
                   {ch.name}
                 </span>
               </div>
@@ -398,7 +399,7 @@ function TrendingPanel() {
           <span className="text-[var(--color-amber)] text-xs tracking-wider">
             YOUTUBE API UNAVAILABLE
           </span>
-          <span className="text-[var(--color-text-dim)] text-[10px] tracking-wider">
+          <span className="text-[var(--color-text-dim)] text-xs tracking-wider">
             Set YOUTUBE_API_KEY in .env to enable
           </span>
         </div>
@@ -422,7 +423,7 @@ function TrendingPanel() {
                   </div>
                   <button
                     onClick={() => setPlayingId(null)}
-                    className="mt-1 py-2 text-[10px] tracking-wider text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors cursor-pointer"
+                    className="mt-1 py-2 text-xs tracking-wider text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors cursor-pointer"
                   >
                     CLOSE PLAYER
                   </button>
@@ -430,7 +431,7 @@ function TrendingPanel() {
               ) : (
                 <button
                   onClick={() => setPlayingId(v.id)}
-                  className="w-full flex gap-3 p-2 rounded border border-[var(--color-border)] hover:border-[rgba(0,212,255,0.3)] transition-all group text-left cursor-pointer"
+                  className="w-full flex gap-3 p-2 rounded border border-[var(--color-border)] hover:border-[var(--color-border-bright)] transition-all group text-left cursor-pointer"
                 >
                   {/* Thumbnail */}
                   <div className="relative shrink-0 w-28 rounded overflow-hidden" style={{ aspectRatio: "16/9" }}>
@@ -440,7 +441,7 @@ function TrendingPanel() {
                       alt=""
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute bottom-0.5 right-0.5 px-1 py-px bg-black/80 rounded text-[9px] text-white tracking-wider">
+                    <div className="absolute bottom-0.5 right-0.5 px-1 py-px bg-black/80 rounded text-xs text-white tracking-wider">
                       {v.isShort ? "SHORT" : parseDurationDisplay(v.duration)}
                     </div>
                     {/* Play overlay */}
@@ -456,13 +457,13 @@ function TrendingPanel() {
                   </div>
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-[11px] text-[var(--color-text)] leading-tight line-clamp-2 group-hover:text-[var(--color-cyan)] transition-colors">
+                    <div className="text-xs text-[var(--color-text)] leading-tight line-clamp-2 group-hover:text-[var(--color-cyan)] transition-colors">
                       {v.title}
                     </div>
-                    <div className="text-[10px] text-[var(--color-text-dim)] mt-1 tracking-wider">
+                    <div className="text-xs text-[var(--color-text-dim)] mt-1 tracking-wider">
                       {v.channelTitle}
                     </div>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--color-text-dim)]">
+                    <div className="flex items-center gap-2 mt-1 text-xs text-[var(--color-text-dim)]">
                       <span>{formatCount(v.viewCount)} views</span>
                       <span className="opacity-40">|</span>
                       <span>{formatCount(v.likeCount)} likes</span>
@@ -529,6 +530,12 @@ function RedditPanel() {
         <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
           SCANNING REDDIT...
         </div>
+      ) : posts.length === 0 ? (
+        <EmptyState
+          title="No Reddit posts available"
+          detail="Reddit may be rate-limiting requests. Try this feed again later."
+          className="my-auto"
+        />
       ) : (
         <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
           {posts.map((post, i) => (
@@ -537,7 +544,7 @@ function RedditPanel() {
               href={post.permalink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex gap-3 p-2 rounded border border-[var(--color-border)] hover:border-[rgba(0,212,255,0.3)] transition-all group"
+              className="flex gap-3 p-2 rounded border border-[var(--color-border)] hover:border-[var(--color-border-bright)] transition-all group"
             >
               {/* Score column */}
               <div className="shrink-0 w-10 flex flex-col items-center justify-center">
@@ -548,7 +555,7 @@ function RedditPanel() {
                 >
                   <path d="M6 0L12 8H0z" />
                 </svg>
-                <span className="text-[11px] font-bold text-[var(--color-amber)] mt-0.5">
+                <span className="text-xs font-bold text-[var(--color-amber)] mt-0.5">
                   {formatCount(post.score)}
                 </span>
               </div>
@@ -556,19 +563,19 @@ function RedditPanel() {
               {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] text-[var(--color-cyan)] tracking-wider">
+                  <span className="text-xs text-[var(--color-cyan)] tracking-wider">
                     {post.subreddit}
                   </span>
                   {post.linkFlair && (
-                    <span className="text-[9px] px-1.5 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[var(--color-border)] text-[var(--color-text-dim)] tracking-wider">
+                    <span className="text-xs px-1.5 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[var(--color-border)] text-[var(--color-text-dim)] tracking-wider">
                       {post.linkFlair}
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-[var(--color-text)] leading-tight line-clamp-2 group-hover:text-[var(--color-cyan)] transition-colors">
+                <div className="text-xs text-[var(--color-text)] leading-tight line-clamp-2 group-hover:text-[var(--color-cyan)] transition-colors">
                   {post.title}
                 </div>
-                <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--color-text-dim)]">
+                <div className="flex items-center gap-2 mt-1 text-xs text-[var(--color-text-dim)]">
                   <span>u/{post.author}</span>
                   <span className="opacity-40">|</span>
                   <span>{post.numComments} comments</span>
@@ -645,7 +652,7 @@ function RSSFeedPanel() {
         <div className="relative">
           <button
             onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            className={`flex items-center gap-1.5 px-2 py-0.5 text-[10px] tracking-wider border rounded transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2 py-0.5 text-xs tracking-wider border rounded transition-all cursor-pointer ${
               stateFilter
                 ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)]"
                 : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)]"
@@ -666,11 +673,11 @@ function RSSFeedPanel() {
               {/* Dropdown */}
               <div
                 className="absolute right-0 top-full mt-1 z-20 w-48 max-h-64 overflow-y-auto rounded border border-[var(--color-border)] py-1"
-                style={{ background: "rgba(13, 13, 20, 0.95)", backdropFilter: "blur(8px)" }}
+                style={{ background: "rgba(13, 24, 30, 0.98)", backdropFilter: "blur(8px)" }}
               >
                 <button
                   onClick={() => { setStateFilter(null); setShowFilterDropdown(false); }}
-                  className={`w-full text-left px-3 py-1.5 text-[10px] tracking-wider transition-colors cursor-pointer ${
+                  className={`w-full text-left px-3 py-1.5 text-xs tracking-wider transition-colors cursor-pointer ${
                     !stateFilter
                       ? "text-[var(--color-cyan)] bg-[rgba(0,212,255,0.08)]"
                       : "text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:bg-[rgba(255,255,255,0.03)]"
@@ -683,7 +690,7 @@ function RSSFeedPanel() {
                   <button
                     key={name}
                     onClick={() => { setStateFilter(name); setShowFilterDropdown(false); }}
-                    className={`w-full text-left px-3 py-1.5 text-[10px] tracking-wider transition-colors cursor-pointer ${
+                    className={`w-full text-left px-3 py-1.5 text-xs tracking-wider transition-colors cursor-pointer ${
                       stateFilter === name
                         ? "text-[var(--color-cyan)] bg-[rgba(0,212,255,0.08)]"
                         : "text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:bg-[rgba(255,255,255,0.03)]"
@@ -708,13 +715,13 @@ function RSSFeedPanel() {
           <span className="text-[var(--color-amber)] text-xs tracking-wider">
             {stateFilter ? `NO NEWS FOR ${stateFilter.toUpperCase()}` : "NO NEWS AVAILABLE"}
           </span>
-          <span className="text-[var(--color-text-dim)] text-[10px] tracking-wider">
+          <span className="text-[var(--color-text-dim)] text-xs tracking-wider">
             {stateFilter ? "Try selecting a different state" : "RSS feeds may be unreachable"}
           </span>
           {stateFilter && (
             <button
               onClick={() => setStateFilter(null)}
-              className="mt-1 text-[10px] tracking-wider text-[var(--color-cyan)] hover:underline cursor-pointer"
+              className="mt-1 text-xs tracking-wider text-[var(--color-cyan)] hover:underline cursor-pointer"
             >
               SHOW ALL NEWS
             </button>
@@ -728,27 +735,27 @@ function RSSFeedPanel() {
               href={item.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex gap-3 px-2.5 py-2 rounded border border-[var(--color-border)] hover:border-[rgba(0,212,255,0.3)] transition-all group"
+              className="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-3 overflow-hidden rounded border border-[var(--color-border)] px-2.5 py-2 transition-all group hover:border-[var(--color-border-bright)]"
             >
               {/* Source badge */}
-              <div className="shrink-0 w-12 flex flex-col items-center justify-center">
-                <span className="text-[9px] tracking-wider text-[var(--color-cyan)] font-bold text-center leading-tight uppercase">
+              <div className="flex min-w-0 items-center justify-center overflow-hidden">
+                <span className="max-w-full text-center text-xs font-bold uppercase leading-tight tracking-[0.06em] text-[var(--color-cyan)] [overflow-wrap:anywhere]">
                   {item.sourceName}
                 </span>
               </div>
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-[var(--color-text)] leading-tight line-clamp-2 group-hover:text-[var(--color-cyan)] transition-colors">
+                <div className="text-xs text-[var(--color-text)] leading-tight line-clamp-2 group-hover:text-[var(--color-cyan)] transition-colors">
                   {item.title}
                 </div>
                 {item.description && (
-                  <div className="text-[10px] text-[var(--color-text-dim)] mt-0.5 line-clamp-1 leading-tight">
+                  <div className="text-xs text-[var(--color-text-dim)] mt-0.5 line-clamp-1 leading-tight">
                     {item.description}
                   </div>
                 )}
-                <div className="flex items-center gap-2 mt-1 text-[9px] text-[var(--color-text-dim)] tracking-wider">
-                  <span>{item.source}</span>
+                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs tracking-wider text-[var(--color-text-dim)]">
+                  <span className="min-w-0 truncate">{item.source}</span>
                   {item.pubDate && (
                     <>
                       <span className="opacity-40">|</span>
@@ -761,7 +768,7 @@ function RSSFeedPanel() {
                       {item.matchedStates.map((s) => (
                         <span
                           key={s}
-                          className="px-1 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[var(--color-border)] text-[var(--color-cyan)] text-[9px] tracking-wider"
+                          className="px-1 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[var(--color-border)] text-[var(--color-cyan)] text-xs tracking-wider"
                         >
                           {s}
                         </span>
@@ -800,7 +807,7 @@ export default function MediaView() {
         <div
           className="flex gap-1 px-3 py-2 shrink-0"
           style={{
-            background: "rgba(13, 13, 20, 0.9)",
+            background: "rgba(13, 24, 30, 0.96)",
             borderBottom: "1px solid rgba(0, 212, 255, 0.08)",
           }}
         >
@@ -831,7 +838,7 @@ export default function MediaView() {
       {/* Left: Live TV + RSS News Feed */}
       <div
         className="w-[45%] flex flex-col p-4 overflow-hidden"
-        style={{ borderRight: "1px solid rgba(0, 212, 255, 0.1)" }}
+        style={{ borderRight: "1px solid var(--color-border-mid)" }}
       >
         <div className="shrink-0">
           <LiveTVPanel />
@@ -844,7 +851,7 @@ export default function MediaView() {
       {/* Middle: Trending Videos */}
       <div
         className="w-[28%] flex flex-col p-4 overflow-hidden"
-        style={{ borderRight: "1px solid rgba(0, 212, 255, 0.1)" }}
+        style={{ borderRight: "1px solid var(--color-border-mid)" }}
       >
         <TrendingPanel />
       </div>

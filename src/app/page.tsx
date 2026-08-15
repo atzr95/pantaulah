@@ -15,6 +15,7 @@ import MobileRatesBar from "@/components/ticker/mobile-rates-bar";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import type { MetricKey, CacheData } from "@/lib/data/types";
 import { CATEGORY_METRICS } from "@/lib/data/choropleth";
+import { scrollHorizontallyOnWheel } from "@/lib/ui/horizontal-scroll";
 
 const MalaysiaMap = dynamic(() => import("@/components/map/malaysia-map"), {
   ssr: false,
@@ -341,7 +342,7 @@ function Home() {
             </div>
             <button
               onClick={() => window.location.reload()}
-              className="text-[var(--color-cyan)] text-xs tracking-[2px] border border-[rgba(0,212,255,0.3)] px-4 py-2 hover:bg-[rgba(0,212,255,0.08)] transition-colors"
+              className="text-[var(--color-cyan)] text-xs tracking-[0.08em] border border-[var(--color-border-bright)] px-4 py-2 hover:bg-[rgba(0,212,255,0.08)] transition-colors"
             >
               RELOAD
             </button>
@@ -391,13 +392,16 @@ function Home() {
             <div className="flex-1 min-w-0 relative flex flex-col">
               {/* Mobile: horizontal metric toggles strip */}
               <div
-                className="lg:hidden flex items-center gap-1.5 px-3 py-2 shrink-0"
+                className="lg:hidden flex min-w-0 items-center gap-1.5 overflow-hidden px-3 py-2 shrink-0"
                 style={{
-                  background: "rgba(13, 13, 20, 0.9)",
+                  background: "rgba(13, 24, 30, 0.96)",
                   borderBottom: "1px solid rgba(0, 212, 255, 0.08)",
                 }}
               >
-                <div className="flex-1 flex gap-1.5 overflow-x-auto scrollbar-none">
+                <div
+                  className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto overscroll-x-contain touch-pan-x scrollbar-none"
+                  onWheel={scrollHorizontallyOnWheel}
+                >
                   <MetricToggles
                     selectedCategory={selectedCategory}
                     selectedMetric={selectedMetric}
@@ -405,7 +409,7 @@ function Home() {
                   />
                 </div>
                 <div
-                  className="text-xs font-bold tracking-[2px] text-[var(--color-cyan)] shrink-0 pl-1"
+                  className="text-xs font-bold tracking-[0.08em] text-[var(--color-cyan)] shrink-0 pl-1"
                   style={{ textShadow: "0 0 10px rgba(0, 212, 255, 0.3)" }}
                 >
                   {selectedYear}
@@ -443,13 +447,18 @@ function Home() {
 
               {/* Desktop: metric toggles overlay */}
               <div className="absolute top-4 right-4 z-10 hidden lg:flex flex-col items-end gap-1.5 max-w-[70%]">
-                <MetricToggles
-                  selectedCategory={selectedCategory}
-                  selectedMetric={selectedMetric}
-                  onMetricChange={handleMetricChange}
-                />
                 <div
-                  className="text-sm font-bold tracking-[3px] text-[var(--color-cyan)] pr-1"
+                  className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain scrollbar-none"
+                  onWheel={scrollHorizontallyOnWheel}
+                >
+                  <MetricToggles
+                    selectedCategory={selectedCategory}
+                    selectedMetric={selectedMetric}
+                    onMetricChange={handleMetricChange}
+                  />
+                </div>
+                <div
+                  className="text-sm font-bold tracking-[0.12em] text-[var(--color-cyan)] pr-1"
                   style={{ textShadow: "0 0 10px rgba(0, 212, 255, 0.3)" }}
                 >
                   {selectedYear}

@@ -21,9 +21,9 @@ export default function PillButton({
   ...rest
 }: PillButtonProps) {
   const stateClasses = active
-    ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_10px_rgba(0,212,255,0.1)]"
+    ? "bg-[var(--color-cyan-soft)] border-[var(--color-cyan)] text-[var(--color-text-bright)]"
     : `border-[var(--color-border-mid)] text-[var(--color-text-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] cursor-pointer ${
-        overlay ? "bg-[rgba(10,10,15,0.7)] backdrop-blur-sm" : ""
+        overlay ? "bg-[rgba(13,24,30,0.88)] backdrop-blur-sm" : ""
       }`;
 
   return (
@@ -31,7 +31,7 @@ export default function PillButton({
       type="button"
       aria-pressed={active}
       {...rest}
-      className={`px-2.5 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-[11px] tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${stateClasses} ${className}`}
+      className={`px-3 py-2 min-h-[44px] lg:py-2 lg:min-h-9 text-xs font-semibold tracking-[0.04em] border rounded-md transition-colors whitespace-nowrap shrink-0 ${stateClasses} ${className}`}
     >
       {children}
     </button>

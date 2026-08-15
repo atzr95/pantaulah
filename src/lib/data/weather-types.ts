@@ -65,7 +65,7 @@ export interface MarineForecastEntry {
 // ── Earthquake ──────────────────────────────────────────
 
 export interface EarthquakeEntry {
-  datetime: string; // local datetime
+  datetime: string; // ISO datetime with timezone
   utcDatetime: string;
   lat: number;
   lon: number;
@@ -74,6 +74,7 @@ export interface EarthquakeEntry {
   magnitudeType: string; // e.g. "mb"
   location: string;
   status: "NORMAL" | "FELT" | "TSUNAMI_WARNING";
+  source: "USGS" | "MET Malaysia" | "USGS + MET Malaysia";
 }
 
 // ── Radar / Satellite ───────────────────────────────────

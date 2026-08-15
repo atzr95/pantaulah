@@ -47,7 +47,7 @@ export default function GenerationByFuel({ fuels, vintageYear, capacity, capacit
 
   return (
     <div className="bg-[var(--color-bg)] p-3.5">
-      <div className="text-[10px] tracking-[2px] text-[var(--color-text-muted)] mb-2.5">
+      <div className="text-xs tracking-[0.08em] text-[var(--color-text-muted)] mb-2.5">
         GENERATION BY FUEL
         {vintageYear != null && (
           <span className="text-[var(--color-text-dim)]"> ({vintageYear})</span>
@@ -63,8 +63,8 @@ export default function GenerationByFuel({ fuels, vintageYear, capacity, capacit
             onMouseLeave={() => setHoveredFuel(null)}
           >
             <div className="flex justify-between items-baseline mb-1">
-              <span className="text-[10px] text-[var(--color-text)] tracking-wider cursor-help">{bar.label}</span>
-              <span className="text-[10px] text-[var(--color-text-muted)]">
+              <span className="text-xs text-[var(--color-text)] tracking-wider cursor-help">{bar.label}</span>
+              <span className="text-xs text-[var(--color-text-muted)]">
                 {bar.pct >= 10 ? `${bar.pct.toFixed(0)}%` : `${bar.pct.toFixed(1)}%`}
                 {" · "}
                 {bar.value >= 1000
@@ -87,11 +87,11 @@ export default function GenerationByFuel({ fuels, vintageYear, capacity, capacit
             </div>
             {hoveredFuel === bar.key && bar.desc && (
               <div
-                className="absolute z-50 left-0 right-0 px-2.5 py-1.5 text-[10px] leading-relaxed text-[var(--color-text-muted)] rounded border border-[rgba(0,212,255,0.15)]"
+                className="absolute z-50 left-0 right-0 px-2.5 py-1.5 text-xs leading-relaxed text-[var(--color-text-muted)] rounded border border-[var(--color-border)]"
                 style={{
                   bottom: "100%",
                   marginBottom: 4,
-                  background: "rgba(13, 13, 20, 0.95)",
+                  background: "rgba(13, 24, 30, 0.98)",
                   backdropFilter: "blur(8px)",
                   boxShadow: "0 4px 20px rgba(0, 0, 0, 0.6)",
                 }}
@@ -105,7 +105,7 @@ export default function GenerationByFuel({ fuels, vintageYear, capacity, capacit
 
       {capacity && capacity.length > 0 && (
         <div className="mt-3.5 pt-3 border-t border-[var(--color-border)]">
-          <div className="text-[10px] tracking-[2px] text-[var(--color-text-muted)] mb-2">
+          <div className="text-xs tracking-[0.08em] text-[var(--color-text-muted)] mb-2">
             INSTALLED CAPACITY
             {capacityVintageYear != null && (
               <span className="text-[var(--color-text-dim)]"> ({capacityVintageYear})</span>
@@ -114,8 +114,8 @@ export default function GenerationByFuel({ fuels, vintageYear, capacity, capacit
           <div className="space-y-1">
             {capacity.map((row) => (
               <div key={row.region} className="flex justify-between items-baseline">
-                <span className="text-[10px] text-[var(--color-text)] tracking-wider">{row.region}</span>
-                <span className="text-[10px] text-[var(--color-text-muted)]">
+                <span className="text-xs text-[var(--color-text)] tracking-wider">{row.region}</span>
+                <span className="text-xs text-[var(--color-text-muted)]">
                   {row.mw.toLocaleString("en-MY", { maximumFractionDigits: 0 })} MW
                 </span>
               </div>

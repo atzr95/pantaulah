@@ -18,8 +18,8 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={`border border-[var(--color-border)] rounded-sm p-4 text-center ${className}`}
-      style={{ background: "rgba(13, 13, 20, 0.8)" }}
+      className={`border border-[var(--color-border-mid)] rounded-md p-4 text-center ${className}`}
+      style={{ background: "rgba(19, 33, 41, 0.94)" }}
     >
       {icon && (
         <div className="text-sm mb-1" aria-hidden="true">
@@ -36,7 +36,7 @@ export default function EmptyState({
         {title}
       </div>
       {detail && (
-        <div className="text-[10px] text-[var(--color-text-dim)]">{detail}</div>
+        <div className="text-xs leading-relaxed text-[var(--color-text-dim)]">{detail}</div>
       )}
     </div>
   );

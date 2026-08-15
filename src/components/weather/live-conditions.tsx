@@ -72,8 +72,8 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
           borderBottom: "1px solid var(--color-border)",
         }}
       >
-        <span className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">LIVE</span>
-        <span className="text-[10px] text-[var(--color-text-dim)]">
+        <span className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">LIVE</span>
+        <span className="text-xs text-[var(--color-text-dim)]">
           {loading ? "Fetching live conditions..." : "Live data unavailable"}
         </span>
       </div>
@@ -86,8 +86,8 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
 
   const StatItem = ({ label, value, color }: { label: string; value: string; color?: string }) => (
     <div className="flex flex-col px-2 lg:px-4 py-1.5 lg:py-2 border-r border-[var(--color-border)] shrink-0">
-      <span className="text-[10px] lg:text-[10px] tracking-[1px] text-[var(--color-text-dim)]">{label}</span>
-      <span className="text-[10px] lg:text-[11px] text-[var(--color-text-bright)]" style={color ? { color, fontWeight: 700 } : undefined}>
+      <span className="text-xs lg:text-xs tracking-[0.04em] text-[var(--color-text-dim)]">{label}</span>
+      <span className="text-xs lg:text-xs text-[var(--color-text-bright)]" style={color ? { color, fontWeight: 700 } : undefined}>
         {value}
       </span>
     </div>
@@ -109,16 +109,16 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
             className="inline-block w-1.5 h-1.5 rounded-full pulse-dot shrink-0"
             style={{ background: "var(--color-green)", boxShadow: "0 0 6px var(--color-green)" }}
           />
-          <span className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">LIVE</span>
-          <span className="text-[10px] text-[var(--color-text-bright)] font-bold tracking-wider truncate">
+          <span className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">LIVE</span>
+          <span className="text-xs text-[var(--color-text-bright)] font-bold tracking-wider truncate">
             {data.locationName.toUpperCase()}
           </span>
           <div className="ml-auto flex items-center gap-1.5 shrink-0">
             <span className="text-sm">{wmo.icon}</span>
-            <span className="text-base font-bold" style={{ color: getTempColor(c.temperature) }}>
+            <span className="font-mono text-base font-bold" style={{ color: getTempColor(c.temperature) }}>
               {c.temperature.toFixed(1)}°
             </span>
-            <span className="text-[10px] text-[var(--color-text-dim)]">{wmo.label}</span>
+            <span className="text-xs text-[var(--color-text-dim)]">{wmo.label}</span>
           </div>
         </div>
         {/* Row 2: scrollable stats */}
@@ -130,8 +130,8 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
           <StatItem label="CLOUD" value={`${c.cloudCover}%`} />
           <StatItem label="PRESS" value={`${c.pressure.toFixed(0)} hPa`} />
           <div className="flex flex-col px-2 py-1.5 shrink-0">
-            <span className="text-[10px] tracking-[1px] text-[var(--color-text-dim)]">FEELS</span>
-            <span className="text-[10px] text-[var(--color-text-muted)]">{c.apparentTemperature.toFixed(1)}°</span>
+            <span className="text-xs tracking-[0.04em] text-[var(--color-text-dim)]">FEELS</span>
+            <span className="text-xs text-[var(--color-text-muted)]">{c.apparentTemperature.toFixed(1)}°</span>
           </div>
         </div>
       </div>
@@ -143,20 +143,20 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
             className="inline-block w-1.5 h-1.5 rounded-full pulse-dot"
             style={{ background: "var(--color-green)", boxShadow: "0 0 6px var(--color-green)" }}
           />
-          <span className="text-[10px] tracking-[2px] text-[var(--color-cyan)]">LIVE</span>
-          <span className="text-[10px] text-[var(--color-text-bright)] font-bold tracking-wider">
+          <span className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">LIVE</span>
+          <span className="text-xs text-[var(--color-text-bright)] font-bold tracking-wider">
             {data.locationName.toUpperCase()}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5 px-4 py-2 border-r border-[var(--color-border)] shrink-0">
           <span className="text-sm">{wmo.icon}</span>
-          <span className="text-lg font-bold" style={{ color: getTempColor(c.temperature) }}>
+          <span className="font-mono text-lg font-bold" style={{ color: getTempColor(c.temperature) }}>
             {c.temperature.toFixed(1)}°
           </span>
           <div className="flex flex-col ml-1">
-            <span className="text-[10px] text-[var(--color-text-dim)] leading-none">FEELS</span>
-            <span className="text-[10px] text-[var(--color-text-muted)] leading-none">{c.apparentTemperature.toFixed(1)}°</span>
+            <span className="text-xs text-[var(--color-text-dim)] leading-none">FEELS</span>
+            <span className="text-xs text-[var(--color-text-muted)] leading-none">{c.apparentTemperature.toFixed(1)}°</span>
           </div>
         </div>
 
@@ -168,11 +168,11 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
         <StatItem label="CLOUD" value={`${c.cloudCover}%`} />
 
         <div className="flex flex-col px-4 py-2 shrink-0">
-          <span className="text-[10px] tracking-[1px] text-[var(--color-text-dim)]">RAIN</span>
-          <span className="text-[10px] text-[var(--color-text-bright)]">{c.precipitation.toFixed(1)} mm</span>
+          <span className="text-xs tracking-[0.04em] text-[var(--color-text-dim)]">RAIN</span>
+          <span className="text-xs text-[var(--color-text-bright)]">{c.precipitation.toFixed(1)} mm</span>
         </div>
 
-        <div className="ml-auto text-[10px] text-[var(--color-text-dim)] shrink-0 pl-4">
+        <div className="ml-auto text-xs text-[var(--color-text-dim)] shrink-0 pl-4">
           OPEN-METEO {c.time.slice(11)}
         </div>
       </div>

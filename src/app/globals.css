@@ -1,23 +1,30 @@
 @import "tailwindcss";
 
+@theme inline {
+  --font-sans: var(--font-geist);
+  --font-mono: var(--font-jetbrains);
+}
+
 :root {
-  --color-bg: #0a0a0f;
-  --color-bg-panel: #0d0d14;
-  --color-bg-card: #111118;
-  /* Border tiers — use these three instead of ad-hoc rgba(0,212,255,x) opacities */
-  --color-border-faint: rgba(0, 212, 255, 0.08);
-  --color-border: rgba(0, 212, 255, 0.1);
-  --color-border-mid: rgba(0, 212, 255, 0.2);
-  --color-border-bright: rgba(0, 212, 255, 0.3);
-  --color-border-hover: rgba(0, 212, 255, 0.5);
-  --color-cyan: #00d4ff;
-  --color-amber: #ff9500;
-  --color-text: #dce1e8;
-  --color-text-muted: #b0b8c4;
-  --color-text-dim: #9098a8;
-  --color-text-bright: #f4f5f7;
-  --color-green: #22c55e;
-  --color-red: #ef4444;
+  --color-bg: #071015;
+  --color-bg-panel: #0d181e;
+  --color-bg-card: #132129;
+  --color-bg-raised: #182a33;
+  /* Neutral borders preserve cyan as a meaningful live/active signal. */
+  --color-border-faint: #14252d;
+  --color-border: #21343e;
+  --color-border-mid: #2d4652;
+  --color-border-bright: #3c5e6c;
+  --color-border-hover: #4d7684;
+  --color-cyan: #27d7ee;
+  --color-cyan-soft: rgba(39, 215, 238, 0.12);
+  --color-amber: #ffbd5a;
+  --color-text: #e9f1f5;
+  --color-text-muted: #a9bac3;
+  --color-text-dim: #80949f;
+  --color-text-bright: #f7fbfc;
+  --color-green: #4ddd92;
+  --color-red: #ff6b72;
   /* Map marker (POI) colors — keep in sync with POI_COLORS in src/lib/ui/colors.ts */
   --color-poi-airport: #ff9f43;
   --color-poi-flight: #ff6b6b;
@@ -28,8 +35,10 @@
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: 'JetBrains Mono', monospace;
-  overflow: hidden;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-x: hidden;
 }
 
 /* Scan-line overlay */
@@ -72,18 +81,22 @@ body {
   border-radius: 50%;
 }
 
-/* Type tiers — micro-type stays within these three sizes (floor: 9px) */
+/* Compact technical type. Informative text never drops below 11px. */
 .type-label {
-  font-size: 11px;
-  letter-spacing: 2px;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
 }
 .type-meta {
-  font-size: 10px;
-  letter-spacing: 1.5px;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
 }
 .type-fine {
-  font-size: 9px;
-  letter-spacing: 1px;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 /* Focus: invisible for pointer interaction, clearly visible for keyboard */
@@ -106,8 +119,8 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 [role="button"]:focus-visible {
-  outline: 1px solid var(--color-cyan);
-  outline-offset: 2px;
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 3px;
 }
 
 /* Scrollbar */

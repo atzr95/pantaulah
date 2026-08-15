@@ -39,6 +39,7 @@ function formatTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: "Asia/Kuala_Lumpur",
   });
 }
 
@@ -47,6 +48,7 @@ function formatDate(iso: string): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Kuala_Lumpur",
   });
 }
 
@@ -76,12 +78,12 @@ export default function WarningsPanel({
       {/* Active Warnings */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <div className="text-[10px] tracking-[3px] text-[var(--color-cyan)]">
+          <div className="text-xs tracking-[0.12em] text-[var(--color-cyan)]">
             ACTIVE WARNINGS
           </div>
           {activeWarnings.length > 0 && (
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold"
+              className="text-xs px-1.5 py-0.5 rounded-sm font-bold"
               style={{
                 background: "rgba(239, 68, 68, 0.15)",
                 color: "var(--color-red)",
@@ -109,7 +111,7 @@ export default function WarningsPanel({
                   key={w.id}
                   className="border rounded-sm p-4 transition-all hover:border-opacity-60"
                   style={{
-                    background: "rgba(13, 13, 20, 0.8)",
+                    background: "rgba(19, 33, 41, 0.94)",
                     borderColor: severityColor,
                   }}
                 >
@@ -120,16 +122,16 @@ export default function WarningsPanel({
                         {getCategoryIcon(w.category)}
                       </span>
                       <div>
-                        <div className="text-[11px] font-bold text-[var(--color-text-bright)] tracking-wider">
+                        <div className="text-xs font-bold text-[var(--color-text-bright)] tracking-wider">
                           {w.title.toUpperCase()}
                         </div>
-                        <div className="text-[10px] text-[var(--color-text-dim)]">
+                        <div className="text-xs text-[var(--color-text-dim)]">
                           {w.category}
                         </div>
                       </div>
                     </div>
                     <span
-                      className="text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-wider"
+                      className="text-xs px-2 py-0.5 rounded-sm font-bold tracking-wider"
                       style={{
                         background: `${severityColor}15`,
                         color: severityColor,
@@ -141,14 +143,14 @@ export default function WarningsPanel({
                   </div>
 
                   {/* Description */}
-                  <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed mb-3">
+                  <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mb-3">
                     {w.text}
                   </p>
 
                   {/* Instruction */}
                   {w.instruction && (
                     <div
-                      className="text-[10px] p-2 rounded-sm mb-3"
+                      className="text-xs p-2 rounded-sm mb-3"
                       style={{
                         background: `${severityColor}08`,
                         border: `1px solid ${severityColor}40`,
@@ -164,7 +166,7 @@ export default function WarningsPanel({
                     {w.affectedAreas.map((area) => (
                       <span
                         key={area}
-                        className="text-[10px] px-1.5 py-0.5 rounded-sm"
+                        className="text-xs px-1.5 py-0.5 rounded-sm"
                         style={{
                           background: "rgba(0, 212, 255, 0.08)",
                           border: "1px solid rgba(0, 212, 255, 0.15)",
@@ -177,7 +179,7 @@ export default function WarningsPanel({
                   </div>
 
                   {/* Time range */}
-                  <div className="text-[10px] text-[var(--color-text-dim)] flex gap-3">
+                  <div className="text-xs text-[var(--color-text-dim)] flex gap-3">
                     <span>
                       VALID: {formatTime(w.validFrom)} — {formatTime(w.validTo)}
                     </span>
@@ -193,12 +195,12 @@ export default function WarningsPanel({
       {/* Flood Alerts */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <div className="text-[10px] tracking-[3px] text-[var(--color-cyan)]">
+          <div className="text-xs tracking-[0.12em] text-[var(--color-cyan)]">
             FLOOD ALERTS
           </div>
           {floodAlerts.stations.length > 0 && (
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold"
+              className="text-xs px-1.5 py-0.5 rounded-sm font-bold"
               style={{
                 background: "rgba(239, 68, 68, 0.15)",
                 color: "var(--color-red)",
@@ -227,7 +229,7 @@ export default function WarningsPanel({
                   key={`${s.state}-${s.stationName}-${i}`}
                   className="border rounded-sm p-3"
                   style={{
-                    background: "rgba(13, 13, 20, 0.8)",
+                    background: "rgba(19, 33, 41, 0.94)",
                     borderColor: severityColor,
                   }}
                 >
@@ -235,16 +237,16 @@ export default function WarningsPanel({
                     <div className="flex items-start gap-2 min-w-0">
                       <span className="text-lg shrink-0 mt-0.5">{"\uD83C\uDF0A"}</span>
                       <div className="min-w-0">
-                        <div className="text-[11px] font-bold text-[var(--color-text-bright)] tracking-wider leading-snug">
+                        <div className="text-xs font-bold text-[var(--color-text-bright)] tracking-wider leading-snug">
                           {s.stationName.toUpperCase()}
                         </div>
-                        <div className="text-[10px] text-[var(--color-text-dim)]">
+                        <div className="text-xs text-[var(--color-text-dim)]">
                           {s.state}
                         </div>
                       </div>
                     </div>
                     <span
-                      className="text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-wider"
+                      className="text-xs px-2 py-0.5 rounded-sm font-bold tracking-wider"
                       style={{
                         background: `${severityColor}15`,
                         color: severityColor,
@@ -255,7 +257,7 @@ export default function WarningsPanel({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-[10px] mb-1">
+                  <div className="flex items-center gap-4 text-xs mb-1">
                     <span className="text-[var(--color-text-muted)]">
                       LEVEL:{" "}
                       <span className="font-bold text-[var(--color-text-bright)]">
@@ -277,14 +279,14 @@ export default function WarningsPanel({
           </div>
         )}
 
-        <div className="text-[10px] text-[var(--color-text-dim)] mt-2">
+        <div className="text-xs text-[var(--color-text-dim)] mt-2">
           Source: JPS InfoBanjir
         </div>
       </div>
 
       {/* Seismic Activity */}
       <div>
-        <div className="text-[10px] tracking-[3px] text-[var(--color-cyan)] mb-3">
+        <div className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-3">
           RECENT SEISMIC ACTIVITY
         </div>
 
@@ -293,7 +295,7 @@ export default function WarningsPanel({
             <div
               key={i}
               className="border border-[var(--color-border)] rounded-sm p-3 flex items-center gap-4 transition-all hover:border-[var(--color-border-bright)]"
-              style={{ background: "rgba(13, 13, 20, 0.8)" }}
+              style={{ background: "rgba(19, 33, 41, 0.94)" }}
             >
               {/* Magnitude circle */}
               <div
@@ -304,7 +306,7 @@ export default function WarningsPanel({
                 }}
               >
                 <span
-                  className="text-base font-bold"
+                  className="font-mono text-base font-bold"
                   style={{ color: getQuakeColor(eq.magnitude) }}
                 >
                   {eq.magnitude.toFixed(1)}
@@ -313,13 +315,13 @@ export default function WarningsPanel({
 
               {/* Details */}
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-[var(--color-text-bright)] font-bold truncate">
+                <div className="text-xs text-[var(--color-text-bright)] font-bold truncate">
                   {eq.location}
                 </div>
-                <div className="text-[10px] text-[var(--color-text-dim)] mt-0.5">
+                <div className="text-xs text-[var(--color-text-dim)] mt-0.5">
                   {formatDate(eq.datetime)} {formatTime(eq.datetime)} MYT
                 </div>
-                <div className="flex gap-3 mt-1 text-[10px] text-[var(--color-text-dim)]">
+                <div className="flex gap-3 mt-1 text-xs text-[var(--color-text-dim)]">
                   <span>DEPTH: {eq.depth} KM</span>
                   <span>TYPE: {eq.magnitudeType.toUpperCase()}</span>
                   {eq.status !== "NORMAL" && (
@@ -337,12 +339,15 @@ export default function WarningsPanel({
               </div>
 
               {/* Coordinates */}
-              <div className="text-[10px] text-[var(--color-text-dim)] text-right shrink-0">
+              <div className="text-xs text-[var(--color-text-dim)] text-right shrink-0">
                 <div>{eq.lat.toFixed(2)}°N</div>
                 <div>{eq.lon.toFixed(2)}°E</div>
               </div>
             </div>
           ))}
+        </div>
+        <div className="text-xs text-[var(--color-text-dim)] mt-2">
+          Sources: USGS regional catalogue + MET Malaysia bulletins
         </div>
       </div>
     </div>

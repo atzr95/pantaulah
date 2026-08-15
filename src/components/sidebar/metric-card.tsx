@@ -70,11 +70,11 @@ function MetricTooltip({ description, anchorRef }: { description: string; anchor
   return createPortal(
     <div
       ref={tooltipRef}
-      className="fixed z-[9999] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-text)] rounded border border-[rgba(0,212,255,0.25)] whitespace-normal w-[200px] font-mono"
+      className="fixed z-[9999] px-3 py-2.5 text-xs leading-relaxed text-[var(--color-text)] rounded-md border border-[var(--color-border-bright)] whitespace-normal w-[220px]"
       style={{
         top: pos.top,
         left: pos.left,
-        background: "rgba(13, 13, 20, 0.95)",
+        background: "rgba(13, 24, 30, 0.98)",
         backdropFilter: "blur(8px)",
         boxShadow: "0 4px 20px rgba(0, 0, 0, 0.6)",
       }}
@@ -106,9 +106,9 @@ export default function MetricCard({
       : "var(--color-green)";
 
   return (
-    <div className="bg-[var(--color-bg)] p-3.5 relative">
+    <div className="min-w-0 bg-[var(--color-bg-panel)] p-4 relative">
       <div
-        className="text-[12px] font-medium tracking-[1.5px] text-[var(--color-text-muted)] mb-1.5 flex items-center gap-1.5"
+        className="text-xs font-semibold tracking-[0.06em] text-[var(--color-text-muted)] mb-2 flex items-center gap-1.5"
       >
         {label}
         {description && (
@@ -117,7 +117,7 @@ export default function MetricCard({
             ref={iconRef}
             aria-label={`About ${label}`}
             aria-expanded={showTooltip}
-            className="relative inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-[var(--color-border-bright)] text-[10px] text-[var(--color-text-dim)] cursor-help shrink-0 leading-none before:absolute before:-inset-2 before:content-['']"
+            className="relative inline-flex items-center justify-center w-4 h-4 rounded-full border border-[var(--color-border-bright)] text-xs text-[var(--color-text-muted)] cursor-help shrink-0 leading-none before:absolute before:-inset-2 before:content-['']"
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
             onFocus={() => setShowTooltip(true)}
@@ -132,23 +132,23 @@ export default function MetricCard({
           </button>
         )}
         {rank && (
-          <span className="ml-auto text-[10px] font-normal tracking-[1px] text-[var(--color-cyan)] shrink-0">
+          <span className="ml-auto text-xs font-mono font-normal tracking-[0.04em] text-[var(--color-cyan)] shrink-0">
             {rank}
           </span>
         )}
       </div>
       <div
-        className={`text-xl font-bold ${isAlert ? "text-[var(--color-amber)]" : "text-[var(--color-text-bright)]"}`}
+        className={`font-mono text-lg 2xl:text-xl font-bold tracking-[-0.025em] whitespace-nowrap ${isAlert ? "text-[var(--color-amber)]" : "text-[var(--color-text-bright)]"}`}
       >
         {value}
         {vintage && (
-          <span className="ml-1.5 text-[10px] font-normal tracking-[1px] text-[var(--color-text-dim)] align-middle">
+          <span className="block text-xs font-normal tracking-[0.04em] text-[var(--color-text-dim)] sm:ml-1.5 sm:inline">
             {vintage}
           </span>
         )}
       </div>
       {change && (
-        <div className="text-[10px] mt-0.5" style={{ color: changeColor }}>
+        <div className="font-mono text-xs mt-1" style={{ color: changeColor }}>
           <span aria-hidden="true">{changeIsNegative ? "▼" : "▲"}</span> {change}
         </div>
       )}

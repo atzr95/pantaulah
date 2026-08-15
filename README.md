@@ -36,7 +36,7 @@ Built with Next.js 16, React 19, D3-Geo, Tailwind CSS, and Recharts.
 
 ## Data Sources
 
-All data is sourced from official Malaysian government APIs — no API keys required for core functionality.
+Government sources are used where available. Live third-party sources are listed below. No API keys are required for core functionality.
 
 | Source | Data | Update Frequency |
 |--------|------|-----------------|
@@ -45,6 +45,7 @@ All data is sourced from official Malaysian government APIs — no API keys requ
 | [BNM API](https://api.bnm.gov.my) | Exchange rates, OPR | Live |
 | [Open-Meteo](https://open-meteo.com) | Current weather, air quality | Live (15min cache) |
 | [MET Malaysia](https://api.met.gov.my) | Radar/satellite imagery | Live |
+| [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/fdsnws/event/1/) | Regional seismic activity (M5.0+ within 3,000 km) | Live (2min cache) |
 | [JPS InfoBanjir](https://publicinfobanjir.water.gov.my) | Flood alerts, river water levels | Live (5min cache) |
 | [data.gov.my GTFS-RT](https://developer.data.gov.my/realtime-api/gtfs-realtime) | Public transit positions (bus & KTM) | Live (30s refresh) |
 | [OpenStreetMap](https://www.openstreetmap.org) | Rail line routes (LRT, MRT, KTM, Monorail, ERL) | Static |
@@ -61,6 +62,7 @@ Not all metrics update at the same pace — government datasets publish on diffe
 | Metric | Source | Notes |
 |--------|--------|-------|
 | Weather & air quality | Open-Meteo, MET Malaysia | 15-min cache |
+| Seismic activity | USGS catalogue + MET Malaysia bulletins | 2-min cache; matched events are enriched with official warning status |
 | Flood alerts | JPS InfoBanjir | 5-min cache, scraped (no API) |
 | Public transit (bus & KTM) | data.gov.my GTFS-RT | 30s refresh, 14 feeds (KTMB, Rapid KL/Penang/Kuantan, MRT feeders, MyBAS) |
 | Flight tracking | OpenSky Network / adsb.lol | 60s refresh, OpenSky primary with adsb.lol fallback |

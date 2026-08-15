@@ -68,7 +68,8 @@ export default function BottomSheet({
     [windowHeight]
   );
 
-  const currentHeight = dragHeight ?? getSnapHeight(snap);
+  const settledHeight =
+    snap === "peek" ? `${PEEK_HEIGHT}px` : snap === "half" ? "50dvh" : "90dvh";
 
   const resolveSnap = useCallback(
     (h: number): SnapPoint => {
@@ -160,15 +161,15 @@ export default function BottomSheet({
   return (
     <div
       ref={sheetRef}
-      className="fixed bottom-0 left-0 right-0 z-40 flex flex-col lg:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 flex w-full max-w-full min-w-0 flex-col overflow-hidden lg:hidden"
       style={{
         // Snap math stays in plain px; the safe-area inset is added on top so
         // content clears the home indicator on notched phones.
-        height: `calc(${currentHeight}px + env(safe-area-inset-bottom))`,
+        height: `calc(${dragHeight != null ? `${dragHeight}px` : settledHeight} + env(safe-area-inset-bottom))`,
         paddingBottom: "env(safe-area-inset-bottom)",
         transition: dragHeight != null ? "none" : "height 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
-        background: "linear-gradient(180deg, #0d0d14 0%, #0a0a0f 100%)",
-        borderTop: "1px solid rgba(0, 212, 255, 0.15)",
+        background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg) 100%)",
+        borderTop: "1px solid var(--color-border-bright)",
         borderRadius: "12px 12px 0 0",
         willChange: "height",
       }}
@@ -185,11 +186,11 @@ export default function BottomSheet({
         }}
         onClick={handleTap}
       >
-        <div className="w-8 h-1 rounded-full bg-[rgba(0,212,255,0.3)]" />
+        <div className="w-10 h-1 rounded-full bg-[var(--color-border-hover)]" />
       </div>
 
       {/* Peek content — always visible */}
-      <div className="px-4 pb-2 shrink-0">{peek}</div>
+      <div className="min-w-0 overflow-hidden px-4 pb-2 shrink-0">{peek}</div>
 
       {/* Scrollable content — visible in half/full */}
       <div

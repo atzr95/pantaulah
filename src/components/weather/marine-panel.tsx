@@ -40,7 +40,7 @@ export default function MarinePanel({ marineForecast, sheetSnap = "half" }: Mari
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0 p-4">
-      <div className="text-[10px] tracking-[3px] text-[var(--color-cyan)] mb-4">
+      <div className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-4">
         MALAYSIAN WATERS FORECAST
       </div>
 
@@ -52,17 +52,17 @@ export default function MarinePanel({ marineForecast, sheetSnap = "half" }: Mari
               key={m.locationId}
               className="border rounded-sm p-4 transition-all hover:border-[var(--color-border-bright)]"
               style={{
-                background: "rgba(13, 13, 20, 0.8)",
+                background: "rgba(19, 33, 41, 0.94)",
                 borderColor: `${seaColor}40`,
               }}
             >
               {/* Location */}
               <div className="flex items-start justify-between mb-3">
-                <div className="text-[11px] font-bold text-[var(--color-text-bright)] tracking-wider">
+                <div className="text-xs font-bold text-[var(--color-text-bright)] tracking-wider">
                   {m.locationName.toUpperCase()}
                 </div>
                 <span
-                  className="text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-wider shrink-0"
+                  className="text-xs px-2 py-0.5 rounded-sm font-bold tracking-wider shrink-0"
                   style={{
                     background: `${seaColor}15`,
                     color: seaColor,
@@ -74,7 +74,7 @@ export default function MarinePanel({ marineForecast, sheetSnap = "half" }: Mari
               </div>
 
               {/* Forecast text */}
-              <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed mb-3">
+              <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mb-3">
                 {m.forecast}
               </p>
 
@@ -82,7 +82,7 @@ export default function MarinePanel({ marineForecast, sheetSnap = "half" }: Mari
               <div className="grid grid-cols-3 gap-2">
                 {/* Waves */}
                 <div>
-                  <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] mb-1">
+                  <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] mb-1">
                     WAVES
                   </div>
                   <div
@@ -95,7 +95,7 @@ export default function MarinePanel({ marineForecast, sheetSnap = "half" }: Mari
 
                 {/* Wind */}
                 <div>
-                  <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] mb-1">
+                  <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] mb-1">
                     WIND
                   </div>
                   <div className="text-sm font-bold text-[var(--color-text-bright)]">
@@ -105,7 +105,7 @@ export default function MarinePanel({ marineForecast, sheetSnap = "half" }: Mari
 
                 {/* Direction */}
                 <div>
-                  <div className="text-[10px] tracking-[2px] text-[var(--color-text-dim)] mb-1">
+                  <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] mb-1">
                     DIRECTION
                   </div>
                   <div className="text-sm font-bold text-[var(--color-text-bright)]">
@@ -120,7 +120,7 @@ export default function MarinePanel({ marineForecast, sheetSnap = "half" }: Mari
       </div>
 
       {/* Legend */}
-      <div className="mt-6 flex gap-4 text-[10px] text-[var(--color-text-dim)]">
+      <div className="mt-6 flex gap-4 text-xs text-[var(--color-text-dim)]">
         <span>
           <span
             className="inline-block w-2 h-2 rounded-full mr-1"

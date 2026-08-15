@@ -47,9 +47,9 @@ export default function MobileRatesBar() {
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-1.5 overflow-x-auto scrollbar-none text-[10px] shrink-0"
+      className="flex items-center gap-3 px-3 py-1.5 overflow-x-auto scrollbar-none text-xs shrink-0"
       style={{
-        background: "linear-gradient(180deg, #0d0d14 0%, #111118 100%)",
+        background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg-card) 100%)",
         borderTop: "1px solid rgba(0, 212, 255, 0.08)",
       }}
     >

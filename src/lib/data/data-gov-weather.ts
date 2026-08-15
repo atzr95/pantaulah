@@ -2,7 +2,8 @@
  * Fetcher for data.gov.my Weather API (primary source).
  * Docs: https://developer.data.gov.my/realtime-api/weather
  *
- * Covers: 7-day forecast, weather warnings, earthquake warnings.
+ * Covers: 7-day forecast and weather warnings.
+ * Seismic activity: USGS live catalogue merged with MET Malaysia bulletins.
  * Air quality: Open-Meteo Air Quality API (free, no key).
  * Marine forecast: not available without MET token.
  *
@@ -84,6 +85,20 @@ interface RawEarthquake {
   magtypedefault: string;
   status: string;
   visible: boolean;
+}
+
+interface UsgsEarthquakeCollection {
+  features: Array<{
+    properties: {
+      mag: number | null;
+      magType: string | null;
+      place: string | null;
+      time: number;
+    };
+    geometry: {
+      coordinates: [number, number, number];
+    };
+  }>;
 }
 
 // ── Malay → English forecast translation ───────────────────
@@ -239,8 +254,87 @@ export async function fetchWarnings(): Promise<WarningEntry[]> {
   }));
 }
 
-export async function fetchEarthquakes(): Promise<EarthquakeEntry[]> {
-  // data.gov.my — sort by newest first (default sort returns oldest)
+const USGS_EARTHQUAKE_URL =
+  "https://earthquake.usgs.gov/fdsnws/event/1/query?" +
+  new URLSearchParams({
+    format: "geojson",
+    latitude: "4",
+    longitude: "109",
+    maxradiuskm: "3000",
+    minmagnitude: "5",
+    orderby: "time",
+    limit: "10",
+  });
+
+const EARTHQUAKE_MATCH_MAX_DISTANCE_KM = 100;
+const EARTHQUAKE_MATCH_MAX_TIME_MS = 15 * 60_000;
+const EARTHQUAKE_MATCH_MAX_MAGNITUDE_GAP = 0.5;
+
+function distanceKm(
+  first: Pick<EarthquakeEntry, "lat" | "lon">,
+  second: Pick<EarthquakeEntry, "lat" | "lon">
+): number {
+  const toRadians = (degrees: number) => degrees * (Math.PI / 180);
+  const latDelta = toRadians(second.lat - first.lat);
+  const lonDelta = toRadians(second.lon - first.lon);
+  const firstLat = toRadians(first.lat);
+  const secondLat = toRadians(second.lat);
+  const haversine =
+    Math.sin(latDelta / 2) ** 2 +
+    Math.cos(firstLat) * Math.cos(secondLat) * Math.sin(lonDelta / 2) ** 2;
+
+  return 6_371 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function malaysiaDateTime(value: string): string {
+  return /(Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}+08:00`;
+}
+
+function utcDateTime(value: string): string {
+  return /(Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`;
+}
+
+async function fetchUsgsEarthquakes(): Promise<EarthquakeEntry[]> {
+  const res = await fetch(USGS_EARTHQUAKE_URL, {
+    signal: AbortSignal.timeout(8_000),
+    headers: { Accept: "application/geo+json" },
+  });
+  if (!res.ok) throw new Error(`USGS earthquake: ${res.status}`);
+
+  const raw = (await res.json()) as UsgsEarthquakeCollection;
+  if (!Array.isArray(raw.features)) throw new Error("USGS earthquake: invalid response");
+
+  return raw.features.flatMap((feature) => {
+    const { mag, magType, place, time } = feature.properties;
+    const [lon, lat, depth] = feature.geometry.coordinates;
+    if (
+      mag == null ||
+      !Number.isFinite(time) ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      !Number.isFinite(depth)
+    ) {
+      return [];
+    }
+
+    const utcDatetime = new Date(time).toISOString();
+    return [{
+      datetime: utcDatetime,
+      utcDatetime,
+      lat,
+      lon,
+      depth: Math.round(depth),
+      magnitude: mag,
+      magnitudeType: magType || "m",
+      location: place || "Unknown location",
+      status: "NORMAL" as const,
+      source: "USGS" as const,
+    }];
+  });
+}
+
+async function fetchMetMalaysiaEarthquakes(): Promise<EarthquakeEntry[]> {
+  // The default data.gov.my sort returns the oldest records first.
   const res = await fetch(
     `${BASE}/weather/warning/earthquake/?limit=10&sort=-utcdatetime`,
     { signal: AbortSignal.timeout(8_000) }
@@ -252,8 +346,8 @@ export async function fetchEarthquakes(): Promise<EarthquakeEntry[]> {
   return raw
     .filter((r) => r.visible)
     .map((r) => ({
-      datetime: r.localdatetime,
-      utcDatetime: r.utcdatetime,
+      datetime: malaysiaDateTime(r.localdatetime),
+      utcDatetime: utcDateTime(r.utcdatetime),
       lat: r.lat,
       lon: r.lon,
       depth: r.depth,
@@ -265,7 +359,53 @@ export async function fetchEarthquakes(): Promise<EarthquakeEntry[]> {
         : r.status === "TSUNAMI_WARNING"
           ? "TSUNAMI_WARNING"
           : "NORMAL",
+      source: "MET Malaysia",
     }));
+}
+
+export async function fetchEarthquakes(): Promise<EarthquakeEntry[]> {
+  const [usgsResult, metResult] = await Promise.allSettled([
+    fetchUsgsEarthquakes(),
+    fetchMetMalaysiaEarthquakes(),
+  ]);
+
+  if (usgsResult.status === "rejected") {
+    if (metResult.status === "fulfilled") return metResult.value;
+    throw usgsResult.reason;
+  }
+
+  const merged = [...usgsResult.value];
+  if (metResult.status === "fulfilled") {
+    for (const metEvent of metResult.value) {
+      const match = usgsResult.value
+        .map((usgsEvent) => ({
+          event: usgsEvent,
+          distance: distanceKm(usgsEvent, metEvent),
+          timeGap: Math.abs(
+            Date.parse(usgsEvent.utcDatetime) - Date.parse(metEvent.utcDatetime)
+          ),
+        }))
+        .filter(({ event, distance, timeGap }) =>
+          distance <= EARTHQUAKE_MATCH_MAX_DISTANCE_KM &&
+          timeGap <= EARTHQUAKE_MATCH_MAX_TIME_MS &&
+          Math.abs(event.magnitude - metEvent.magnitude) <=
+            EARTHQUAKE_MATCH_MAX_MAGNITUDE_GAP
+        )
+        .sort((a, b) => a.distance - b.distance || a.timeGap - b.timeGap)[0]
+        ?.event;
+
+      if (match) {
+        match.status = metEvent.status;
+        match.source = "USGS + MET Malaysia";
+      } else {
+        merged.push(metEvent);
+      }
+    }
+  }
+
+  return merged
+    .sort((a, b) => Date.parse(b.utcDatetime) - Date.parse(a.utcDatetime))
+    .slice(0, 10);
 }
 
 // ── Air Quality (Open-Meteo) ───────────────────────────────

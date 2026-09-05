@@ -110,7 +110,7 @@ export default function TimeSlider({
 
   if (dataYears.length === 0) {
     return (
-      <div className={inline ? "" : "absolute bottom-4 lg:bottom-16 left-3 right-3 lg:left-5 lg:right-[416px]"}>
+      <div className={inline ? "" : "absolute bottom-4 lg:bottom-16 left-3 right-3 lg:left-5 lg:right-[150px]"}>
         <div className="text-xs tracking-wider text-[var(--color-red)]">
           NO DATA AVAILABLE FOR THIS METRIC
         </div>
@@ -124,7 +124,7 @@ export default function TimeSlider({
     <div className={
       inline
         ? "flex flex-col gap-1 bg-[rgba(13,24,30,0.94)] backdrop-blur-sm rounded px-2 py-1.5"
-        : "absolute bottom-2 lg:bottom-10 left-3 right-3 lg:left-5 lg:right-[416px] flex flex-col gap-1 bg-[rgba(13,24,30,0.94)] lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none rounded lg:rounded-none px-2 py-1.5 lg:p-0"
+        : "absolute bottom-2 lg:bottom-10 left-3 right-3 lg:left-5 lg:right-[150px] flex flex-col gap-1 bg-[rgba(13,24,30,0.94)] lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none rounded lg:rounded-none px-2 py-1.5 lg:p-0"
     }>
       {/* Mobile: selected year display */}
       <div className="flex lg:hidden items-center justify-between mb-0.5">

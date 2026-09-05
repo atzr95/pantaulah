@@ -96,3 +96,29 @@ export function matchHeadlineToStates(headline: string): MalaysiaState[] {
 }
 
 export const STATE_COUNT = MALAYSIA_STATES.length; // 16
+
+/** topoName → flag SVG filename in /public/flags/ */
+const STATE_FLAG_FILE: Record<string, string> = {
+  "Johor": "johor.svg",
+  "Kedah": "kedah.svg",
+  "Kelantan": "kelantan.svg",
+  "Melaka": "melaka.svg",
+  "Negeri Sembilan": "negeri_sembilan.svg",
+  "Pahang": "pahang.svg",
+  "Perak": "perak.svg",
+  "Perlis": "perlis.svg",
+  "Penang": "pulau_pinang.svg",
+  "Sabah": "sabah.svg",
+  "Sarawak": "sarawak.svg",
+  "Selangor": "selangor.svg",
+  "Terengganu": "terengganu.svg",
+  "Kuala Lumpur": "kuala_lumpur.svg",
+  "Putrajaya": "putrajaya.svg",
+  "Labuan": "labuan.svg",
+};
+
+/** Flag URL for a state; null (or unknown) falls back to the national flag */
+export function getFlagSrc(topoName: string | null): string {
+  if (!topoName) return "/flags/malaysia.svg";
+  return `/flags/${STATE_FLAG_FILE[topoName] ?? "malaysia.svg"}`;
+}

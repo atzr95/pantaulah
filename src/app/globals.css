@@ -151,6 +151,14 @@ input:focus-visible,
   animation-play-state: paused;
 }
 
+/* Selected-state reticle ring */
+@keyframes reticle-spin {
+  to { transform: rotate(360deg); }
+}
+.reticle-spin {
+  animation: reticle-spin 30s linear infinite;
+}
+
 /* Boot sequence */
 @keyframes boot-text {
   0% { opacity: 0; }
@@ -173,7 +181,8 @@ input:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot,
   .ticker-animate,
-  .blink-cursor {
+  .blink-cursor,
+  .reticle-spin {
     animation: none;
   }
   *,

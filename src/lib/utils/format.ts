@@ -196,3 +196,24 @@ export function formatMetricValue(key: string, value: number | undefined): strin
     default: return value.toLocaleString("en-MY");
   }
 }
+
+const TWEEN_NUM_RE = /-?\d[\d,]*(?:\.\d+)?/;
+
+/**
+ * Interpolate the first number inside a formatted value ("RM 1,605.8B", "3.3%") at progress p (0..1).
+ * Keeps the source's decimals and thousands grouping. Returns `to` unchanged when either side has no number.
+ */
+export function tweenValue(from: string, to: string, p: number): string {
+  const m = to.match(TWEEN_NUM_RE);
+  const pm = from.match(TWEEN_NUM_RE);
+  if (!m || !pm || p >= 1) return to;
+  const a = Number(pm[0].replace(/,/g, ""));
+  const b = Number(m[0].replace(/,/g, ""));
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return to;
+  const decimals = (m[0].split(".")[1] ?? "").length;
+  const v = a + (b - a) * p;
+  const str = m[0].includes(",")
+    ? v.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    : v.toFixed(decimals);
+  return to.replace(m[0], str);
+}

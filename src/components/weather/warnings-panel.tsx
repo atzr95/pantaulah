@@ -3,6 +3,7 @@
 import type { WarningEntry, EarthquakeEntry, FloodAlertData } from "@/lib/data/weather-types";
 import { getFloodAlertSeverity, getFloodTrendIcon } from "@/lib/data/weather-types";
 import EmptyState from "@/components/ui/empty-state";
+import ClampedText from "@/components/ui/clamped-text";
 
 function getSeverityColor(severity: string): string {
   switch (severity) {
@@ -143,9 +144,7 @@ export default function WarningsPanel({
                   </div>
 
                   {/* Description */}
-                  <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mb-3">
-                    {w.text}
-                  </p>
+                  <ClampedText text={w.text} accent={severityColor} className="mb-3" />
 
                   {/* Instruction */}
                   {w.instruction && (

@@ -10,6 +10,7 @@ import type {
 } from "@/lib/data/weather-types";
 import { getAirQualityColor, getFloodAlertSeverity, getFloodTrendIcon } from "@/lib/data/weather-types";
 import EmptyState from "@/components/ui/empty-state";
+import ClampedText from "@/components/ui/clamped-text";
 
 function getWeatherIcon(forecast: string): string {
   const f = forecast.toLowerCase();
@@ -366,9 +367,7 @@ export default function WeatherSidebar({
                     </span>
                   </div>
 
-                  <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mb-2">
-                    {w.text}
-                  </p>
+                  <ClampedText text={w.text} accent={severityColor} className="mb-2" />
 
                   {w.instruction && (
                     <div

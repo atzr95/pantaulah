@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { memo, useMemo, useState, useCallback, useEffect, useRef, type RefObject } from "react";
 import { geoMercator, geoPath, type GeoPermissibleObjects } from "d3-geo";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
@@ -8,10 +8,11 @@ import type { FeatureCollection, Feature, Geometry } from "geojson";
 import topoData from "@/lib/data/malaysia-states.json";
 import type { MetricKey, CacheData } from "@/lib/data/types";
 import {
-  computeTerciles,
-  getBucket,
-  getBucketColor,
-  getBucketStroke,
+  computeRankScale,
+  getRampColor,
+  getRampStroke,
+  getRampGradient,
+  type RankScale,
   getMetricValues,
   METRIC_CONFIGS,
   type ChoroplethConfig,
@@ -23,6 +24,7 @@ import { useTransit, type TransitVehicle } from "@/lib/hooks/use-transit";
 import { HIGHWAYS as HIGHWAY_ROUTES } from "@/lib/data/highways";
 import { RAIL_LINES } from "@/lib/data/rail-lines";
 import { POI_COLORS, OVERLAY_COLORS } from "@/lib/ui/colors";
+import { ContextLayer, LabelLayer, ReticleLayer } from "./map-decor";
 
 function getPOIColor(type: string): string {
   if (type === "airport") return POI_COLORS.airport;
@@ -46,9 +48,13 @@ interface StateProperties {
   Name: string;
 }
 
-// Desktop SVG dimensions
-const WIDTH = 960;
-const HEIGHT = 500;
+// Desktop: two side-by-side viewports (Peninsular | Borneo) sized from the container, 1 unit = 1px
+const WEST_SHARE = 0.38;
+// Keep the states clear of the HUD: metric toggles top-right, legend strip + time slider along the bottom
+const D_INSET_WEST = { top: 28, right: 12, bottom: 175, left: 24 };
+const D_INSET_EAST = { top: 72, right: 24, bottom: 175, left: 12 };
+const D_LABEL_SIZE = 11;
+const M_LABEL_SIZE = 13;
 
 // Mobile SVG dimensions — each region gets full width
 const M_W = 500;
@@ -68,6 +74,22 @@ function useIsMobile() {
     return () => mq.removeEventListener("change", handler);
   }, []);
   return isMobile;
+}
+
+/** Live content size of an element (ResizeObserver). Desktop map panels are drawn 1:1 in px. */
+function useElementSize(ref: RefObject<HTMLDivElement | null>, enabled: boolean) {
+  const [size, setSize] = useState({ w: 960, h: 560 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !enabled) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0) setSize({ w: Math.round(width), h: Math.round(height) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref, enabled]);
+  return size;
 }
 
 // Shared POI type
@@ -95,7 +117,7 @@ interface StateLayerProps {
   features: Feature<Geometry, StateProperties>[];
   generator: PathGen;
   metricValues: Record<string, number | undefined>;
-  terciles: ReturnType<typeof computeTerciles>;
+  scale: RankScale | null;
   config: ChoroplethConfig;
   selectedState: string | null;
   hoveredState: string | null;
@@ -108,7 +130,7 @@ const StateLayer = memo(function StateLayer({
   features,
   generator,
   metricValues,
-  terciles,
+  scale,
   config,
   selectedState,
   hoveredState,
@@ -129,7 +151,7 @@ const StateLayer = memo(function StateLayer({
     <>
       {paths.map(({ name, d }) => {
         const value = metricValues[name];
-        const bucket = getBucket(value, terciles);
+        const t = value == null ? undefined : scale?.t[name];
         const isSelected = selectedState === name;
         const isHovered = hoveredState === name;
 
@@ -142,14 +164,14 @@ const StateLayer = memo(function StateLayer({
                 ? "rgba(0, 212, 255, 0.35)"
                 : isHovered
                   ? "rgba(0, 212, 255, 0.3)"
-                  : getBucketColor(bucket, config.colorHue)
+                  : getRampColor(t, config.colorHue)
             }
             stroke={
               isSelected
                 ? "#00d4ff"
                 : isHovered
                   ? "rgba(0, 212, 255, 0.8)"
-                  : getBucketStroke(bucket, config.colorHue)
+                  : getRampStroke(t, config.colorHue)
             }
             strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 1}
             className="transition-all duration-300 cursor-pointer outline-none"
@@ -565,67 +587,52 @@ export default function MalaysiaMap({
     [geojson]
   );
 
-  // Desktop: single projection
-  const PAD = 60;
-  const projection = useMemo(() => {
-    return geoMercator().fitExtent(
-      [[PAD, PAD], [WIDTH - PAD, HEIGHT - PAD]],
-      geojson
-    );
-  }, [geojson]);
+  // Two viewports (Peninsular / Borneo). Desktop cells are measured; mobile uses fixed boxes.
+  const deskRef = useRef<HTMLDivElement>(null);
+  const deskSize = useElementSize(deskRef, !isMobile);
+  const westW = isMobile ? M_W : Math.max(300, Math.round(deskSize.w * WEST_SHARE));
+  const eastW = isMobile ? M_W : Math.max(300, deskSize.w - westW - 1);
+  const westH = isMobile ? M_H_WEST : deskSize.h;
+  const eastH = isMobile ? M_H_EAST : deskSize.h;
+  const westExtent = useMemo(
+    (): [[number, number], [number, number]] =>
+      isMobile
+        ? [[M_PAD, M_PAD], [M_W - M_PAD, M_H_WEST - M_PAD]]
+        : [[D_INSET_WEST.left, D_INSET_WEST.top], [westW - D_INSET_WEST.right, westH - D_INSET_WEST.bottom]],
+    [isMobile, westW, westH]
+  );
+  const eastExtent = useMemo(
+    (): [[number, number], [number, number]] =>
+      isMobile
+        ? [[M_PAD, M_PAD], [M_W - M_PAD, M_H_EAST - M_PAD]]
+        : [[D_INSET_EAST.left, D_INSET_EAST.top], [eastW - D_INSET_EAST.right, eastH - D_INSET_EAST.bottom]],
+    [isMobile, eastW, eastH]
+  );
 
-  // Mobile: separate projections per region
   const westGeo = useMemo(
-    (): FeatureCollection<Geometry, StateProperties> => ({
-      type: "FeatureCollection",
-      features: westFeatures,
-    }),
+    (): FeatureCollection<Geometry, StateProperties> => ({ type: "FeatureCollection", features: westFeatures }),
     [westFeatures]
   );
   const eastGeo = useMemo(
-    (): FeatureCollection<Geometry, StateProperties> => ({
-      type: "FeatureCollection",
-      features: eastFeatures,
-    }),
+    (): FeatureCollection<Geometry, StateProperties> => ({ type: "FeatureCollection", features: eastFeatures }),
     [eastFeatures]
   );
-
-  const westProjection = useMemo(() => {
-    return geoMercator().fitExtent(
-      [[M_PAD, M_PAD], [M_W - M_PAD, M_H_WEST - M_PAD]],
-      westGeo
-    );
-  }, [westGeo]);
-  const eastProjection = useMemo(() => {
-    return geoMercator().fitExtent(
-      [[M_PAD, M_PAD], [M_W - M_PAD, M_H_EAST - M_PAD]],
-      eastGeo
-    );
-  }, [eastGeo]);
+  const westProjection = useMemo(() => geoMercator().fitExtent(westExtent, westGeo), [westExtent, westGeo]);
+  const eastProjection = useMemo(() => geoMercator().fitExtent(eastExtent, eastGeo), [eastExtent, eastGeo]);
 
   // Transit zoom: when transit is visible + a state is picked from dropdown
   const transitZoom = selectedCategory === "transport" && !hiddenPOITypes.has("transit") && transitZoomState != null;
 
-  const activeProjection = useMemo(() => {
-    if (!transitZoom || !transitZoomState) return projection;
-    const feat = geojson.features.find(f => f.properties.Name === transitZoomState);
-    if (!feat) return projection;
-    return geoMercator().fitExtent([[PAD, PAD], [WIDTH - PAD, HEIGHT - PAD]], feat);
-  }, [transitZoom, transitZoomState, geojson, projection]);
-  const activePathGen = useMemo(() => geoPath().projection(activeProjection), [activeProjection]);
-
   const activeWestProjection = useMemo(() => {
     if (!transitZoom || !transitZoomState || EAST_STATES.has(transitZoomState)) return westProjection;
-    const feat = westFeatures.find(f => f.properties.Name === transitZoomState);
-    if (!feat) return westProjection;
-    return geoMercator().fitExtent([[M_PAD, M_PAD], [M_W - M_PAD, M_H_WEST - M_PAD]], feat);
-  }, [transitZoom, transitZoomState, westProjection, westFeatures]);
+    const feat = westFeatures.find((f) => f.properties.Name === transitZoomState);
+    return feat ? geoMercator().fitExtent(westExtent, feat) : westProjection;
+  }, [transitZoom, transitZoomState, westProjection, westFeatures, westExtent]);
   const activeEastProjection = useMemo(() => {
     if (!transitZoom || !transitZoomState || !EAST_STATES.has(transitZoomState)) return eastProjection;
-    const feat = eastFeatures.find(f => f.properties.Name === transitZoomState);
-    if (!feat) return eastProjection;
-    return geoMercator().fitExtent([[M_PAD, M_PAD], [M_W - M_PAD, M_H_EAST - M_PAD]], feat);
-  }, [transitZoom, transitZoomState, eastProjection, eastFeatures]);
+    const feat = eastFeatures.find((f) => f.properties.Name === transitZoomState);
+    return feat ? geoMercator().fitExtent(eastExtent, feat) : eastProjection;
+  }, [transitZoom, transitZoomState, eastProjection, eastFeatures, eastExtent]);
 
   const activeWestPathGen = useMemo(() => geoPath().projection(activeWestProjection), [activeWestProjection]);
   const activeEastPathGen = useMemo(() => geoPath().projection(activeEastProjection), [activeEastProjection]);
@@ -635,10 +642,7 @@ export default function MalaysiaMap({
     () => getMetricValues(data, selectedMetric, selectedYear),
     [data, selectedMetric, selectedYear]
   );
-  const terciles = useMemo(() => {
-    const vals = Object.values(metricValues).filter((v): v is number => v != null);
-    return computeTerciles(vals);
-  }, [metricValues]);
+  const scale = useMemo(() => computeRankScale(metricValues), [metricValues]);
   const config = METRIC_CONFIGS.find((c) => c.key === selectedMetric)!;
 
   // Get relevant POIs for current category
@@ -689,64 +693,41 @@ export default function MalaysiaMap({
     [onStateSelect]
   );
 
-  // Render legend content (shared between desktop and mobile)
-  const renderLegendContent = (compact = false) => (
+  // Legend: desktop = one horizontal HUD strip above the slider; mobile (compact) = vertical popover list
+  const renderLegendContent = (compact = false) => {
+    const groupCls = compact ? "flex flex-col gap-1.5 pt-1.5 border-t border-[rgba(255,255,255,0.06)]" : "flex items-center gap-4";
+    return (
     <>
-      <div
-        className="tracking-[0.08em] mb-0.5"
-        style={{ color: "rgba(0, 212, 255, 0.75)" }}
-      >
-        {config.label}
+      <div className={compact ? "space-y-0.5" : "flex items-baseline gap-2"}>
+        <div className="tracking-[0.08em]" style={{ color: "rgba(0, 212, 255, 0.75)" }}>
+          {config.label}
+        </div>
+        <div className="tracking-[0.06em] text-[var(--color-text-dim)]">AS OF {selectedYear}</div>
       </div>
-      <div className={`tracking-[0.06em] text-[var(--color-text-dim)] ${compact ? "mb-1.5" : "mb-2"}`}>
-        AS OF {selectedYear}
-      </div>
-      {terciles && (
-        <>
-          <div className="flex items-center gap-2">
-            <div
-              className={`${compact ? "w-3 h-2" : "w-4 h-2.5"} rounded-sm`}
-              style={{
-                background: getBucketColor("high", config.colorHue),
-                border: `1px solid ${getBucketStroke("high", config.colorHue)}`,
-              }}
-            />
-            HIGH (&gt; {formatMetricValue(config.key, terciles.t2)})
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={`${compact ? "w-3 h-2" : "w-4 h-2.5"} rounded-sm`}
-              style={{
-                background: getBucketColor("medium", config.colorHue),
-                border: `1px solid ${getBucketStroke("medium", config.colorHue)}`,
-              }}
-            />
-            MEDIUM
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={`${compact ? "w-3 h-2" : "w-4 h-2.5"} rounded-sm`}
-              style={{
-                background: getBucketColor("low", config.colorHue),
-                border: `1px solid ${getBucketStroke("low", config.colorHue)}`,
-              }}
-            />
-            LOW (&lt; {formatMetricValue(config.key, terciles.t1)})
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={`${compact ? "w-3 h-2" : "w-4 h-2.5"} rounded-sm`}
-              style={{
-                background: getBucketColor("none", config.colorHue),
-                border: `1px solid ${getBucketStroke("none", config.colorHue)}`,
-              }}
-            />
-            NO DATA
-          </div>
-        </>
+      {scale && (
+        <div className="flex items-center gap-2 tabular-nums">
+          <span className="whitespace-nowrap">LOW {formatMetricValue(config.key, scale.min)}</span>
+          <div
+            className={`${compact ? "flex-1 min-w-12" : "w-24"} h-2 rounded-sm`}
+            style={{ background: getRampGradient(config.colorHue), border: `1px solid ${getRampStroke(0.5, config.colorHue)}` }}
+          />
+          <span className="whitespace-nowrap">HIGH {formatMetricValue(config.key, scale.max)}</span>
+        </div>
       )}
+      <div className={groupCls}>
+        <div className="flex items-center gap-2">
+          <div
+            className="w-3 h-2 rounded-sm"
+            style={{
+              background: getRampColor(undefined, config.colorHue),
+              border: `1px solid ${getRampStroke(undefined, config.colorHue)}`,
+            }}
+          />
+          NO DATA
+        </div>
+      </div>
       {selectedCategory === "economy" && (
-        <div className={`${compact ? "mt-2 pt-1.5" : "mt-3 pt-2"} border-t border-[rgba(255,255,255,0.06)] space-y-1`}>
+        <div className={groupCls}>
           <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("airport")}>
             <div className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: POI_COLORS.airport, background: hiddenPOITypes.has("airport") ? "transparent" : POI_COLORS.airport }} />
             <span style={{ opacity: hiddenPOITypes.has("airport") ? 0.4 : 1 }}>AIRPORTS</span>
@@ -758,7 +739,7 @@ export default function MalaysiaMap({
         </div>
       )}
       {selectedCategory === "education" && (
-        <div className={`${compact ? "mt-2 pt-1.5" : "mt-3 pt-2"} border-t border-[rgba(255,255,255,0.06)] space-y-1`}>
+        <div className={groupCls}>
           <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("university")}>
             <div className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: POI_COLORS.university, background: hiddenPOITypes.has("university") ? "transparent" : POI_COLORS.university }} />
             <span style={{ opacity: hiddenPOITypes.has("university") ? 0.4 : 1 }}>UNIVERSITIES (IPTA)</span>
@@ -766,7 +747,7 @@ export default function MalaysiaMap({
         </div>
       )}
       {selectedCategory === "transport" && (
-        <div className="mt-3 pt-2 border-t border-[rgba(255,255,255,0.06)] space-y-1">
+        <div className={groupCls}>
           <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => togglePOIType("highway")}>
             <div className="w-4 h-0 border-t" style={{ borderColor: hiddenPOITypes.has("highway") ? "rgba(255,200,50,0.2)" : "rgba(255,200,50,0.5)", borderWidth: 1.5 }} />
             <span style={{ opacity: hiddenPOITypes.has("highway") ? 0.4 : 1 }}>HIGHWAYS</span>
@@ -788,7 +769,8 @@ export default function MalaysiaMap({
         </div>
       )}
     </>
-  );
+    );
+  };
 
   // Tooltip content (position handled imperatively via tooltipRef)
   const hoveredPoiData = hoveredPOI ? POI_BY_KEY.get(hoveredPOI) : null;
@@ -908,12 +890,104 @@ export default function MalaysiaMap({
     return geojson.features.map(f => f.properties.Name).sort();
   }, [geojson]);
 
+  // One map viewport with every layer. Desktop panels get explicit px size; mobile scales to width.
+  const renderPanel = (side: "west" | "east", w: number, h: number) => {
+    const west = side === "west";
+    const features = west ? westFeatures : eastFeatures;
+    const proj = west ? activeWestProjection : activeEastProjection;
+    const pathGen = west ? activeWestPathGen : activeEastPathGen;
+    return (
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        width={isMobile ? undefined : w}
+        height={isMobile ? undefined : h}
+        className={isMobile ? "w-full h-auto" : "shrink-0"}
+        style={{ background: "transparent", overflow: "hidden" }}
+        onMouseLeave={handleStateLeave}
+        onClick={handleSvgClick}
+      >
+        <rect x="0" y="0" width={w} height={h} fill="transparent" />
+        <ContextLayer pathGen={pathGen} />
+        {!isMobile && (
+          <text
+            x={w - 12}
+            y={h - 12}
+            textAnchor="end"
+            fontSize={10}
+            letterSpacing="0.14em"
+            fill="rgba(128, 148, 159, 0.7)"
+            style={{ fontFamily: "var(--font-jetbrains), monospace", pointerEvents: "none" }}
+          >
+            {west ? "PENINSULAR MALAYSIA" : "BORNEO"}
+          </text>
+        )}
+        <StateLayer
+          features={features}
+          generator={pathGen}
+          metricValues={metricValues}
+          scale={scale}
+          config={config}
+          selectedState={selectedState}
+          hoveredState={hoveredState}
+          onStateSelect={onStateSelect}
+          onStateEnter={handleStateEnter}
+          onStateLeave={handleStateLeave}
+        />
+        <POILayer
+          pois={west ? westPois : eastPois}
+          proj={proj}
+          hoveredPOI={hoveredPOI}
+          onPOIEnter={handlePOIEnter}
+          onPOILeave={handlePOILeave}
+        />
+        <LabelLayer
+          features={features}
+          pathGen={pathGen}
+          selectedState={selectedState}
+          hoveredState={hoveredState}
+          fontSize={isMobile ? M_LABEL_SIZE : D_LABEL_SIZE}
+        />
+        {showHighways && <HighwayLayer proj={proj} />}
+        {showRail && <RailLayer proj={proj} transitZoom={transitZoom} />}
+        {showTransit && (
+          <TransitLayer
+            vehicles={west ? westTransit : eastTransit}
+            proj={proj}
+            hoveredTransitKey={hoveredTransitKey}
+            onTransitEnter={handleTransitEnter}
+            onTransitLeave={handleTransitLeave}
+          />
+        )}
+        {showFlights && (
+          <FlightLayer
+            flights={west ? westFlights : eastFlights}
+            proj={proj}
+            hoveredFlightId={hoveredFlightId}
+            onFlightEnter={handleFlightEnter}
+            onFlightLeave={handleFlightLeave}
+          />
+        )}
+        <ReticleLayer features={features} pathGen={pathGen} selectedState={selectedState} />
+      </svg>
+    );
+  };
+
   return (
     <div
       className="relative flex-1 overflow-hidden min-h-0"
       onMouseMove={handleRootMouseMove}
       onClick={handleRootMouseMove}
     >
+      {/* Selected-state watermark, behind the map panels */}
+      {selectedState && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-14 lg:top-auto lg:bottom-[150px] text-center font-mono font-bold uppercase tracking-[0.2em] leading-none pointer-events-none select-none"
+          style={{ fontSize: "clamp(40px, 8vw, 120px)", color: "transparent", WebkitTextStroke: "1px rgba(39, 215, 238, 0.12)" }}
+        >
+          {selectedState}
+        </div>
+      )}
       {/* Transit zoom dropdown — desktop: absolute top-left */}
       {!isMobile && transitVisible && (
         <div className="absolute top-2 left-2 z-10 hidden lg:block">
@@ -931,183 +1005,39 @@ export default function MalaysiaMap({
         </div>
       )}
 
-      {/* ── Desktop: single combined SVG ── */}
+      {/* ── Desktop: Peninsular | Borneo viewports, drawn 1:1 in px ── */}
       {!isMobile && (
-        <div className="hidden lg:flex items-center w-full h-full">
-          <svg
-            viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-            className="w-full h-full"
-            style={{ background: "transparent", overflow: "hidden" }}
-            onMouseLeave={handleStateLeave}
-            onClick={handleSvgClick}
-          >
-            <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="transparent" />
-            <StateLayer
-              features={geojson.features}
-              generator={activePathGen}
-              metricValues={metricValues}
-              terciles={terciles}
-              config={config}
-              selectedState={selectedState}
-              hoveredState={hoveredState}
-              onStateSelect={onStateSelect}
-              onStateEnter={handleStateEnter}
-              onStateLeave={handleStateLeave}
-            />
-            <POILayer
-              pois={categoryPois}
-              proj={activeProjection}
-              hoveredPOI={hoveredPOI}
-              onPOIEnter={handlePOIEnter}
-              onPOILeave={handlePOILeave}
-            />
-            {showHighways && <HighwayLayer proj={activeProjection} />}
-            {showRail && <RailLayer proj={activeProjection} transitZoom={transitZoom} />}
-            {showTransit && (
-              <TransitLayer
-                vehicles={sortedTransit}
-                proj={activeProjection}
-                hoveredTransitKey={hoveredTransitKey}
-                onTransitEnter={handleTransitEnter}
-                onTransitLeave={handleTransitLeave}
-              />
-            )}
-            {showFlights && (
-              <FlightLayer
-                flights={flights}
-                proj={activeProjection}
-                hoveredFlightId={hoveredFlightId}
-                onFlightEnter={handleFlightEnter}
-                onFlightLeave={handleFlightLeave}
-              />
-            )}
-          </svg>
+        <div ref={deskRef} className="relative hidden lg:flex w-full h-full">
+          {renderPanel("west", westW, westH)}
+          <div className="w-px h-full shrink-0" style={{ background: "var(--color-border)" }} />
+          {renderPanel("east", eastW, eastH)}
         </div>
       )}
 
       {/* ── Mobile: stacked West / East SVGs ── */}
       {isMobile && (
         <div
-          className="lg:hidden overflow-y-auto h-full"
+          className="relative lg:hidden overflow-y-auto h-full"
           style={{
             paddingBottom: sheetSnap === "full" ? "92vh"
               : sheetSnap === "half" ? "52vh"
               : "140px",
           }}
         >
-          {/* West Malaysia */}
           <div className="px-1">
             <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] px-2 pt-2">
               PENINSULAR MALAYSIA
             </div>
-            <svg
-              viewBox={`0 0 ${M_W} ${M_H_WEST}`}
-              className="w-full h-auto"
-              style={{ background: "transparent", overflow: "hidden" }}
-              onMouseLeave={handleStateLeave}
-              onClick={handleSvgClick}
-            >
-              <rect x="0" y="0" width={M_W} height={M_H_WEST} fill="transparent" />
-              <StateLayer
-                features={westFeatures}
-                generator={activeWestPathGen}
-                metricValues={metricValues}
-                terciles={terciles}
-                config={config}
-                selectedState={selectedState}
-                hoveredState={hoveredState}
-                onStateSelect={onStateSelect}
-                onStateEnter={handleStateEnter}
-                onStateLeave={handleStateLeave}
-              />
-              <POILayer
-                pois={westPois}
-                proj={activeWestProjection}
-                hoveredPOI={hoveredPOI}
-                onPOIEnter={handlePOIEnter}
-                onPOILeave={handlePOILeave}
-              />
-              {showHighways && <HighwayLayer proj={activeWestProjection} />}
-              {showRail && <RailLayer proj={activeWestProjection} transitZoom={transitZoom} />}
-              {showTransit && (
-                <TransitLayer
-                  vehicles={westTransit}
-                  proj={activeWestProjection}
-                  hoveredTransitKey={hoveredTransitKey}
-                  onTransitEnter={handleTransitEnter}
-                  onTransitLeave={handleTransitLeave}
-                />
-              )}
-              {showFlights && (
-                <FlightLayer
-                  flights={westFlights}
-                  proj={activeWestProjection}
-                  hoveredFlightId={hoveredFlightId}
-                  onFlightEnter={handleFlightEnter}
-                  onFlightLeave={handleFlightLeave}
-                />
-              )}
-            </svg>
+            {renderPanel("west", M_W, M_H_WEST)}
           </div>
 
-          {/* Divider */}
-          <div
-            className="mx-4 border-t border-[rgba(0,212,255,0.08)]"
-          />
+          <div className="mx-4 border-t border-[rgba(0,212,255,0.08)]" />
 
-          {/* East Malaysia */}
           <div className="px-1">
             <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] px-2 pt-2">
               EAST MALAYSIA
             </div>
-            <svg
-              viewBox={`0 0 ${M_W} ${M_H_EAST}`}
-              className="w-full h-auto"
-              style={{ background: "transparent", overflow: "hidden" }}
-              onMouseLeave={handleStateLeave}
-              onClick={handleSvgClick}
-            >
-              <rect x="0" y="0" width={M_W} height={M_H_EAST} fill="transparent" />
-              <StateLayer
-                features={eastFeatures}
-                generator={activeEastPathGen}
-                metricValues={metricValues}
-                terciles={terciles}
-                config={config}
-                selectedState={selectedState}
-                hoveredState={hoveredState}
-                onStateSelect={onStateSelect}
-                onStateEnter={handleStateEnter}
-                onStateLeave={handleStateLeave}
-              />
-              <POILayer
-                pois={eastPois}
-                proj={activeEastProjection}
-                hoveredPOI={hoveredPOI}
-                onPOIEnter={handlePOIEnter}
-                onPOILeave={handlePOILeave}
-              />
-              {showHighways && <HighwayLayer proj={activeEastProjection} />}
-              {showRail && <RailLayer proj={activeEastProjection} transitZoom={transitZoom} />}
-              {showTransit && (
-                <TransitLayer
-                  vehicles={eastTransit}
-                  proj={activeEastProjection}
-                  hoveredTransitKey={hoveredTransitKey}
-                  onTransitEnter={handleTransitEnter}
-                  onTransitLeave={handleTransitLeave}
-                />
-              )}
-              {showFlights && (
-                <FlightLayer
-                  flights={eastFlights}
-                  proj={activeEastProjection}
-                  hoveredFlightId={hoveredFlightId}
-                  onFlightEnter={handleFlightEnter}
-                  onFlightLeave={handleFlightLeave}
-                />
-              )}
-            </svg>
+            {renderPanel("east", M_W, M_H_EAST)}
           </div>
 
           {/* Mobile: inline time slider */}
@@ -1133,9 +1063,9 @@ export default function MalaysiaMap({
         </div>
       )}
 
-      {/* Legend — desktop: full, bottom-left, above slider area */}
+      {/* Legend — desktop: one HUD strip above the time slider */}
       {!isMobile && (
-        <div className="absolute bottom-36 left-5 text-xs text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
+        <div className="absolute bottom-[104px] left-5 right-[150px] hidden lg:flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[var(--color-text-muted)] pointer-events-none [&>*]:pointer-events-auto">
           {renderLegendContent(false)}
         </div>
       )}
@@ -1149,11 +1079,7 @@ export default function MalaysiaMap({
             aria-label="Toggle map legend and layer options"
             className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs tracking-wider rounded transition-all bg-[rgba(13,24,30,0.94)] backdrop-blur-sm border border-[var(--color-border-mid)] text-[var(--color-text-muted)]"
           >
-            <div className="flex gap-0.5">
-              <div className="w-2 h-2 rounded-sm" style={{ background: getBucketColor("high", config.colorHue) }} />
-              <div className="w-2 h-2 rounded-sm" style={{ background: getBucketColor("medium", config.colorHue) }} />
-              <div className="w-2 h-2 rounded-sm" style={{ background: getBucketColor("low", config.colorHue) }} />
-            </div>
+            <div className="w-7 h-2 rounded-sm" style={{ background: getRampGradient(config.colorHue) }} />
             LEGEND
             <svg className={`w-2.5 h-2.5 opacity-50 transition-transform ${legendOpen ? "rotate-180" : ""}`} viewBox="0 0 10 6" fill="none">
               <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

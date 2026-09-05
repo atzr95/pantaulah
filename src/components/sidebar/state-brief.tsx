@@ -19,33 +19,8 @@ import {
   formatVintage,
   resolveLatestYear,
 } from "@/lib/utils/format";
-import { MALAYSIA_STATES } from "@/lib/data/states";
+import { MALAYSIA_STATES, getFlagSrc } from "@/lib/data/states";
 import { CATEGORY_METRICS, NATIONAL_ECONOMY_INDICATORS, getMetricValues } from "@/lib/data/choropleth";
-
-/** Map topoName → flag SVG filename in /public/flags/ */
-const STATE_FLAG_FILE: Record<string, string> = {
-  "Johor": "johor.svg",
-  "Kedah": "kedah.svg",
-  "Kelantan": "kelantan.svg",
-  "Melaka": "melaka.svg",
-  "Negeri Sembilan": "negeri_sembilan.svg",
-  "Pahang": "pahang.svg",
-  "Perak": "perak.svg",
-  "Perlis": "perlis.svg",
-  "Penang": "pulau_pinang.svg",
-  "Sabah": "sabah.svg",
-  "Sarawak": "sarawak.svg",
-  "Selangor": "selangor.svg",
-  "Terengganu": "terengganu.svg",
-  "Kuala Lumpur": "kuala_lumpur.svg",
-  "Putrajaya": "putrajaya.svg",
-  "Labuan": "labuan.svg",
-};
-
-function getFlagSrc(topoName: string | null): string {
-  if (!topoName) return "/flags/malaysia.svg";
-  return `/flags/${STATE_FLAG_FILE[topoName] ?? "malaysia.svg"}`;
-}
 
 interface StateBriefProps {
   data: CacheData;
@@ -340,13 +315,15 @@ export function StateBriefContent({
         className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-px overflow-hidden"
         style={{ background: "rgba(0, 212, 255, 0.05)", padding: 1 }}
       >
-        {categoryMetrics.map((config) => {
+        {/* Active metric leads as a full-width hero; the rest follow in pairs */}
+        {[...categoryMetrics].sort((a, b) => Number(b.key === selectedMetric) - Number(a.key === selectedMetric)).map((config) => {
           const resolved = getMetricResolved(years, config.key, selectedYear);
           const m = resolved?.value;
           const spark = getSparkline(years, config.key, resolved?.year ?? selectedYear);
           return (
             <MetricCard
               key={config.key}
+              hero={config.key === selectedMetric}
               label={config.label}
               value={formatMetricValue(config.key, m?.value)}
               change={m?.change != null ? formatChange(m.change, getChangeSuffix(config.key), getChangeUnit(config.key)) : undefined}

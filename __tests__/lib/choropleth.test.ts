@@ -1,88 +1,46 @@
 import { describe, it, expect } from "vitest";
 import {
-  computeTerciles,
-  getBucket,
-  getBucketColor,
+  computeRankScale,
+  getRampColor,
+  getRampGradient,
   METRIC_CONFIGS,
 } from "@/lib/data/choropleth";
 
-describe("computeTerciles", () => {
-  it("computes terciles for a normal distribution", () => {
-    const values = [10, 20, 30, 40, 50, 60, 70, 80, 90];
-    const result = computeTerciles(values);
-    expect(result).not.toBeNull();
-    // floor(9/3)=3 → index 3 = 40, floor(9*2/3)=6 → index 6 = 70
-    expect(result!.t1).toBe(40);
-    expect(result!.t2).toBe(70);
-    expect(result!.min).toBe(10);
-    expect(result!.max).toBe(90);
+describe("computeRankScale", () => {
+  it("spreads states evenly by rank, not by value", () => {
+    // Heavily skewed values still get distinct positions
+    const scale = computeRankScale({ a: 1, b: 2, c: 3, d: 1000 })!;
+    expect(scale.t).toEqual({ a: 0, b: 1 / 3, c: 2 / 3, d: 1 });
+    expect(scale.min).toBe(1);
+    expect(scale.max).toBe(1000);
   });
 
-  it("returns null for fewer than 3 values", () => {
-    expect(computeTerciles([10, 20])).toBeNull();
-    expect(computeTerciles([10])).toBeNull();
-    expect(computeTerciles([])).toBeNull();
+  it("gives tied values the same position", () => {
+    const scale = computeRankScale({ a: 5, b: 5, c: 9 })!;
+    expect(scale.t.a).toBe(scale.t.b);
+    expect(scale.t.c).toBe(1);
   });
 
-  it("handles exactly 3 values", () => {
-    const result = computeTerciles([10, 20, 30]);
-    expect(result).not.toBeNull();
-    expect(result!.min).toBe(10);
-    expect(result!.max).toBe(30);
-  });
-
-  it("filters null values", () => {
-    const values = [10, 20, 30, 40, 50, 60];
-    const result = computeTerciles(values);
-    expect(result).not.toBeNull();
-  });
-
-  it("sorts unsorted input", () => {
-    const values = [90, 10, 50, 30, 70];
-    const result = computeTerciles(values);
-    expect(result!.min).toBe(10);
-    expect(result!.max).toBe(90);
+  it("ignores missing values and needs at least 3", () => {
+    expect(computeRankScale({ a: 1, b: 2, c: undefined })).toBeNull();
+    expect(computeRankScale({ a: 1, b: 2, c: 3, d: undefined })!.t).not.toHaveProperty("d");
   });
 });
 
-describe("getBucket", () => {
-  const terciles = { t1: 40, t2: 70, min: 10, max: 90 };
-
-  it("returns 'low' for values <= t1", () => {
-    expect(getBucket(10, terciles)).toBe("low");
-    expect(getBucket(40, terciles)).toBe("low");
+describe("getRampColor", () => {
+  it("returns the ramp endpoints and a distinct no-data colour", () => {
+    expect(getRampColor(0, "cyan")).toBe("rgba(0, 110, 150, 0.18)");
+    expect(getRampColor(1, "cyan")).toBe("rgba(0, 212, 255, 0.65)");
+    expect(getRampColor(1, "amber")).toBe("rgba(255, 149, 0, 0.65)");
+    expect(getRampColor(undefined, "amber")).not.toBe(getRampColor(0, "amber"));
   });
 
-  it("returns 'medium' for values between t1 and t2", () => {
-    expect(getBucket(41, terciles)).toBe("medium");
-    expect(getBucket(70, terciles)).toBe("medium");
+  it("interpolates between stops", () => {
+    expect(getRampColor(0.5, "cyan")).toBe("rgba(0, 161, 203, 0.42)");
   });
 
-  it("returns 'high' for values > t2", () => {
-    expect(getBucket(71, terciles)).toBe("high");
-    expect(getBucket(90, terciles)).toBe("high");
-  });
-
-  it("returns 'none' for undefined value", () => {
-    expect(getBucket(undefined, terciles)).toBe("none");
-  });
-
-  it("returns 'none' for null terciles", () => {
-    expect(getBucket(50, null)).toBe("none");
-  });
-});
-
-describe("getBucketColor", () => {
-  it("returns a color string for each bucket+hue combo", () => {
-    const buckets = ["low", "medium", "high", "none"] as const;
-    const hues = ["cyan", "amber"] as const;
-    for (const bucket of buckets) {
-      for (const hue of hues) {
-        const color = getBucketColor(bucket, hue);
-        expect(color).toBeTruthy();
-        expect(color).toContain("rgba");
-      }
-    }
+  it("builds a CSS gradient through every stop", () => {
+    expect(getRampGradient("amber").split("rgba").length - 1).toBe(3);
   });
 });
 

@@ -49,6 +49,7 @@ Government sources are used where available. Live third-party sources are listed
 | [JPS InfoBanjir](https://publicinfobanjir.water.gov.my) | Flood alerts, river water levels | Live (5min cache) |
 | [data.gov.my GTFS-RT](https://developer.data.gov.my/realtime-api/gtfs-realtime) | Public transit positions (bus & KTM) | Live (30s refresh) |
 | [OpenStreetMap](https://www.openstreetmap.org) | Rail line routes (LRT, MRT, KTM, Monorail, ERL) | Static |
+| [Natural Earth](https://www.naturalearthdata.com) via world-atlas | Neighbouring land outlines around Malaysia (map context) | Static |
 | [OpenSky Network](https://opensky-network.org) / [adsb.lol](https://adsb.lol) | Flight tracking | Live (60s refresh) |
 | [LLM.gov.my](https://www.llm.gov.my) | Highway CCTV feeds (3 highways) | Live (4min cache) |
 | [MyEnergyStats](https://myenergystats.st.gov.my) | Electricity, generation, capacity | Annual |
@@ -191,7 +192,7 @@ src/
 │   ├── data/
 │   │   ├── cache/                        # Cached ingest data (JSON)
 │   │   ├── types.ts                      # TypeScript interfaces
-│   │   ├── choropleth.ts                 # Metric configs & tercile logic
+│   │   ├── choropleth.ts                 # Metric configs & rank-based color ramp
 │   │   ├── rail-lines.json               # Rail route geometry (OSM, Douglas-Peucker simplified)
 │   │   ├── weather-types.ts              # Weather data types
 │   │   └── data-gov-weather.ts           # Weather API fetchers + JPS flood scraper

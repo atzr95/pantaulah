@@ -8,6 +8,7 @@ import {
   formatCpi,
   formatChange,
   formatRate,
+  tweenValue,
 } from "@/lib/utils/format";
 
 describe("formatPopulation", () => {
@@ -119,5 +120,19 @@ describe("formatRate", () => {
 
   it("handles undefined", () => {
     expect(formatRate(undefined)).toBe("—");
+  });
+});
+
+describe("tweenValue", () => {
+  it("interpolates the number and keeps decimals, grouping, and surrounding text", () => {
+    expect(tweenValue("RM 1.0B", "RM 3.0B", 0.5)).toBe("RM 2.0B");
+    expect(tweenValue("1,000", "3,000", 0.5)).toBe("2,000");
+    expect(tweenValue("151.6 / 100K", "251.6 / 100K", 0.25)).toBe("176.6 / 100K");
+  });
+
+  it("returns the target when done or when either side has no number", () => {
+    expect(tweenValue("1", "9", 1)).toBe("9");
+    expect(tweenValue("N/A", "9", 0.5)).toBe("9");
+    expect(tweenValue("9", "N/A", 0.5)).toBe("N/A");
   });
 });

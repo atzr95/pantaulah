@@ -5,6 +5,7 @@ import type { CacheData } from "@/lib/data/types";
 import type { ChoroplethConfig } from "@/lib/data/choropleth";
 import { getMetricValues } from "@/lib/data/choropleth";
 import { formatMetricValue, resolveLatestYear } from "@/lib/utils/format";
+import { getFlagSrc } from "@/lib/data/states";
 
 interface StateRankingProps {
   data: CacheData;
@@ -69,7 +70,7 @@ export default function StateRanking({
               style={isSelected ? { background: "rgba(0, 212, 255, 0.1)" } : undefined}
             >
               <div
-                className="absolute inset-y-[3px] left-0 rounded-sm pointer-events-none"
+                className="absolute inset-y-[3px] left-0 rounded-sm pointer-events-none transition-[width] duration-500"
                 style={{
                   width: `${Math.max((value / ranking.max) * 100, 1)}%`,
                   background: barColor,
@@ -79,6 +80,12 @@ export default function StateRanking({
               <span className="relative w-6 shrink-0 text-xs tabular-nums text-[var(--color-text-dim)]">
                 #{i + 1}
               </span>
+              <img
+                src={getFlagSrc(topoName)}
+                alt=""
+                className="relative w-4 h-3 shrink-0 object-cover rounded-sm"
+                style={{ border: "1px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.08)" }}
+              />
               <span
                 className={`relative flex-1 truncate text-xs tracking-[0.5px] ${isSelected ? "font-bold" : ""}`}
                 style={{ color: isSelected ? accent : "var(--color-text)" }}

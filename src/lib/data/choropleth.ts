@@ -1,11 +1,11 @@
 /**
  * Choropleth coloring logic.
- * Computes tercile-based color buckets for map state fills.
+ * Computes a rank-based continuous color ramp for map state fills.
  *
  *  Metric type    Low color         High color
  *  ─────────────────────────────────────────────
  *  Neutral        dim cyan          bright cyan
- *  Concern        dim amber         bright amber
+ *  Concern        dim cyan          bright amber (via warm grey)
  */
 
 import type { CacheData } from "./types";
@@ -91,62 +91,71 @@ export const NATIONAL_ECONOMY_INDICATORS: NationalIndicatorConfig[] = [
   { key: "epfDividend", label: "EPF DIVIDEND", colorHue: "cyan", changeSuffix: "YoY", description: "Annual dividend rate declared by the Employees Provident Fund (KWSP) for conventional savings." },
 ];
 
-export type ChoroplethBucket = "low" | "medium" | "high" | "none";
-
-interface Terciles {
-  t1: number;
-  t2: number;
+export interface RankScale {
+  /** Per-state position on the ramp, 0 = lowest value, 1 = highest. Ties share a position. */
+  t: Record<string, number>;
   min: number;
   max: number;
 }
 
-export function computeTerciles(values: number[]): Terciles | null {
-  const sorted = [...values].filter((v) => v != null).sort((a, b) => a - b);
-  if (sorted.length < 3) return null;
-  const t1 = sorted[Math.floor(sorted.length / 3)];
-  const t2 = sorted[Math.floor((sorted.length * 2) / 3)];
-  return { t1, t2, min: sorted[0], max: sorted[sorted.length - 1] };
+/**
+ * Rank (quantile) scale: each state gets a distinct shade regardless of how
+ * skewed the values are, so the map never collapses into "one bright state,
+ * fifteen dark ones". Needs at least 3 states with data.
+ */
+export function computeRankScale(values: Record<string, number | undefined>): RankScale | null {
+  const sorted = Object.entries(values)
+    .filter((e): e is [string, number] => e[1] != null)
+    .sort((a, b) => a[1] - b[1]);
+  const n = sorted.length;
+  if (n < 3) return null;
+  const t: Record<string, number> = {};
+  for (let i = 0; i < n; i++) {
+    const [name, value] = sorted[i];
+    const first = sorted.findIndex(([, v]) => v === value);
+    t[name] = first / (n - 1);
+  }
+  return { t, min: sorted[0][1], max: sorted[n - 1][1] };
 }
 
-export function getBucket(value: number | undefined, terciles: Terciles | null): ChoroplethBucket {
-  if (value == null || !terciles) return "none";
-  if (value <= terciles.t1) return "low";
-  if (value <= terciles.t2) return "medium";
-  return "high";
+type RGBA = [number, number, number, number];
+
+// Neutral metrics: dim cyan → bright cyan.
+// Concern metrics: cyan (good) → warm grey → amber (bad); blue-orange stays readable for colour-blind users.
+const FILL_STOPS: Record<"cyan" | "amber", RGBA[]> = {
+  cyan: [[0, 110, 150, 0.18], [0, 212, 255, 0.65]],
+  amber: [[0, 110, 150, 0.22], [120, 120, 110, 0.35], [255, 149, 0, 0.65]],
+};
+const STROKE_STOPS: Record<"cyan" | "amber", RGBA[]> = {
+  cyan: [[0, 212, 255, 0.4], [0, 212, 255, 0.85]],
+  amber: [[0, 212, 255, 0.4], [180, 170, 150, 0.5], [255, 149, 0, 0.85]],
+};
+const NO_DATA_FILL = "rgba(30, 40, 55, 0.6)";
+const NO_DATA_STROKE = "rgba(100, 140, 170, 0.3)";
+
+function mixStops(stops: RGBA[], t: number): string {
+  const pos = Math.min(Math.max(t, 0), 1) * (stops.length - 1);
+  const i = Math.min(Math.floor(pos), stops.length - 2);
+  const f = pos - i;
+  const [a, b] = [stops[i], stops[i + 1]];
+  const c = a.map((v, k) => v + (b[k] - v) * f);
+  return `rgba(${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])}, ${c[3].toFixed(2)})`;
 }
 
-export function getBucketColor(bucket: ChoroplethBucket, hue: "cyan" | "amber"): string {
-  if (bucket === "none") return "rgba(30, 40, 55, 0.6)";
-  const colors = {
-    cyan: {
-      low: "rgba(0, 150, 200, 0.25)",
-      medium: "rgba(0, 180, 230, 0.4)",
-      high: "rgba(0, 212, 255, 0.55)",
-    },
-    amber: {
-      low: "rgba(0, 150, 200, 0.25)",
-      medium: "rgba(200, 130, 0, 0.4)",
-      high: "rgba(255, 149, 0, 0.55)",
-    },
-  };
-  return colors[hue][bucket];
+/** Fill for a state at ramp position t (undefined = no data) */
+export function getRampColor(t: number | undefined, hue: "cyan" | "amber"): string {
+  return t == null ? NO_DATA_FILL : mixStops(FILL_STOPS[hue], t);
 }
 
-export function getBucketStroke(bucket: ChoroplethBucket, hue: "cyan" | "amber"): string {
-  if (bucket === "none") return "rgba(100, 140, 170, 0.3)";
-  const strokes = {
-    cyan: {
-      low: "rgba(0, 212, 255, 0.4)",
-      medium: "rgba(0, 212, 255, 0.6)",
-      high: "rgba(0, 212, 255, 0.8)",
-    },
-    amber: {
-      low: "rgba(0, 212, 255, 0.4)",
-      medium: "rgba(255, 149, 0, 0.6)",
-      high: "rgba(255, 149, 0, 0.8)",
-    },
-  };
-  return strokes[hue][bucket];
+export function getRampStroke(t: number | undefined, hue: "cyan" | "amber"): string {
+  return t == null ? NO_DATA_STROKE : mixStops(STROKE_STOPS[hue], t);
+}
+
+/** CSS gradient of the full ramp, for legends */
+export function getRampGradient(hue: "cyan" | "amber"): string {
+  const n = FILL_STOPS[hue].length - 1;
+  const stops = FILL_STOPS[hue].map((_, i) => mixStops(FILL_STOPS[hue], i / n));
+  return `linear-gradient(90deg, ${stops.join(", ")})`;
 }
 
 /** Extract metric values for all states at a given year */

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
 import type { SparklinePoint } from "@/lib/data/types";
+import { tweenValue } from "@/lib/utils/format";
 
 interface MetricCardProps {
   label: string;
@@ -16,6 +17,35 @@ interface MetricCardProps {
   vintage?: string;
   /** Rank among states (e.g. "#3/16"), shown top-right when a state is selected */
   rank?: string;
+  /** Full-width focus card for the active metric: bigger number, taller sparkline, description inline */
+  hero?: boolean;
+}
+
+/** Rolls the first number in a formatted value from its previous value to the new one (400ms, ease-out) */
+function AnimatedValue({ text }: { text: string }) {
+  const [shown, setShown] = useState(text);
+  const prevRef = useRef(text);
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    prevRef.current = text;
+    if (prev === text) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setShown(text);
+      return;
+    }
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / 400);
+      setShown(tweenValue(prev, text, 1 - Math.pow(1 - p, 3)));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [text]);
+
+  return <>{shown}</>;
 }
 
 function Sparkline({ data, color }: { data: SparklinePoint[]; color: string }) {
@@ -95,6 +125,7 @@ export default function MetricCard({
   description,
   vintage,
   rank,
+  hero = false,
 }: MetricCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const iconRef = useRef<HTMLButtonElement>(null);
@@ -106,12 +137,12 @@ export default function MetricCard({
       : "var(--color-green)";
 
   return (
-    <div className="min-w-0 bg-[var(--color-bg-panel)] p-4 relative">
+    <div className={`min-w-0 bg-[var(--color-bg-panel)] p-4 relative ${hero ? "col-span-2 border-l-2 border-[var(--color-cyan)]" : ""}`}>
       <div
         className="text-xs font-semibold tracking-[0.06em] text-[var(--color-text-muted)] mb-2 flex items-center gap-1.5"
       >
         {label}
-        {description && (
+        {description && !hero && (
           <button
             type="button"
             ref={iconRef}
@@ -138,9 +169,9 @@ export default function MetricCard({
         )}
       </div>
       <div
-        className={`font-mono text-lg 2xl:text-xl font-bold tracking-[-0.025em] whitespace-nowrap ${isAlert ? "text-[var(--color-amber)]" : "text-[var(--color-text-bright)]"}`}
+        className={`font-mono font-bold tracking-[-0.025em] whitespace-nowrap ${hero ? "text-3xl 2xl:text-4xl" : "text-lg 2xl:text-xl"} ${isAlert ? "text-[var(--color-amber)]" : "text-[var(--color-text-bright)]"}`}
       >
-        {value}
+        <AnimatedValue text={value} />
         {vintage && (
           <span className="block text-xs font-normal tracking-[0.04em] text-[var(--color-text-dim)] sm:ml-1.5 sm:inline">
             {vintage}
@@ -153,9 +184,12 @@ export default function MetricCard({
         </div>
       )}
       {sparklineData && sparklineData.length >= 3 && (
-        <div className="mt-2 h-6">
+        <div className={hero ? "mt-3 h-14" : "mt-2 h-6"}>
           <Sparkline data={sparklineData} color={sparklineColor} />
         </div>
+      )}
+      {hero && description && (
+        <p className="mt-3 text-xs leading-relaxed text-[var(--color-text-dim)]">{description}</p>
       )}
     </div>
   );

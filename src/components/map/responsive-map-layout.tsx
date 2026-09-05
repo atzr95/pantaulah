@@ -6,6 +6,7 @@ import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { FeatureCollection, Feature, Geometry } from "geojson";
 import topoData from "@/lib/data/malaysia-states.json";
+import { ContextLayer } from "./map-decor";
 
 interface StateProperties {
   Name: string;
@@ -159,6 +160,7 @@ export default function ResponsiveMapLayout({
           onClick={handleClick}
         >
           <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="transparent" />
+          <ContextLayer pathGen={p.pathGen} />
           {renderSVGContent(p.allFeatures, p.pathGen, p.projection)}
         </svg>
       </div>
@@ -186,6 +188,7 @@ export default function ResponsiveMapLayout({
             onClick={handleClick}
           >
             <rect x="0" y="0" width={M_W} height={M_H_WEST} fill="transparent" />
+          <ContextLayer pathGen={p.westPathGen} />
             {renderSVGContent(p.westFeatures, p.westPathGen, p.westProjection)}
           </svg>
         </div>
@@ -204,6 +207,7 @@ export default function ResponsiveMapLayout({
             onClick={handleClick}
           >
             <rect x="0" y="0" width={M_W} height={M_H_EAST} fill="transparent" />
+          <ContextLayer pathGen={p.eastPathGen} />
             {renderSVGContent(p.eastFeatures, p.eastPathGen, p.eastProjection)}
           </svg>
         </div>

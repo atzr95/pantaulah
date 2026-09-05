@@ -327,6 +327,25 @@ function Home() {
     };
   }, []);
 
+  // First visit only: open the visitor's own state (Cloudflare geo).
+  useEffect(() => {
+    if (!data) return;
+    try {
+      if (localStorage.getItem("pantaulah-geo") === "1") return;
+      localStorage.setItem("pantaulah-geo", "1");
+    } catch {
+      return;
+    }
+    fetch("/api/geo")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((geo) => {
+        if (geo?.state && data.states[geo.state]) {
+          setSelectedState((prev) => prev ?? geo.state);
+        }
+      })
+      .catch(() => {});
+  }, [data]);
+
   const handleBootComplete = useCallback(() => {
     setBooted(true);
     sessionStorage.setItem("pantaulah-booted", "1");

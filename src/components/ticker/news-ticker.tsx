@@ -68,7 +68,7 @@ export default function NewsTicker() {
                 <span className="text-xs text-[var(--color-text-muted)] ml-1">
                   [{h.source}]
                 </span>
-                <span className="text-[rgba(0,212,255,0.3)] mx-5">///</span>
+                <span className="text-[rgba(0,212,255,0.3)] mx-5">{"///"}</span>
               </span>
             ))}
           </div>

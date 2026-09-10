@@ -12,6 +12,7 @@ export interface CategoryConfig {
 }
 
 export const CATEGORIES: CategoryConfig[] = [
+  { key: "live", label: "LIVE MAP" },
   { key: "economy", label: "ECONOMY" },
   { key: "crime", label: "CRIME & SAFETY" },
   { key: "health", label: "HEALTH" },
@@ -48,6 +49,9 @@ const FEED_LABELS: Record<string, string> = {
   ticker: "NEWS FEED",
   rates: "RATES",
   weather: "WEATHER",
+  grid: "WIND / SMOG GRID",
+  radar: "RAIN RADAR",
+  cctv: "HIGHWAY CCTV",
 };
 
 interface TopBarProps {

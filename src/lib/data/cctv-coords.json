@@ -1,0 +1,37 @@
+{
+  "PLUS CAM MENORA TUNNEL C24 NB": { "lat": 4.6869, "lon": 101.0266, "highway": "PLS" },
+  "PLUS CAM MENORA TUNNEL C20 NB": { "lat": 4.6852, "lon": 101.0282, "highway": "PLS" },
+  "PLUS CAM MENORA TUNNEL C17 NB": { "lat": 4.6835, "lon": 101.0298, "highway": "PLS" },
+  "PLUS CAM MENORA TUNNEL C13 NB": { "lat": 4.6818, "lon": 101.0314, "highway": "PLS" },
+
+  "PLS CAM S4 SKUDAI KM17.00 SB": { "lat": 1.5853, "lon": 103.6404, "highway": "SPL" },
+  "PLS CAM S4 SKUDAI KM13.5 MD": { "lat": 1.5741, "lon": 103.6694, "highway": "SPL" },
+  "PLS CAM S4 SIMPANG RENGGAM KM60.1 NB": { "lat": 1.7943, "lon": 103.3218, "highway": "SPL" },
+
+  "KLK CAM KARAK KM75 WB": { "lat": 3.4437, "lon": 102.0275, "highway": "KLK" },
+  "KLK CAM KARAK KM75 EB": { "lat": 3.4437, "lon": 102.0275, "highway": "KLK" },
+  "KLK CAM GOMBAK TP KM19.8 WB": { "lat": 3.2420, "lon": 101.7272, "highway": "KLK" },
+
+  "LPT TEMERLOH TP WB": { "lat": 3.5044, "lon": 102.4041, "highway": "LPT" },
+  "LPT TEMERLOH RSA WB": { "lat": 3.5109, "lon": 102.4407, "highway": "LPT" },
+  "LPT TEMERLOH RSA EB": { "lat": 3.5129, "lon": 102.4401, "highway": "LPT" },
+
+  "LDP CAM 55 SERDANG MRT2 KM32.8 SB": { "lat": 2.9795, "lon": 101.6615, "highway": "LDP" },
+  "LDP CAM 54 SERDANG KM32.7 SB": { "lat": 2.9797, "lon": 101.6605, "highway": "LDP" },
+  "LDP CAM 53 TP4 (FIX) KM30.2 WB": { "lat": 2.9813, "lon": 101.6363, "highway": "LDP" },
+  "LDP CAM 32 TAYLORS KM18.7 SB": { "lat": 3.0637, "lon": 101.6137, "highway": "LDP" },
+  "LDP CAM 30 BANDAR SUNWAY KM17.5 SB": { "lat": 3.0745, "lon": 101.6140, "highway": "LDP" },
+  "LDP CAM 26 MOTOROLA BRG KM16.4 SB": { "lat": 3.0845, "lon": 101.6137, "highway": "LDP", "approx": true },
+
+  "DUKE CAM 25 BATU TAMBAHAN KM3.0 EB": { "lat": 3.1920, "lon": 101.6680, "highway": "DUKE" },
+  "DUKE CAM 24 BATU TAMBAHAN KM3.0 EB": { "lat": 3.1920, "lon": 101.6680, "highway": "DUKE" },
+  "DUKE CAM 23 JALANLANGEMAS KM0.8 EB": { "lat": 3.1910, "lon": 101.6510, "highway": "DUKE" },
+
+  "GCE CAM 20 KM21.3 SB": { "lat": 3.2579, "lon": 101.5358, "highway": "GCE" },
+  "GCE CAM 19 KM20.0 SB": { "lat": 3.2479, "lon": 101.5296, "highway": "GCE" },
+  "GCE CAM 18 KM18.7 SB": { "lat": 3.2388, "lon": 101.5223, "highway": "GCE" },
+
+  "BES CAM 17 KUCHAI 2 KM0.4 SB": { "lat": 3.0852, "lon": 101.6958, "highway": "BES" },
+  "BES CAM 16 PL2 KMP2.32 WB": { "lat": 3.1208, "lon": 101.7247, "highway": "BES", "approx": true },
+  "BES CAM 15 MR2 KM22.6 EB": { "lat": 3.0440, "lon": 101.7084, "highway": "BES", "approx": true }
+}

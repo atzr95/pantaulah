@@ -66,7 +66,12 @@ interface Flight {
   heading: number;
   verticalRate: number;
   squawk: string | null;
+  /** Tagged by adsb.lol's military database */
+  military?: boolean;
 }
+
+// Bounding box used to keep worldwide military traffic to the Malaysia region
+const BBOX = { lamin: -2, lamax: 10, lomin: 95, lomax: 124 };
 
 function parseAdsbLol(ac: AcState[]): Flight[] {
   return ac
@@ -166,12 +171,42 @@ async function fetchAdsbLol(): Promise<{ flights: Flight[]; time: number }> {
   return { flights, time: Date.now() };
 }
 
-/** Race OpenSky and adsb.lol — first NON-EMPTY result wins (empty = failure). */
+/** adsb.lol worldwide military feed, clipped to the Malaysia region. Best effort — empty on failure. */
+async function fetchMilitary(): Promise<Flight[]> {
+  try {
+    const res = await fetch("https://api.adsb.lol/v2/mil", {
+      signal: AbortSignal.timeout(8_000),
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return parseAdsbLol(
+      ((data?.ac ?? []) as AcState[]).filter(
+        (a) =>
+          a.lat != null && a.lon != null &&
+          a.lat >= BBOX.lamin && a.lat <= BBOX.lamax &&
+          a.lon >= BBOX.lomin && a.lon <= BBOX.lomax
+      )
+    ).map((f) => ({ ...f, military: true }));
+  } catch {
+    return [];
+  }
+}
+
+/** Race OpenSky and adsb.lol — first NON-EMPTY result wins (empty = failure). Military traffic is merged on top. */
 export async function GET() {
   try {
-    const data = await cachedJson("flights:data", 30, () =>
-      Promise.any([fetchOpenSky(), fetchAdsbLol()])
-    );
+    const data = await cachedJson("flights:data", 30, async () => {
+      const [civil, mil] = await Promise.all([
+        Promise.any([fetchOpenSky(), fetchAdsbLol()]),
+        fetchMilitary(),
+      ]);
+      const milIds = new Set(mil.map((f) => f.icao24));
+      return {
+        time: civil.time,
+        flights: [...civil.flights.filter((f) => !milIds.has(f.icao24)), ...mil],
+      };
+    });
 
     return new NextResponse(JSON.stringify(data), {
       headers: {

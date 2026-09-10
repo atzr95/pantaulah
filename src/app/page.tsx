@@ -35,6 +35,15 @@ const WeatherView = dynamic(() => import("@/components/weather/weather-view"), {
   ),
 });
 
+const LiveView = dynamic(() => import("@/components/live/live-view"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
+      LOADING LIVE MAP...
+    </div>
+  ),
+});
+
 const MediaView = dynamic(() => import("@/components/media/media-view"), {
   ssr: false,
   loading: () => (
@@ -60,6 +69,7 @@ function findBestYear(cacheData: CacheData, metric: string): number {
 // Valid category names for URL param validation
 const VALID_CATEGORIES = new Set([
   ...Object.keys(CATEGORY_METRICS),
+  "live",
   "weather",
   "media",
 ]);
@@ -176,13 +186,13 @@ function Home() {
   // Resolve initial state from URL search params
   const initialCategory = useMemo(() => {
     const param = searchParams.get("tab");
-    return param && VALID_CATEGORIES.has(param) ? param : "economy";
+    return param && VALID_CATEGORIES.has(param) ? param : "live";
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initialMetric = useMemo(() => {
     const param = searchParams.get("metric");
-    const cat = initialCategory === "weather" ? "economy" : initialCategory;
-    const metrics = CATEGORY_METRICS[cat];
+    // Non-choropleth tabs fall back to the economy metric list
+    const metrics = CATEGORY_METRICS[initialCategory] ?? CATEGORY_METRICS.economy;
     if (param && metrics?.some((m) => m.key === param)) return param;
     return metrics?.[0]?.key ?? "population";
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -401,7 +411,9 @@ function Home() {
         syncStale={syncAgeDays > 2}
       />
 
-      {selectedCategory === "weather" ? (
+      {selectedCategory === "live" ? (
+        <LiveView />
+      ) : selectedCategory === "weather" ? (
         <WeatherView />
       ) : selectedCategory === "media" ? (
         <MediaView />

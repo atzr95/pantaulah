@@ -193,3 +193,8 @@ input:focus-visible,
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Live map: phones pinch to zoom, and the +/- control collides with the layer chips */
+@media (max-width: 1023px) {
+  .maplibregl-ctrl-bottom-right { display: none; }
+}

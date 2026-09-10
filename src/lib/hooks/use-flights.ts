@@ -17,6 +17,7 @@ export interface Flight {
   heading: number;
   verticalRate: number; // m/min, positive = climbing
   squawk: string | null;
+  military?: boolean;
 }
 
 const REFRESH_MS = 60_000; // 60 seconds

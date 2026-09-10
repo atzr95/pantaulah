@@ -302,7 +302,7 @@ async function fetchCrimeExcel(): Promise<MetricStore> {
     if (typeof col1 === "string" && col1.trim()) {
       // State names may have footnote letters appended (e.g. "Sabaha", "W.P. Kuala Lumpurb")
       // Try the name as-is first, then try stripping 1 trailing char for footnotes
-      let name = col1.trim();
+      const name = col1.trim();
       if (name === "Malaysia") { currentState = null; continue; }
       if (toTopoName(name)) {
         currentState = name;

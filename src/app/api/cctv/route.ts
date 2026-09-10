@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-
+import { cachedJson } from "@/lib/server/edge-cache";
 
 /** Highways with live CCTV feeds from LLM (Lembaga Lebuhraya Malaysia) */
 const HIGHWAYS = [
@@ -37,28 +37,30 @@ export async function GET(request: Request) {
   }
 
   try {
-    const res = await fetch(
-      `https://www.llm.gov.my/index.php/awam/get_data_ajax?highway=${highway}`,
-      {
-        headers: { "User-Agent": BROWSER_UA },
-        signal: AbortSignal.timeout(10_000),
-      }
-    );
-    if (!res.ok) {
-      return NextResponse.json({ error: "Failed to get cameras" }, { status: 502 });
-    }
+    // Shared edge cache: every viewer polls all highways every 4 min, so without
+    // this each one would hit LLM directly. Signed image URLs expire after ~300s,
+    // so cache for less than that.
+    const cameras = await cachedJson(`cctv:list:${highway}`, 240, async () => {
+      const res = await fetch(
+        `https://www.llm.gov.my/index.php/awam/get_data_ajax?highway=${highway}`,
+        {
+          headers: { "User-Agent": BROWSER_UA },
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
+      if (!res.ok) throw new Error(`LLM ${res.status}`);
 
-    // Body is prefixed with a UTF-8 BOM, which breaks res.json()
-    const body = JSON.parse((await res.text()).replace(/^\uFEFF/, ""));
+      // Body is prefixed with a UTF-8 BOM, which breaks res.json()
+      const body = JSON.parse((await res.text()).replace(/^\uFEFF/, ""));
 
-    const cameras = ((body?.data ?? []) as LLMCamera[])
-      .filter((cam): cam is LLMCamera & { url: string } => typeof cam.url === "string")
-      .map((cam) => ({
-        name: cam.location_name || cam.file_name || "UNKNOWN",
-        image: cam.url,
-      }));
+      return ((body?.data ?? []) as LLMCamera[])
+        .filter((cam): cam is LLMCamera & { url: string } => typeof cam.url === "string")
+        .map((cam) => ({
+          name: cam.location_name || cam.file_name || "UNKNOWN",
+          image: cam.url,
+        }));
+    });
 
-    // Signed image URLs expire after ~300s, so cache for less than that
     return NextResponse.json(
       { highway, cameras },
       { headers: { "Cache-Control": "public, max-age=240" } }

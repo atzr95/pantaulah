@@ -19,8 +19,14 @@ const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
 /** VIIRS night lights, annual composite. */
 export const NIGHT_LIGHTS_TILES = `${GIBS}/VIIRS_Black_Marble/default/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`;
 
-/** Aerosol optical depth = haze/smoke thickness seen from space. Daily, ~1 day lag. */
-export const HAZE_AOD_TILES = `${GIBS}/MODIS_Combined_Value_Added_AOD/default/${isoDaysAgo(1)}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
+/**
+ * Aerosol optical depth = haze/smoke thickness seen from space. Daily, ~1 day lag
+ * (sometimes more). Built per call, never at module load, so a long-lived tab
+ * doesn't keep asking for a day that has since rolled over.
+ */
+export const HAZE_MAX_LAG_DAYS = 3;
+export const hazeTiles = (lagDays = 1) =>
+  `${GIBS}/MODIS_Combined_Value_Added_AOD/default/${isoDaysAgo(lagDays)}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
 
 export const GIBS_ATTRIBUTION = "NASA GIBS";
 

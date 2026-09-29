@@ -62,9 +62,11 @@ export default function LiveView() {
   const [basemap, setBasemap] = useState<Basemap>("dark");
   const [grid, setGrid] = useState<LiveGrid | null>(null);
   const [hour, setHour] = useState(0);
-  const [radar, setRadar] = useState<{ host: string; frames: RadarFrame[] } | null>(null);
-  // Radar shows the newest frame and follows new frames as they arrive ("live").
-  // Dragging the slider rewinds; LIVE snaps back.
+  // `past` = number of observed frames; anything after is nowcast (forecast)
+  const [radar, setRadar] = useState<{ host: string; frames: RadarFrame[]; past: number } | null>(null);
+  // Radar shows the newest observed frame and follows new frames as they arrive ("live").
+  // Dragging the slider pins a frame by its timestamp (an index would drift when the
+  // frame list refreshes); LIVE snaps back.
   const [radarRewind, setRadarRewind] = useState<number | null>(null);
   const [quakes, setQuakes] = useState<EarthquakeEntry[]>([]);
   const [news, setNews] = useState<NewsPin[]>([]);
@@ -131,8 +133,9 @@ export default function LiveView() {
         .then((r) => { reportFeedStatus("radar", r.ok); return r.ok ? r.json() : null; })
         .then((idx: RainViewerIndex | null) => {
           // nowcast can be missing or empty; keep the previous index rather than an empty one
-          const frames = [...(idx?.radar?.past ?? []), ...(idx?.radar?.nowcast ?? [])];
-          if (idx && frames.length) setRadar({ host: idx.host, frames });
+          const past = idx?.radar?.past ?? [];
+          const frames = [...past, ...(idx?.radar?.nowcast ?? [])];
+          if (idx && frames.length) setRadar({ host: idx.host, frames, past: past.length });
         })
         .catch(() => reportFeedStatus("radar", false));
     load();
@@ -141,7 +144,12 @@ export default function LiveView() {
   }, []);
 
   const radarLast = Math.max(0, (radar?.frames.length ?? 1) - 1);
-  const radarIndex = radarRewind === null ? radarLast : Math.min(radarRewind, radarLast);
+  // LIVE = newest observed frame, never a nowcast one
+  const radarLive = radar ? Math.max(0, Math.min(radar.past, radar.frames.length) - 1) : 0;
+  const rewoundTo = radarRewind === null ? -1 : (radar?.frames.findIndex((f) => f.time === radarRewind) ?? -1);
+  // A pinned frame that has aged out of the list falls back to the oldest one
+  const radarIndex = radarRewind === null ? radarLive : rewoundTo >= 0 ? rewoundTo : 0;
+  const radarIsForecast = radarIndex > radarLive;
 
   // Earthquakes come with the existing weather payload; refreshed every 10 min
   useEffect(() => {
@@ -181,7 +189,8 @@ export default function LiveView() {
   const toggle = useCallback((k: LayerKey) => setLayers((l) => ({ ...l, [k]: !l[k] })), []);
   const onSelect = useCallback((s: Selection | null) => { setSelection(s); if (s) setPanelOpen(true); }, []);
 
-  const radarLabel = radar ? new Date(radar.frames[radarIndex].time * 1000).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false }) : "--:--";
+  const radarTime = radar?.frames[radarIndex]?.time;
+  const radarLabel = radarTime ? new Date(radarTime * 1000).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false }) : "--:--";
 
   return (
     <div className="flex-1 min-h-0 relative flex flex-col lg:flex-row">
@@ -199,9 +208,9 @@ export default function LiveView() {
             <PillButton active={basemap === "satellite"} onClick={() => setBasemap("satellite")}>SATELLITE</PillButton>
           </div>
           <Hud>
-            <Row label="RADAR" value={radarRewind === null ? `${radarLabel} LIVE` : radarLabel}>
+            <Row label="RADAR" value={radarRewind === null ? `${radarLabel} LIVE` : radarIsForecast ? `${radarLabel} FORECAST` : radarLabel}>
               <input type="range" min={0} max={radarLast} value={radarIndex}
-                onChange={(e) => setRadarRewind(+e.target.value === radarLast ? null : +e.target.value)} className="w-24 md:w-32 accent-[var(--color-cyan)]" aria-label="Radar frame" />
+                onChange={(e) => { const i = +e.target.value; setRadarRewind(i === radarLive ? null : radar?.frames[i]?.time ?? null); }} className="w-24 md:w-32 accent-[var(--color-cyan)]" aria-label="Radar frame" />
               {radarRewind !== null && (
                 <button onClick={() => setRadarRewind(null)} className="text-[var(--color-amber)] hover:text-[var(--color-text-bright)] tracking-[0.08em]" aria-label="Back to live radar">LIVE</button>
               )}

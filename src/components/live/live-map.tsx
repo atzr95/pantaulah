@@ -13,7 +13,7 @@ import populationHex from "@/lib/data/population-hex.json";
 import { POI_COLORS } from "@/lib/ui/colors";
 import {
   BASEMAP_STYLE, TERRAIN_TILES, SATELLITE_TILES, SATELLITE_ATTRIBUTION,
-  NIGHT_LIGHTS_TILES, HAZE_AOD_TILES, GIBS_ATTRIBUTION, radarTile,
+  NIGHT_LIGHTS_TILES, hazeTiles, HAZE_MAX_LAG_DAYS, GIBS_ATTRIBUTION, radarTile,
   type RadarFrame,
 } from "@/lib/live/tiles";
 import { renderField, gridCorners, smogColor, cloudColor, type LiveGrid } from "@/lib/live/grid-field";
@@ -174,8 +174,18 @@ export default function LiveMap(p: Props) {
   const [loaded, setLoaded] = useState(false);
   // "failed" = no WebGL, or the basemap style never loaded (shown as an overlay)
   const [failed, setFailed] = useState(false);
+  // Days of lag for the haze layer: NASA publishes daily, and not always by tomorrow
+  const hazeLag = useRef(1);
+  const hazeUrl = useRef("");
   const propsRef = useRef(p);
   propsRef.current = p;
+  // Point the haze source at the date implied by hazeLag (no-op when unchanged)
+  const setHazeTiles = (m: MLMap) => {
+    const url = hazeTiles(hazeLag.current);
+    if (url === hazeUrl.current) return;
+    hazeUrl.current = url;
+    (m.getSource("haze") as maplibregl.RasterTileSource | undefined)?.setTiles([url]);
+  };
 
   // ── Create map once ──
   useEffect(() => {
@@ -244,7 +254,8 @@ export default function LiveMap(p: Props) {
       };
       raster("satellite", SATELLITE_TILES, { attribution: SATELLITE_ATTRIBUTION, maxzoom: 18 }, { "raster-saturation": -0.1 });
       raster("night", NIGHT_LIGHTS_TILES, { attribution: GIBS_ATTRIBUTION, maxzoom: 8 }, { "raster-opacity": 0.9, "raster-contrast": 0.2 });
-      raster("haze", HAZE_AOD_TILES, { attribution: GIBS_ATTRIBUTION, maxzoom: 6 }, { "raster-opacity": 0.7 }, LABELS_ANCHOR);
+      hazeUrl.current = hazeTiles(hazeLag.current);
+      raster("haze", hazeUrl.current, { attribution: GIBS_ATTRIBUTION, maxzoom: 6 }, { "raster-opacity": 0.7 }, LABELS_ANCHOR);
 
       // Model rasters (smog / cloud) painted from the Open-Meteo grid
       for (const id of ["smog", "cloud"]) {
@@ -362,6 +373,14 @@ export default function LiveMap(p: Props) {
       propsRef.current.onReady?.();
     });
 
+    // No haze tiles for that date yet (GIBS answers 404): step back a day, up to a limit
+    map.on("error", (e: maplibregl.ErrorEvent & { sourceId?: string }) => {
+      const status = (e.error as { status?: number } | undefined)?.status;
+      if (e.sourceId !== "haze" || status !== 404 || hazeLag.current >= HAZE_MAX_LAG_DAYS) return;
+      hazeLag.current += 1;
+      setHazeTiles(map);
+    });
+
     const terminatorTimer = setInterval(() => {
       const src = map.getSource("terminator") as maplibregl.GeoJSONSource | undefined;
       src?.setData(nightPolygon());
@@ -379,6 +398,16 @@ export default function LiveMap(p: Props) {
 
   // ── Prop-driven updates (no-ops until the style has loaded; `loaded` re-fires them) ──
   const ready = () => (loaded ? mapRef.current : null);
+
+  // Haze: re-derive the date when the layer is switched on and hourly while it is on,
+  // so a tab left open across midnight UTC doesn't keep requesting an old day.
+  useEffect(() => {
+    const m = ready(); if (!m || !p.layers.haze) return;
+    const refresh = () => { hazeLag.current = 1; setHazeTiles(m); };
+    refresh();
+    const t = setInterval(refresh, 3_600_000);
+    return () => clearInterval(t);
+  }, [p.layers.haze, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const m = ready(); if (!m) return;

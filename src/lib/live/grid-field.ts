@@ -20,6 +20,15 @@ export function gridCorners(g: LiveGrid): Corners {
   return [[w, n], [e, n], [e, s], [w, s]];
 }
 
+/**
+ * Index of the first hour worth keeping from an hourly UTC series: the hour before
+ * the one containing `now`, so the current hour always has a neighbour either side.
+ */
+export function windowStart(times: string[], now = Date.now()): number {
+  const i = times.findIndex((t) => new Date(t + "Z").getTime() > now);
+  return Math.max(0, (i === -1 ? times.length : i) - 2);
+}
+
 /** Index of the grid hour closest to now (clamped to the 24 available). */
 export function currentHourIndex(g: LiveGrid): number {
   const now = Date.now();

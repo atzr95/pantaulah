@@ -30,6 +30,18 @@ const RADAR_IMAGES = {
   swirl: "https://api.met.gov.my/static/images/swirl-latest.gif",
 };
 
+/** The image's own Last-Modified time, or null: never claim freshness we can't verify. */
+async function imageLastModified(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(4_000) });
+    const lm = res.ok ? res.headers.get("last-modified") : null;
+    const t = lm ? new Date(lm) : null;
+    return t && !Number.isNaN(t.getTime()) ? t.toISOString() : null;
+  } catch {
+    return null;
+  }
+}
+
 // Short TTL so time-sensitive feeds (earthquakes, warnings, floods) stay fresh.
 // The shared edge cache dedupes upstream calls; 2 min is plenty given data.gov.my
 // publishes seismic warnings on the order of minutes, not seconds.
@@ -41,13 +53,20 @@ export async function GET() {
     CACHE_TTL_SECONDS,
     async () => {
       // Fetch all endpoints in parallel; each settles independently
-      const [forecastResult, warningResult, earthquakeResult, airQualityResult, floodResult] =
-        await Promise.allSettled([
-          fetchForecasts(),
-          fetchWarnings(),
-          fetchEarthquakes(),
-          fetchAirQuality(),
-          fetchFloodAlerts(),
+      const [[forecastResult, warningResult, earthquakeResult, airQualityResult, floodResult], radarTimes] =
+        await Promise.all([
+          Promise.allSettled([
+            fetchForecasts(),
+            fetchWarnings(),
+            fetchEarthquakes(),
+            fetchAirQuality(),
+            fetchFloodAlerts(),
+          ]),
+          Promise.all([
+            imageLastModified(RADAR_IMAGES.radar),
+            imageLastModified(RADAR_IMAGES.satellite),
+            imageLastModified(RADAR_IMAGES.swirl),
+          ]),
         ]);
 
       return {
@@ -68,7 +87,7 @@ export async function GET() {
             : { readings: [], fetchedAt: new Date().toISOString() },
         radar: {
           ...RADAR_IMAGES,
-          updatedAt: new Date().toISOString(),
+          updatedAt: { radar: radarTimes[0], satellite: radarTimes[1], swirl: radarTimes[2] },
         },
         fetchedAt: new Date().toISOString(),
       };

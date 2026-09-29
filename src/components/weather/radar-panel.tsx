@@ -202,6 +202,11 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
 
   const currentConfig = IMAGE_CONFIG.find((c) => c.key === activeImage)!;
   const imageUrl = radar[activeImage];
+  const updatedAt = radar.updatedAt[activeImage];
+  // Only claim a time the image host reported; otherwise say so
+  const updatedLabel = updatedAt
+    ? `IMAGE TIME: ${new Date(updatedAt).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kuala_Lumpur" })} MYT`
+    : "IMAGE TIME UNKNOWN";
 
   return (
     <div className="flex flex-col h-full">
@@ -275,12 +280,7 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
 
         {/* Updated time overlay */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-[var(--color-text-dim)] bg-[rgba(13,24,30,0.9)] px-3 py-1 rounded backdrop-blur-sm">
-          UPDATED: {new Date(radar.updatedAt).toLocaleTimeString("en-MY", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          })}{" "}
-          MYT
+          {updatedLabel}
         </div>
       </div>
 
@@ -326,12 +326,7 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
         {/* Updated time + tap hint */}
         <div className="flex flex-col items-center gap-1 py-3 pb-48">
           <div className="text-xs text-[var(--color-text-dim)] bg-[rgba(13,24,30,0.9)] px-3 py-1 rounded">
-            UPDATED: {new Date(radar.updatedAt).toLocaleTimeString("en-MY", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })}{" "}
-            MYT
+            {updatedLabel}
           </div>
           {!imageError && (
             <div className="text-xs tracking-[0.06em] text-[var(--color-cyan)] opacity-60">

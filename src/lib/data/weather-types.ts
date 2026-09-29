@@ -83,7 +83,8 @@ export interface RadarImageSet {
   radar: string; // URL to radar image
   satellite: string; // URL to satellite image
   swirl: string; // URL to SWIRL nowcast
-  updatedAt: string; // ISO datetime
+  /** Image's own Last-Modified time per view; null when the host doesn't report one */
+  updatedAt: Record<"radar" | "satellite" | "swirl", string | null>;
 }
 
 // ── Live Current Weather (Open-Meteo) ───────────────────

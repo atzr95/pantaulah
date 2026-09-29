@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { cachedJson } from "@/lib/server/edge-cache";
-import type { LiveGrid } from "@/lib/live/grid-field";
+import { windowStart, type LiveGrid } from "@/lib/live/grid-field";
 
 /**
  * Hourly weather + air-quality grid over Malaysia from Open-Meteo, for the
  * live map's wind particles, cloud blobs and smog blobs.
  *
  * One request per grid point counts against Open-Meteo's free quota, so we
- * fetch 24 hourly steps at once and cache for 3h — the client picks the hour.
+ * fetch hourly steps once and cache for 3h — the client picks the hour.
  * 0.75° spacing keeps it under ~350 points per API.
+ *
+ * `forecast_days=1` only returns the current UTC day, so a grid cached late in the
+ * day ran out of hours right after 00:00 UTC. We ask for 2 days and keep a window
+ * that starts one hour back, so a cached grid always covers the next ~24h.
  */
 
 const LON0 = 99, LON1 = 120, LAT0 = 0, LAT1 = 8.25, STEP = 0.75;
@@ -34,7 +38,7 @@ async function fetchChunked(
     const slice = pts.slice(i, i + CHUNK);
     const url =
       `${base}?latitude=${slice.map((p) => p.lat).join(",")}` +
-      `&longitude=${slice.map((p) => p.lon).join(",")}&${params}&forecast_days=1&timezone=UTC`;
+      `&longitude=${slice.map((p) => p.lon).join(",")}&${params}&forecast_days=2&timezone=UTC`;
     const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) throw new Error(`open-meteo ${res.status}`);
     const json = await res.json();
@@ -43,9 +47,16 @@ async function fetchChunked(
   return out;
 }
 
+const WINDOW_HOURS = 25; // 1h back + 24h ahead
+
 type Hourly = { time: string[] } & Record<string, (number | null)[]>;
-const series = (rows: Record<string, unknown>[], key: string) =>
-  rows.map((r) => ((r.hourly as Hourly)[key] ?? []).map((v) => (v == null ? 0 : Math.round(v * 10) / 10)));
+
+const series = (rows: Record<string, unknown>[], key: string, start: number) =>
+  rows.map((r) =>
+    ((r.hourly as Hourly)[key] ?? [])
+      .slice(start, start + WINDOW_HOURS)
+      .map((v) => (v == null ? 0 : Math.round(v * 10) / 10))
+  );
 
 async function buildGrid(): Promise<LiveGrid> {
   const { lons, lats, pts } = buildPoints();
@@ -57,14 +68,16 @@ async function buildGrid(): Promise<LiveGrid> {
     ),
     fetchChunked("https://air-quality-api.open-meteo.com/v1/air-quality", pts, "hourly=pm2_5"),
   ]);
+  const allTimes = (wx[0].hourly as Hourly).time;
+  const start = windowStart(allTimes);
   return {
     lons,
     lats,
-    times: (wx[0].hourly as Hourly).time,
-    windSpeed: series(wx, "wind_speed_10m"),
-    windDir: series(wx, "wind_direction_10m"),
-    cloud: series(wx, "cloud_cover"),
-    pm25: series(aq, "pm2_5"),
+    times: allTimes.slice(start, start + WINDOW_HOURS),
+    windSpeed: series(wx, "wind_speed_10m", start),
+    windDir: series(wx, "wind_direction_10m", start),
+    cloud: series(wx, "cloud_cover", start),
+    pm25: series(aq, "pm2_5", start),
     fetchedAt: new Date().toISOString(),
   };
 }

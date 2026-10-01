@@ -31,7 +31,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm install
+      - run: npm ci
 
       # Each ingest is isolated: one script failing must not discard the
       # others' data. A final step fails the job if any of them failed.

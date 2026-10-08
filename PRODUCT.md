@@ -1,9 +1,5 @@
 # Product
 
-## Register
-
-product
-
 ## Users
 
 Curious Malaysians and data enthusiasts exploring national statistics casually. Mostly desktop sessions for deep exploration, with significant mobile traffic from shared links. They arrive with curiosity, not a work task: "what's happening in my state?" The interface must reward browsing — fast first paint of the map, obvious entry points (click a state), and live feeds that make the country feel alive.
@@ -14,7 +10,7 @@ Pantaulah (pantaulah.com) is a real-time intelligence dashboard for Malaysia. It
 
 ## Brand Personality
 
-Command-center, alive, trustworthy. The "Malaysia Intelligence Terminal" identity is deliberate: dark surface, monospace type, cyan signal color, scan-line texture, boot sequence. It should feel like operating a national monitoring console — playful in framing, serious in data accuracy. Refine within this identity; do not dilute it into a generic dashboard.
+Command-center, alive, trustworthy. The "Malaysia Intelligence Terminal" identity is deliberate: dark surfaces, Geist body text, JetBrains Mono for values and technical labels, cyan signal color, scan-line texture, boot sequence. It should feel like operating a national monitoring console — playful in framing, serious in data accuracy. Refine within this identity; do not dilute it into a generic dashboard.
 
 ## Anti-references
 

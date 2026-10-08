@@ -1,0 +1,38 @@
+name: Bug or data issue
+description: Report a dashboard bug, unavailable feed, or incorrect data.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues before reporting. For security vulnerabilities, use private reporting from the repository's Security tab. Remove credentials and personal data from all attachments.
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected page, metric, or feed
+      description: Include the state or location, displayed year or timestamp, and when you saw the issue (with timezone).
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Explain how to reach the issue from the dashboard.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: For incorrect data, link to the source observation you expect.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      placeholder: e.g. Chrome on Windows, Safari on iPhone
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or logs
+      description: Attach a screenshot or a short log if it helps explain the issue.

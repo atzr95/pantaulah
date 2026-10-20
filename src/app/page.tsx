@@ -15,6 +15,7 @@ import MobileRatesBar from "@/components/ticker/mobile-rates-bar";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import type { MetricKey, CacheData } from "@/lib/data/types";
 import { CATEGORY_METRICS } from "@/lib/data/choropleth";
+import { rebuildNational } from "@/lib/data/national";
 import { scrollHorizontallyOnWheel } from "@/lib/ui/horizontal-scroll";
 
 const MalaysiaMap = dynamic(() => import("@/components/map/malaysia-map"), {
@@ -77,6 +78,7 @@ const VALID_CATEGORIES = new Set([
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mergeCacheData(mainMod: { default: unknown }, energyMod: { default: any } | null): CacheData {
   const cacheData = mainMod.default as unknown as CacheData;
+  rebuildNational(cacheData);
 
   // Merge energy data into main cache if available
   if (energyMod) {
@@ -133,26 +135,24 @@ function mergeCacheData(mainMod: { default: unknown }, energyMod: { default: any
       }
     }
 
-    // National water: sum all states per year
+    // Water access needs a published national value; state percentages cannot be averaged.
     for (const metricKey of ["waterConsumption", "waterProduction", "waterAccess"] as const) {
       const wd = energyData[metricKey];
       if (!wd) continue;
-      const yearTotals: Record<number, { sum: number; count: number }> = {};
+      const yearTotals: Record<number, number> = {};
       for (const years of Object.values(wd) as Array<Record<string, number | { total: number }>>) {
         for (const [yearStr, val] of Object.entries(years)) {
           const year = Number(yearStr);
           const value = typeof val === "object" ? val.total : val;
-          if (!yearTotals[year]) yearTotals[year] = { sum: 0, count: 0 };
-          yearTotals[year].sum += value;
-          yearTotals[year].count += 1;
+          yearTotals[year] = (yearTotals[year] ?? 0) + value;
         }
       }
-      for (const [yearStr, { sum, count }] of Object.entries(yearTotals)) {
+      for (const [yearStr, sum] of Object.entries(yearTotals)) {
         const year = Number(yearStr);
+        if (metricKey === "waterAccess" && wd.Malaysia?.[year] == null) continue;
         if (!natYears[year]) natYears[year] = {};
-        // For waterAccess use average %, for others use sum
         const value = metricKey === "waterAccess"
-          ? Math.round((sum / count) * 10) / 10
+          ? wd.Malaysia[year]
           : Math.round(sum * 100) / 100;
         natYears[year][metricKey] = { value, year };
       }

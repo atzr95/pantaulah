@@ -63,9 +63,10 @@ export default function WeatherView() {
         // seismic activity surfaces promptly.
         const res = await fetch("/api/weather", { cache: "no-store" });
         if (res.ok) {
-          setData(await res.json());
+          const weather: WeatherData = await res.json();
+          setData(weather);
           setLoading(false);
-          reportFeedStatus("weather", true);
+          reportFeedStatus("weather", weather.feedStatus?.warnings === true && weather.feedStatus?.floods === true);
           return;
         }
       } catch {
@@ -76,6 +77,7 @@ export default function WeatherView() {
       }
     }
     setLoading(false);
+    setData((previous) => previous ? { ...previous, feedStatus: { warnings: false, floods: false } } : previous);
     reportFeedStatus("weather", false);
   }, []);
 
@@ -204,6 +206,8 @@ export default function WeatherView() {
 
   // Flood alert count for combined alert bar
   const floodAlertCount = data ? data.floodAlerts.stations.length : 0;
+  const warningsAvailable = data.feedStatus?.warnings === true;
+  const floodsAvailable = data.feedStatus?.floods === true;
 
   // Sidebar props (shared)
   const sidebarProps = {
@@ -212,6 +216,8 @@ export default function WeatherView() {
     earthquakes: data.earthquakes,
     airQuality: data.airQuality,
     floodAlerts: data.floodAlerts,
+    warningsAvailable,
+    floodsAvailable,
     selectedState,
     activeTab,
   };
@@ -221,6 +227,11 @@ export default function WeatherView() {
       <div className="flex flex-1 overflow-hidden">
         {/* Map area */}
         <div className="flex-1 relative flex flex-col min-h-0 min-w-0 overflow-hidden">
+          {(!warningsAvailable || !floodsAvailable) && (
+            <div role="status" className="px-4 py-2 text-xs text-[var(--color-amber)] border-b border-[var(--color-border)] shrink-0">
+              {!warningsAvailable && !floodsAvailable ? "WARNING AND FLOOD DATA UNAVAILABLE" : !warningsAvailable ? "WARNING DATA UNAVAILABLE" : "FLOOD DATA UNAVAILABLE"}
+            </div>
+          )}
           {/* Warning + flood alert bar */}
           {(activeWarningCount > 0 || floodAlertCount > 0) && (
             <div
@@ -331,7 +342,7 @@ export default function WeatherView() {
               </span>
             </>
           ) : (
-            <span className="text-[var(--color-text-dim)]">NO WARNINGS</span>
+            <span className="text-[var(--color-text-dim)]">{warningsAvailable ? "NO WARNINGS" : "WARNINGS UNAVAILABLE"}</span>
           )}
         </div>
 
@@ -353,7 +364,7 @@ export default function WeatherView() {
               </span>
             </>
           ) : (
-            <span className="text-[var(--color-text-dim)]">NO FLOOD ALERTS</span>
+            <span className="text-[var(--color-text-dim)]">{floodsAvailable ? "NO FLOOD ALERTS" : "FLOOD DATA UNAVAILABLE"}</span>
           )}
         </div>
 

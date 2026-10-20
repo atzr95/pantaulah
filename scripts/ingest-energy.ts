@@ -16,6 +16,7 @@
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
+import { mergeCachedRecords } from "./lib/merge-cache";
 
 const ENERGY_API = "https://myenergystats.st.gov.my/o/myenergystatsapi/energystats/aggregated-reports/topicSubTopic";
 const WATER_API = "https://api.data.gov.my/data-catalogue";
@@ -127,17 +128,6 @@ function writeJsonIfChanged(path: string, data: object): boolean {
   }
   writeFileSync(path, stableStringify(data));
   return true;
-}
-
-/** Keep the previously cached section when this run's fetch came back empty or sparse */
-function keepIfSparse<T extends object>(name: string, fresh: T, prev: T | undefined): T {
-  const freshN = Object.keys(fresh).length;
-  const prevN = prev ? Object.keys(prev).length : 0;
-  if (prevN > 0 && freshN < prevN * 0.5) {
-    console.warn(`!! WARNING: ${name} returned ${freshN} keys (previous cache has ${prevN}) — keeping previous data.`);
-    return prev as T;
-  }
-  return fresh;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -514,8 +504,8 @@ async function fetchWaterData(): Promise<{
   const accessRaw = await fetchWaterAPI("water_access");
   const access: EnergyCacheData["waterAccess"] = {};
   for (const row of accessRaw) {
-    const state = WATER_STATES_MAP[row.state];
-    if (!state || row.state === "Malaysia") continue;
+    const state = row.state === "Malaysia" ? "Malaysia" : WATER_STATES_MAP[row.state];
+    if (!state) continue;
     if (row.strata !== "overall") continue;
     const year = new Date(row.date).getFullYear();
     if (year < START_YEAR) continue;
@@ -586,15 +576,15 @@ async function main() {
 
   const water = await fetchWaterData();
 
-  // Only replace sections that returned (enough) data this run
-  const consumption = keepIfSparse("electricityConsumption", consumptionRaw, previous.electricityConsumption);
-  const generationByRegion = keepIfSparse("generationByRegion", generationByRegionRaw, previous.generationByRegion);
-  const generationByFuel = keepIfSparse("generationByFuel", generationByFuelRaw, previous.generationByFuel);
-  const capacityByRegion = keepIfSparse("capacityByRegion", capacityByRegionRaw, previous.capacityByRegion);
-  const nationalConsumptionBySector = keepIfSparse("nationalConsumptionBySector", nationalConsumptionBySectorRaw, previous.nationalConsumptionBySector);
-  const waterConsumption = keepIfSparse("waterConsumption", water.consumption, previous.waterConsumption);
-  const waterProduction = keepIfSparse("waterProduction", water.production, previous.waterProduction);
-  const waterAccess = keepIfSparse("waterAccess", water.access, previous.waterAccess);
+  // Preserve missing states, years and sectors when only part of an upstream fetch succeeds.
+  const consumption = mergeCachedRecords(previous.electricityConsumption, consumptionRaw);
+  const generationByRegion = mergeCachedRecords(previous.generationByRegion, generationByRegionRaw);
+  const generationByFuel = mergeCachedRecords(previous.generationByFuel, generationByFuelRaw);
+  const capacityByRegion = mergeCachedRecords(previous.capacityByRegion, capacityByRegionRaw);
+  const nationalConsumptionBySector = mergeCachedRecords(previous.nationalConsumptionBySector, nationalConsumptionBySectorRaw);
+  const waterConsumption = mergeCachedRecords(previous.waterConsumption, water.consumption);
+  const waterProduction = mergeCachedRecords(previous.waterProduction, water.production);
+  const waterAccess = mergeCachedRecords(previous.waterAccess, water.access);
 
   const electricityTotal = computeElectricityTotals(consumption);
 

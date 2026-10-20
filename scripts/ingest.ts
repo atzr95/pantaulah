@@ -18,6 +18,8 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import * as XLSX from "xlsx";
+import { rebuildNational } from "../src/lib/data/national";
+import type { CacheData } from "../src/lib/data/types";
 
 // ── Constants ────────────────────────────────────────────
 
@@ -384,7 +386,7 @@ async function fetchDataset(
 }
 
 function toTopoName(apiName: string): string | undefined {
-  return STATES_MAP[apiName];
+  return apiName === "Malaysia" ? "Malaysia" : STATES_MAP[apiName];
 }
 
 // ── Dataset processors ───────────────────────────────────
@@ -475,7 +477,7 @@ function processHomicideRate(rows: unknown[]): MetricStore {
   for (const row of rows as Array<Record<string, unknown>>) {
     if (row.sex !== "both") continue;
     const apiName = row.state as string;
-    if (!apiName || apiName === "Malaysia") continue;
+    if (!apiName) continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -494,7 +496,7 @@ function processTfr(rows: unknown[]): MetricStore {
   for (const row of rows as Array<Record<string, unknown>>) {
     if (row.age_group !== "tfr") continue;
     const apiName = row.state as string;
-    if (!apiName || apiName === "Malaysia") continue;
+    if (!apiName) continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -610,6 +612,7 @@ function processGdpSectors(rows: unknown[]): GdpSectorStore {
     const sectorKey = GDP_SECTORS[row.sector as string];
     if (!sectorKey) continue;
     const apiName = row.state as string;
+    if (apiName === "Malaysia") continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -654,7 +657,7 @@ function processDoctors(rows: unknown[]): MetricStore {
   for (const row of rows as Array<Record<string, unknown>>) {
     if (row.type !== "doctor") continue;
     const apiName = row.state as string;
-    if (!apiName || apiName === "Malaysia") continue;
+    if (!apiName) continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -674,7 +677,7 @@ function processHospitalBeds(rows: unknown[]): MetricStore {
     if (row.type !== "all") continue;
     if (row.district !== "All Districts" && row.district !== "All") continue;
     const apiName = row.state as string;
-    if (!apiName || apiName === "Malaysia") continue;
+    if (!apiName) continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -693,6 +696,7 @@ type BloodGroupStore = Record<string, Record<number, { a: number; b: number; ab:
 function processBloodGroups(rows: Array<Record<string, string>>): BloodGroupStore {
   const store: BloodGroupStore = {};
   for (const row of rows) {
+    if (row.state === "Malaysia") continue;
     const bt = row.blood_type;
     if (bt !== "a" && bt !== "b" && bt !== "ab" && bt !== "o") continue;
     const topo = toTopoName(row.state);
@@ -737,7 +741,7 @@ function processVitalRate(rows: unknown[]): MetricStore {
   const store: MetricStore = {};
   for (const row of rows as Array<Record<string, unknown>>) {
     const apiName = row.state as string;
-    if (!apiName || apiName === "Malaysia") continue;
+    if (!apiName) continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -900,7 +904,7 @@ function processCompletion(rows: unknown[]): MetricStore {
     if (row.sex !== "both") continue;
     if (row.stage !== "secondary_upper") continue;
     const apiName = row.state as string;
-    if (!apiName || apiName === "Malaysia") continue;
+    if (!apiName) continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -919,7 +923,7 @@ function processLiteracy(rows: unknown[]): MetricStore {
   for (const row of rows as Array<Record<string, unknown>>) {
     if (row.sex !== "both" || row.age !== "15+") continue;
     const apiName = row.state as string;
-    if (!apiName || apiName === "Malaysia") continue;
+    if (!apiName) continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -1037,7 +1041,7 @@ function processHouseholdIncome(rows: unknown[]): MetricStore {
   const store: MetricStore = {};
   for (const row of rows as Array<Record<string, unknown>>) {
     const apiName = row.state as string;
-    if (!apiName || apiName === "Malaysia") continue;
+    if (!apiName) continue;
     const topo = toTopoName(apiName);
     if (!topo) continue;
     const year = new Date(row.date as string).getFullYear();
@@ -1515,7 +1519,7 @@ async function main() {
     schools, enrolment, teachers, completion, literacy, studentTeacherRatio,
   };
 
-  /** National-only metrics (not per-state) */
+  /** Published national metrics, including Malaysia rows from state datasets. */
   const NATIONAL_ONLY: Record<string, NationalMetricStore> = {
     exports: trade.exports,
     imports: trade.imports,
@@ -1527,6 +1531,11 @@ async function main() {
     cei: econIndicators.cei,
     epfDividend: epfDividend,
   };
+  for (const [metric, store] of Object.entries(ALL_METRICS)) {
+    if (store.Malaysia && !["gdpPerCapita", "crimeRate", "studentTeacherRatio"].includes(metric)) {
+      NATIONAL_ONLY[metric] = store.Malaysia;
+    }
+  }
 
   // Sanity gate: a fetched tier that comes back empty or sparse must not be
   // mistaken for real data. The merge below backfills every missing metric/year
@@ -1622,27 +1631,7 @@ async function main() {
 
   for (const year of allSortedYears) {
     const entry: Record<string, unknown> = {};
-    // Sum metrics (absolute counts)
-    for (const metric of ["population", "crime", "gdp", "organPledges", "healthScreenings", "bloodDonations", "drugAddicts", "vehicleReg", "motorcycleReg", "schools", "enrolment", "teachers"]) {
-      let total = 0;
-      let count = 0;
-      for (const topo of uniqueNames) {
-        const val = states[topo][year]?.[metric];
-        if (val) { total += val.value; count++; }
-      }
-      if (count > 0) entry[metric] = { value: round2(total), year };
-    }
-    // Average for rate/index metrics
-    for (const metric of ["unemployment", "cpi", "householdIncome", "gdpPerCapita", "crimeRate", "homicideRate", "doctorsPerCapita", "bedsPerCapita", "deathRate", "birthRate", "tfr", "completion", "literacy", "studentTeacherRatio"]) {
-      let total = 0;
-      let count = 0;
-      for (const topo of uniqueNames) {
-        const val = states[topo][year]?.[metric];
-        if (val) { total += val.value; count++; }
-      }
-      if (count > 0) entry[metric] = { value: round2(total / count), year };
-    }
-    // National-only metrics
+    // Published national metrics
     for (const [metricName, store] of Object.entries(NATIONAL_ONLY)) {
       const m = store[year];
       if (m) {
@@ -1656,31 +1645,10 @@ async function main() {
             change = ((m.value - prev.value) / prev.value) * 100;
           }
         }
-        entry[metricName] = { value: m.value, year, change };
+        entry[metricName] = { value: m.value, year, change, ...(ALL_METRICS[metricName] ? { source: "national" } : {}) };
       }
     }
     if (Object.keys(entry).length > 0) nationalYears[year] = entry;
-  }
-
-  // Compute YoY changes for national aggregates (state-derived metrics)
-  for (const year of allSortedYears) {
-    const entry = nationalYears[year];
-    if (!entry) continue;
-    const prevEntry = nationalYears[year - 1] as Record<string, { value: number }> | undefined;
-    if (!prevEntry) continue;
-    for (const metricName of ["population", "crime", "crimeRate", "gdp", "gdpPerCapita", "unemployment", "cpi", "householdIncome",
-                              "organPledges", "healthScreenings", "bloodDonations", "doctorsPerCapita", "bedsPerCapita", "deathRate", "birthRate", "tfr",
-                              "drugAddicts", "homicideRate", "vehicleReg", "motorcycleReg", "schools", "enrolment", "teachers", "completion", "literacy", "studentTeacherRatio"]) {
-      const current = entry[metricName] as { value: number; year: number; change?: number } | undefined;
-      const prev = prevEntry[metricName];
-      if (current && prev) {
-        if (PP_METRICS.has(metricName)) {
-          current.change = current.value - prev.value;
-        } else if (prev.value !== 0) {
-          current.change = ((current.value - prev.value) / prev.value) * 100;
-        }
-      }
-    }
   }
 
   const cache = {
@@ -1748,6 +1716,8 @@ async function main() {
       }
     }
   }
+
+  rebuildNational(cache as unknown as CacheData);
 
   // Recompute year coverage from the POST-merge cache so years contributed by
   // skipped tiers (or backfilled from the old cache) still count.

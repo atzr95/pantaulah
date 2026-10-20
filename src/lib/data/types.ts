@@ -55,11 +55,13 @@ export interface GdpRow {
 export interface StateMetric {
   value: number;
   year: number;
+  source?: "national"; // Uses published Malaysia data, rather than averaging state rates
   change?: number; // YoY or QoQ percentage change
   changeLabel?: string; // e.g. "+4.2% YoY"
 }
 
 export interface StateYearData {
+  [metric: string]: StateMetric | undefined;
   population?: StateMetric;
   gdp?: StateMetric;
   crime?: StateMetric;

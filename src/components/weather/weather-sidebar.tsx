@@ -79,6 +79,8 @@ interface WeatherSidebarProps {
   earthquakes: EarthquakeEntry[];
   airQuality: AirQualityData;
   floodAlerts: FloodAlertData;
+  warningsAvailable: boolean;
+  floodsAvailable: boolean;
   selectedState: string | null;
   activeTab: string;
   variant?: "desktop" | "mobile";
@@ -90,6 +92,8 @@ export default function WeatherSidebar({
   earthquakes,
   airQuality,
   floodAlerts,
+  warningsAvailable,
+  floodsAvailable,
   selectedState,
   activeTab,
   variant = "desktop",
@@ -332,9 +336,9 @@ export default function WeatherSidebar({
         {(selectedState ? stateWarnings : activeWarnings).length === 0 ? (
           <div className="px-4 pb-4">
             <EmptyState
-              tone="positive"
-              title={"\u2713 ALL CLEAR"}
-              detail={`No active warnings${selectedState ? ` for ${selectedState}` : ""}`}
+              tone={warningsAvailable ? "positive" : "neutral"}
+              title={warningsAvailable ? "\u2713 ALL CLEAR" : "WARNING DATA UNAVAILABLE"}
+              detail={warningsAvailable ? `No active warnings${selectedState ? ` for ${selectedState}` : ""}` : "The warning feed could not be checked. Try again later."}
             />
           </div>
         ) : (
@@ -442,9 +446,9 @@ export default function WeatherSidebar({
             {stateFloodAlerts.length === 0 ? (
               <div className="px-4 pb-4">
                 <EmptyState
-                  tone="positive"
-                  title={"\u2713 ALL CLEAR"}
-                  detail={`No flood alerts${selectedState ? ` for ${selectedState}` : ""}`}
+                  tone={floodsAvailable ? "positive" : "neutral"}
+                  title={floodsAvailable ? "\u2713 ALL CLEAR" : "FLOOD DATA UNAVAILABLE"}
+                  detail={floodsAvailable ? `No flood alerts${selectedState ? ` for ${selectedState}` : ""}` : "The flood feed could not be checked. Try again later."}
                 />
               </div>
             ) : (

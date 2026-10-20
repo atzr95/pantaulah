@@ -156,8 +156,11 @@ export default function LiveView() {
     const load = () =>
       fetch("/api/weather")
         .then((r) => (r.ok ? r.json() : null))
-        .then((w: WeatherData | null) => { if (w?.earthquakes) setQuakes(w.earthquakes); })
-        .catch(() => {});
+        .then((w: WeatherData | null) => {
+          reportFeedStatus("weather", w?.feedStatus?.warnings === true && w?.feedStatus?.floods === true);
+          if (w?.earthquakes) setQuakes(w.earthquakes);
+        })
+        .catch(() => reportFeedStatus("weather", false));
     load();
     const t = setInterval(load, 600_000);
     return () => clearInterval(t);

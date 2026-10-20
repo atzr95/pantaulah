@@ -228,6 +228,7 @@ export type WeatherSubTab =
   | "marine";
 
 export interface WeatherData {
+  feedStatus: { warnings: boolean; floods: boolean };
   forecasts: ForecastEntry[];
   warnings: WarningEntry[];
   marineForecast: MarineForecastEntry[];

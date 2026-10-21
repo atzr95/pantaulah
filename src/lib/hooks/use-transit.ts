@@ -43,13 +43,14 @@ export function useTransit(enabled: boolean) {
 
         // Merge: update existing, add new
         for (const v of (data.vehicles || []) as TransitVehicle[]) {
+          if (!Number.isFinite(v.timestamp) || now - v.timestamp * 1000 > STALE_MS || v.timestamp * 1000 > now + 60_000) continue;
           const key = `${v.feed}::${v.id}`;
           vehicleMap.current.set(key, { ...v, lastSeen: now });
         }
 
         // Prune stale vehicles (not seen in 3 minutes)
         for (const [key, v] of vehicleMap.current) {
-          if (now - v.lastSeen > STALE_MS) vehicleMap.current.delete(key);
+          if (now - v.lastSeen > STALE_MS || now - v.timestamp * 1000 > STALE_MS) vehicleMap.current.delete(key);
         }
 
         setVehicles(Array.from(vehicleMap.current.values()));

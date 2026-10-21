@@ -12,16 +12,32 @@
   <a href="CONTRIBUTING.md">Contribute</a>
 </p>
 
-An interactive dashboard for Malaysia, combining government statistics across all 16 states and federal territories with live weather, flood, transport, and flight feeds.
+An interactive dashboard for Malaysia. Click a state to see how it compares, or open the live map to watch rain, rivers, buses, trains, and aircraft move across the country.
 
-![Pantaulah dashboard showing Malaysia's population map and national statistics](docs/images/dashboard.png)
+![Pantaulah dashboard showing Malaysia's population map with Selangor selected and its economy figures](docs/images/dashboard.png)
 
-## Features
+## Why Pantaulah
 
-- **Explore 50+ metrics** across economy, crime, health, transport, education, and energy. Select a state to see trends, year-over-year changes, and sector breakdowns.
-- **Follow live conditions** with weather forecasts, warnings, river levels, earthquakes, highway CCTV, transit positions, and aircraft tracking.
-- **Navigate a 3D map** with terrain, buildings, satellite imagery, rain radar, wind, air quality, rail routes, and population layers.
-- **Track national updates** through news headlines, exchange rates, fuel prices, gold prices, and the overnight policy rate.
+- **The whole country on one map.** Compare all 16 states and federal territories on 50+ official metrics.
+- **Live, not only statistics.** Rain radar, river levels, buses, trains, and aircraft update while you watch.
+- **Honest about dates.** Every statistic shows its year, and the top bar shows which live feeds are working.
+- **Free and open source.** No sign-up to use it. No API keys to run it yourself.
+
+## What's inside
+
+| Tab | What you can do |
+| --- | --- |
+| **Live map** | Turn on 20 layers in three groups. **Sky:** rain radar, clouds, wind, PM2.5 smog, satellite haze, day and night. **Ground:** aircraft, buses and trains, rail lines, highway CCTV, news pins, earthquakes, rivers, flood shelters, fire detections. **Surface:** 3D buildings, 3D terrain, population, night lights, tree loss. Use a quick view for weather, travel, or environment, or select a bus or train and follow it as it moves. |
+| **Economy** | GDP, unemployment, CPI, population, and household income by state, with sector breakdowns and national figures such as trade, inflation, and the EPF dividend. **Food prices** compares 21 everyday items, such as chicken, eggs, fish, vegetables, and fruit, by state, with exact pack sizes, shop counts, and daily trends. |
+| **Crime & safety** | Crime index and rate, homicide rate, drug addicts, and a breakdown by crime type. |
+| **Health** | Doctors and hospital beds per 10,000 people, birth, death, and fertility rates, blood donations, organ pledges, PEKA B40 screenings, and daily hospital bed and ICU use. |
+| **Transport** | Car and motorcycle registrations, plus rail ridership. |
+| **Education** | Schools, enrolment, teachers, student-teacher ratio, completion rate, and literacy rate. |
+| **Energy & water** | Electricity use, generation by fuel, water use, water supply, and water access. |
+| **Weather** | Live conditions, 3-day forecasts, rain radar and satellite, and weather and flood warnings. **Air quality** shows PM2.5, wind, satellite haze, and fire detections. **Rivers & floods** shows river stations, seven-day river charts, and open shelters. |
+| **Media** | Malaysian live TV, trending YouTube videos, Reddit, and news. |
+
+The statistics tabs also show a ticker with news headlines, exchange rates, fuel prices, gold prices, and the overnight policy rate (OPR).
 
 Built with Next.js 16, React 19, TypeScript, MapLibre GL, D3-Geo, and Tailwind CSS. Deployed on Cloudflare Workers through OpenNext.
 
@@ -45,7 +61,6 @@ Cached statistics and map geometry are included. You do not need to run ingestio
 
 | Variable | Purpose |
 | ---------- | --------- |
-| `OPENSKY_CLIENT_ID` and `OPENSKY_CLIENT_SECRET` | Optional OpenSky authentication for flight tracking; adsb.lol is the fallback |
 | `YOUTUBE_API_KEY` | Enables trending videos in the Media tab |
 
 See [.env.example](.env.example). Keep credentials in `.env.local` for development and configure them as Worker secrets for deployment.

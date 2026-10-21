@@ -11,6 +11,8 @@ import type {
 import { getAirQualityColor, getFloodAlertSeverity, getFloodTrendIcon } from "@/lib/data/weather-types";
 import EmptyState from "@/components/ui/empty-state";
 import ClampedText from "@/components/ui/clamped-text";
+import { SidePanel, PanelHeader } from "@/components/ui/side-panel";
+import { getFlagSrc } from "@/lib/data/states";
 
 function getWeatherIcon(forecast: string): string {
   const f = forecast.toLowerCase();
@@ -124,40 +126,8 @@ export default function WeatherSidebar({
   const displayName = selectedState?.toUpperCase() ?? "MALAYSIA";
   const dateLabels = ["TODAY", "TOMORROW", "DAY 3"];
 
-  return (
-    <div
-      className={
-        variant === "mobile"
-          ? "flex flex-col"
-          : "w-[400px] hidden lg:flex flex-col overflow-y-auto shrink-0"
-      }
-      style={
-        variant === "mobile"
-          ? {}
-          : {
-              background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg) 100%)",
-              borderLeft: "1px solid var(--color-border-mid)",
-            }
-      }
-    >
-      {/* The mobile sheet already has a persistent peek header. */}
-      {variant !== "mobile" && (
-        <div className="px-5 py-4 border-b border-[var(--color-border)]">
-          <div className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-1">
-            {selectedState ? "STATE WEATHER BRIEF" : "NATIONAL WEATHER"}
-            <span className="text-[var(--color-text-dim)] ml-2">/ METMALAYSIA</span>
-          </div>
-          <div className="text-[22px] font-bold text-[var(--color-text-bright)] tracking-[0.02em]">
-            {displayName}
-          </div>
-          <div className="text-xs text-[var(--color-text-dim)] mt-0.5">
-            {selectedState
-              ? "Click map to view another state"
-              : "Select a state on the map"}
-          </div>
-        </div>
-      )}
-
+  const body = (
+    <>
       {/* State forecast */}
       {selectedState && stateForecasts.length > 0 ? (
         <div className="border-b border-[var(--color-border)]">
@@ -171,7 +141,7 @@ export default function WeatherSidebar({
               <div
                 key={f.date}
                 className="px-4 py-3 border-t border-[var(--color-border)]"
-                style={{ background: i === 0 ? "rgba(0, 212, 255, 0.03)" : "transparent" }}
+                style={{ background: i === 0 ? "var(--color-bg-card)" : "transparent" }}
               >
                 {/* Date + summary */}
                 <div className="flex items-center justify-between mb-2">
@@ -391,14 +361,11 @@ export default function WeatherSidebar({
                       <span
                         key={area}
                         className="text-xs px-1 py-0.5 rounded-sm"
-                        style={{
-                          background:
-                            selectedState && area.toLowerCase() === selectedState.toLowerCase()
-                              ? "rgba(0, 212, 255, 0.15)"
-                              : "rgba(0, 212, 255, 0.05)",
-                          border: "1px solid rgba(0, 212, 255, 0.12)",
-                          color: "var(--color-text-dim)",
-                        }}
+                        style={
+                          selectedState && area.toLowerCase() === selectedState.toLowerCase()
+                            ? { background: "var(--color-cyan-soft)", border: "1px solid var(--color-cyan)", color: "var(--color-text-bright)" }
+                            : { border: "1px solid var(--color-border-mid)", color: "var(--color-text-dim)" }
+                        }
                       >
                         {area.toUpperCase()}
                       </span>
@@ -446,9 +413,9 @@ export default function WeatherSidebar({
             {stateFloodAlerts.length === 0 ? (
               <div className="px-4 pb-4">
                 <EmptyState
-                  tone={floodsAvailable ? "positive" : "neutral"}
-                  title={floodsAvailable ? "\u2713 ALL CLEAR" : "FLOOD DATA UNAVAILABLE"}
-                  detail={floodsAvailable ? `No flood alerts${selectedState ? ` for ${selectedState}` : ""}` : "The flood feed could not be checked. Try again later."}
+                  tone="neutral"
+                  title={floodsAvailable ? "NO VERIFIED FLOOD ALERTS" : "FLOOD DATA UNAVAILABLE"}
+                  detail={floodsAvailable ? `No verified alerts${selectedState ? ` for ${selectedState}` : ""}. Only recent reporting stations with valid warning heights are included.` : "The flood feed could not be checked. Try again later."}
                 />
               </div>
             ) : (
@@ -590,6 +557,21 @@ export default function WeatherSidebar({
           </div>
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  // The mobile sheet already has a persistent peek header.
+  if (variant === "mobile") return <div className="flex flex-col">{body}</div>;
+  return (
+    <SidePanel label="Weather brief">
+      <PanelHeader
+        eyebrow={selectedState ? "STATE WEATHER BRIEF" : "NATIONAL WEATHER"}
+        context="METMALAYSIA"
+        title={displayName}
+        flagSrc={getFlagSrc(selectedState)}
+        subtitle={selectedState ? "Click map to view another state" : "Select a state on the map"}
+      />
+      {body}
+    </SidePanel>
   );
 }

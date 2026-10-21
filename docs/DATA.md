@@ -17,6 +17,7 @@ Government sources are used where available. Live third-party sources are listed
 | [JPS InfoBanjir](https://publicinfobanjir.water.gov.my) | Flood alerts, river water levels | River-level observations |
 | [data.gov.my GTFS-RT](https://developer.data.gov.my/realtime-api/gtfs-realtime) | Public transit positions (bus & KTM) | Vehicle position updates |
 | [OpenStreetMap](https://www.openstreetmap.org) | Rail line routes (LRT, MRT, KTM, Monorail, ERL); detailed ~6 m version for the live map via `scripts/build-rail-detail.ts` | Static |
+| [FOSSGIS / OSRM](https://routing.openstreetmap.de/about.html) | Estimated bus paths using road direction and turn rules; dashed lines are not recorded travel. Uses car road rules, so bus-only access may differ. No joining line when routing fails. | New reports while following; requests come from the browser, never from each animation frame |
 | [Natural Earth](https://www.naturalearthdata.com) via world-atlas | Neighbouring land outlines around Malaysia (map context) | Static |
 | [OpenSky Network](https://opensky-network.org) / [adsb.lol](https://adsb.lol) | Flight tracking | Aircraft position updates |
 | [LLM.gov.my](https://www.llm.gov.my) | Highway CCTV feeds; live stills proxied via `/api/cctv/image` | Camera stills; available highways vary |
@@ -26,10 +27,15 @@ Government sources are used where available. Live third-party sources are listed
 | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) | Live map 3D terrain (Terrarium) | Static |
 | [Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9) | Satellite basemap (sharp to street level) | Periodic |
 | [RainViewer](https://www.rainviewer.com/api.html) | Rain radar frames (rewindable) | Radar frames |
-| [Open-Meteo forecast + air quality](https://open-meteo.com) (PM2.5 from [CAMS](https://atmosphere.copernicus.eu)) | Wind particles, cloud and PM2.5 blobs (0.75° grid, 24h) | Hourly forecast values |
+| [Open-Meteo forecast + air quality](https://open-meteo.com) (PM2.5 from [CAMS](https://atmosphere.copernicus.eu)) | Wind particles, cloud and PM2.5 blobs (1.25° grid, 24h) | Hourly forecast values |
 | [NASA GIBS](https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api) | Haze (MODIS AOD), night lights (Black Marble) | Daily |
 | [adsbdb](https://www.adsbdb.com) | Flight route / airline lookup on click | Route lookup |
 | [Kontur Population](https://data.humdata.org/dataset/kontur-population-malaysia) | Population hexagons (H3 res 5, from 400m data) | 2023 snapshot |
+| [JPS](https://publicinfobanjir.water.gov.my) / [JKM InfoBencana](https://infobencanajkmv2.jkm.gov.my/landing/index.php) | Recent river stations, seven-day history, open shelter locations and counts | River observation times; shelters follow JKM reports |
+| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov) | NOAA-20 heat detections in Malaysia and most of Indonesia (west of 126°E) | Satellite observations, past seven days |
+| [ASMC](https://wis2.asmc.asean.org/regional-haze-situation/) | Regional haze report (linked, not embedded) | Daily; use the date printed in the report |
+| [Global Forest Watch / UMD](https://www.globalforestwatch.org) | Annual tree-cover loss images, v1.13 | 2001–2025 |
+| [KPDN / DOSM PriceCatcher](https://data.gov.my/data-catalogue/pricecatcher) | State prices for 21 exact items and pack sizes | Daily observations, processed by the scheduled job |
 
 ## Freshness
 
@@ -46,8 +52,11 @@ The intervals below describe the implementation as reviewed on **8 October 2026*
 | Transit positions | 30-second browser polling | Positions depend on each GTFS-RT feed |
 | Flights | 60-second browser polling; 30-second shared server cache | OpenSky with adsb.lol fallback; coverage varies |
 | Highway CCTV | 4-minute server cache | Eight configured highway codes; only cameras returned by LLM are available |
-| Wind, clouds, PM2.5 grid | 3-hour shared server cache | Hourly forecast values for a 24-hour window |
+| Wind, clouds, PM2.5 grid | 3-hour shared server cache | Hourly forecast values for a 24-hour window; 1.25° grid over Malaysia, Sumatra and Borneo (95–125°E, 7°S–8°N) |
 | Flight route lookup | 24-hour server cache | Callsign lookup through adsbdb |
+| River stations / history | 2-minute / 5-minute shared server cache | Only readings from the past hour appear on the map; missing history stays missing |
+| Open shelters | 5-minute shared server cache | Public JKM website data; an empty list can be valid |
+| Fire detections | 30-minute shared server cache | One satellite (NOAA-20), seven-day regional download; detections are not confirmed fires |
 | Hospital bed and ICU utilization | Daily scheduled ingestion; 1-hour HTTP cache | Served from committed JSON, not fetched live from KKMNow |
 
 ### Cached statistics snapshot
@@ -96,6 +105,7 @@ npm run ingest         # Refresh stale tiers
 npm run ingest:force   # Refresh every tier
 npm run ingest:energy  # Refresh energy and water datasets
 npm run ingest:bedutil # Refresh hospital bed and ICU utilization
+npm run ingest:food    # Refresh the small food-price summary
 ```
 
 | Main ingest tier | Refresh threshold | Datasets |
@@ -104,9 +114,9 @@ npm run ingest:bedutil # Refresh hospital bed and ICU utilization
 | Monthly | 29 days | CPI, unemployment, trade, inflation, IPI, FDI, economic indicators |
 | Annual | 89 days | Population, GDP, crime, education, health, transport |
 
-These thresholds control refetching; they do not describe source publication frequency. Energy and bed-utilization ingestion use separate scripts.
+These thresholds control refetching; they do not describe source publication frequency. Energy, bed-utilization, and food-price ingestion use separate scripts.
 
-The [scheduled workflow](../.github/workflows/ingest.yml) runs daily at **04:00 MYT (20:00 UTC the previous day)**. It runs all three ingest scripts, commits changed cache files, and deploys when app-visible data changes. Each ingest step runs independently; the workflow reports failure if any ingest step fails.
+The [scheduled workflow](../.github/workflows/ingest.yml) runs daily at **04:00 MYT (20:00 UTC the previous day)**. It runs all four ingest scripts, commits changed cache files, and deploys when app-visible data changes. Each ingest step runs independently; the workflow reports failure if any ingest step fails.
 
 Inspect `src/lib/data/cache/data-gaps.json` for ingestion coverage gaps. Review generated changes before committing them. Missing source values can be preserved from the previous cache.
 

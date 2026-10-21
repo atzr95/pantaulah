@@ -10,10 +10,7 @@ export default function Error({
   return (
     <div className="fixed inset-0 z-[9999] bg-[var(--color-bg)] flex flex-col items-center justify-center px-6">
       <div className="font-mono text-xs space-y-1 max-w-md w-full">
-        <div
-          className="text-[var(--color-red)] text-base font-bold tracking-[0.16em] mb-4"
-          style={{ textShadow: "0 0 12px rgba(239, 68, 68, 0.4)" }}
-        >
+        <div className="text-[var(--color-red)] text-base font-bold tracking-[0.08em] mb-4">
           SYSTEM FAULT
         </div>
         <div className="tracking-wider text-[var(--color-text-dim)]">
@@ -33,7 +30,7 @@ export default function Error({
         <div className="pt-5">
           <button
             onClick={() => reset()}
-            className="px-4 py-2 text-xs tracking-[0.08em] border rounded transition-all cursor-pointer border-[rgba(0,212,255,0.25)] text-[var(--color-cyan)] hover:border-[var(--color-cyan)] hover:bg-[rgba(0,212,255,0.1)] hover:shadow-[0_0_10px_rgba(0,212,255,0.1)]"
+            className="px-4 py-2 min-h-11 lg:min-h-9 text-xs tracking-[0.08em] border rounded-md transition-colors cursor-pointer border-[var(--color-border-mid)] text-[var(--color-cyan)] hover:border-[var(--color-cyan)] hover:bg-[var(--color-cyan-soft)]"
           >
             RELOAD
           </button>

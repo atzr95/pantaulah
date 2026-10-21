@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { RadarImageSet } from "@/lib/data/weather-types";
+import PillButton from "@/components/ui/pill-button";
 
 type ImageType = "radar" | "satellite" | "swirl";
 
@@ -151,7 +152,7 @@ function ZoomViewer({
           {transform.scale > 1 && (
             <button
               onClick={reset}
-              className="text-xs tracking-[0.06em] text-[var(--color-cyan)] border border-[var(--color-border-bright)] rounded px-2.5 py-1"
+              className="min-h-11 text-xs tracking-[0.06em] text-[var(--color-cyan)] border border-[var(--color-border-mid)] rounded-md px-3 transition-colors hover:border-[var(--color-cyan)] hover:bg-[var(--color-cyan-soft)]"
             >
               RESET
             </button>
@@ -159,7 +160,7 @@ function ZoomViewer({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xl leading-none px-2"
+            className="min-h-11 min-w-11 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xl leading-none px-2"
           >
             ✕
           </button>
@@ -211,22 +212,18 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Image type selector */}
-      <div className="flex items-center gap-1.5 px-3 lg:px-5 py-2 lg:py-3 border-b border-[var(--color-border)]">
+      <div className="flex items-center gap-1.5 px-3 lg:px-5 py-2 lg:py-3 border-b border-[var(--color-border)] overflow-x-auto">
         {IMAGE_CONFIG.map((config) => (
-          <button
+          <PillButton
             key={config.key}
+            active={activeImage === config.key}
             onClick={() => {
               setActiveImage(config.key);
               setImageError(false);
             }}
-            className={`px-2 lg:px-3 py-1 text-xs lg:text-xs tracking-wider border rounded transition-all ${
-              activeImage === config.key
-                ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
-                : "border-[var(--color-border-mid)] text-[var(--color-text-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] bg-[rgba(13,24,30,0.9)]"
-            }`}
           >
             {config.label}
-          </button>
+          </PillButton>
         ))}
       </div>
 
@@ -263,7 +260,7 @@ export default function RadarPanel({ radar }: RadarPanelProps) {
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.02) 2px, rgba(0,212,255,0.02) 4px)",
+              "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--color-cyan-rgb), 0.02) 2px, rgba(var(--color-cyan-rgb), 0.02) 4px)",
           }}
         />
 

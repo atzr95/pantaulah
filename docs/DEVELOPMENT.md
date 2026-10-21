@@ -35,13 +35,9 @@ All application API credentials are optional. Core statistics, weather, maps, an
 
 | Variable | Purpose |
 | ---------- | --------- |
-| `OPENSKY_CLIENT_ID` | OpenSky OAuth client ID |
-| `OPENSKY_CLIENT_SECRET` | OpenSky OAuth client secret |
 | `YOUTUBE_API_KEY` | YouTube trending videos |
 
-Without OpenSky credentials, flight tracking still works with unauthenticated access and an adsb.lol fallback. Without the YouTube key, trending videos show a fallback message.
-
-The commented `MET_MALAYSIA_TOKEN` entry in [.env.example](../.env.example) is reserved for a future integration. Current code does not read it.
+Flight tracking needs no credentials: it uses public OpenSky access with an adsb.lol fallback. Without the YouTube key, trending videos show a fallback message.
 
 Use `.env.local` for local credentials. Keep secrets server-side; do not add a `NEXT_PUBLIC_` prefix.
 
@@ -108,8 +104,6 @@ npx wrangler login
 If you use optional API credentials, configure them as Worker secrets. Each command prompts for its value:
 
 ```bash
-npx wrangler secret put OPENSKY_CLIENT_ID
-npx wrangler secret put OPENSKY_CLIENT_SECRET
 npx wrangler secret put YOUTUBE_API_KEY
 ```
 

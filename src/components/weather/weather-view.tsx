@@ -8,6 +8,10 @@ import LiveConditions from "./live-conditions";
 import RadarPanel from "./radar-panel";
 import WeatherSidebar from "./weather-sidebar";
 import BottomSheet from "@/components/ui/bottom-sheet";
+import PillButton from "@/components/ui/pill-button";
+import { PeekHeader } from "@/components/ui/side-panel";
+import { getFlagSrc } from "@/lib/data/states";
+import EnvironmentView from "./environment-view";
 
 const WeatherMap = dynamic(() => import("./weather-map"), {
   ssr: false,
@@ -36,22 +40,25 @@ const AirQualityMap = dynamic(() => import("./air-quality-map"), {
   ),
 });
 
-type MapSubTab = "live" | "forecast" | "radar" | "airquality";
+type MapSubTab = "live" | "forecast" | "radar" | "airquality" | "rivers";
 
 const MAP_TABS: Array<{ key: MapSubTab; label: string }> = [
   { key: "live", label: "LIVE" },
   { key: "forecast", label: "FORECAST" },
   { key: "radar", label: "RADAR / SAT" },
   { key: "airquality", label: "AIR QUALITY" },
+  { key: "rivers", label: "RIVERS & FLOODS" },
 ];
 
 export default function WeatherView() {
   const [activeTab, setActiveTab] = useState<MapSubTab>("live");
+  const [airView, setAirView] = useState<"summary" | "fires">("summary");
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
-  const [sheetSnap, setSheetSnap] = useState<"peek" | "half" | "full">("half");
+  // Peek first: the weather tab stacks more strips above the map than other tabs
+  const [sheetSnap, setSheetSnap] = useState<"peek" | "half" | "full">("peek");
 
   const fetchWeather = useCallback(async () => {
     setLoading(true);
@@ -129,7 +136,7 @@ export default function WeatherView() {
           </div>
           <button
             onClick={fetchWeather}
-            className="mt-4 px-4 py-2 text-xs tracking-[0.08em] border rounded transition-all cursor-pointer border-[rgba(0,212,255,0.25)] text-[var(--color-cyan)] hover:border-[var(--color-cyan)] hover:bg-[rgba(0,212,255,0.1)] hover:shadow-[0_0_10px_rgba(0,212,255,0.1)]"
+            className="mt-4 px-4 py-2 min-h-11 lg:min-h-9 text-xs tracking-[0.08em] border rounded-md transition-colors cursor-pointer border-[var(--color-border-mid)] text-[var(--color-cyan)] hover:border-[var(--color-cyan)] hover:bg-[var(--color-cyan-soft)]"
           >
             RETRY
           </button>
@@ -142,34 +149,39 @@ export default function WeatherView() {
 
   // Tab buttons (shared between mobile strip and desktop overlay)
   const tabButtons = MAP_TABS.map((tab) => (
-    <button
+    <PillButton
       key={tab.key}
+      overlay
+      active={activeTab === tab.key}
       onClick={() => setActiveTab(tab.key)}
-      className={`px-2 lg:px-3 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-xs lg:text-xs tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
-        activeTab === tab.key
-          ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
-          : "border-[var(--color-border-mid)] text-[var(--color-text-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] bg-[rgba(13,24,30,0.9)] backdrop-blur-sm"
-      }`}
     >
       {tab.label}
-    </button>
+    </PillButton>
   ));
+
+  const airPills = activeTab === "airquality" ? <><PillButton overlay active={airView === "summary"} onClick={() => setAirView("summary")}>STATE SUMMARY</PillButton><PillButton overlay active={airView === "fires"} onClick={() => setAirView("fires")}>FIRE & HAZE</PillButton></> : null;
+  // Desktop: every sub-tab floats its rows at the map's top-right, so the tabs never move
+  const overlayRows = (
+    <>
+      <div className="flex gap-1.5">{tabButtons}</div>
+      {airPills && <div className="flex gap-1.5">{airPills}</div>}
+    </>
+  );
+  // Rivers and Fire & Haze use the live tile map, framed like the other sub-tabs
+  const isEnvironment = activeTab === "rivers" || (activeTab === "airquality" && airView === "fires");
 
   // Date buttons (forecast mode only)
   const dateButtons =
     activeTab === "forecast" && dates.length > 1
       ? dates.map((date, i) => (
-          <button
+          <PillButton
             key={date}
+            overlay
+            active={selectedDateIndex === i}
             onClick={() => setSelectedDateIndex(i)}
-            className={`px-2.5 py-2 min-h-[44px] lg:py-1 lg:min-h-0 text-xs lg:text-xs tracking-wider border rounded transition-all whitespace-nowrap shrink-0 ${
-              selectedDateIndex === i
-                ? "bg-[rgba(0,212,255,0.12)] border-[var(--color-cyan)] text-[var(--color-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.1)]"
-                : "border-[var(--color-border-mid)] text-[var(--color-text-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)] bg-[rgba(13,24,30,0.9)] backdrop-blur-sm"
-            }`}
           >
             {dateLabels[i] ?? `DAY ${i + 1}`}
-          </button>
+          </PillButton>
         ))
       : null;
 
@@ -222,11 +234,9 @@ export default function WeatherView() {
     activeTab,
   };
 
-  return (
+  // Strips above the map, the same on every sub-tab
+  const topStrips = (
     <>
-      <div className="flex flex-1 overflow-hidden">
-        {/* Map area */}
-        <div className="flex-1 relative flex flex-col min-h-0 min-w-0 overflow-hidden">
           {(!warningsAvailable || !floodsAvailable) && (
             <div role="status" className="px-4 py-2 text-xs text-[var(--color-amber)] border-b border-[var(--color-border)] shrink-0">
               {!warningsAvailable && !floodsAvailable ? "WARNING AND FLOOD DATA UNAVAILABLE" : !warningsAvailable ? "WARNING DATA UNAVAILABLE" : "FLOOD DATA UNAVAILABLE"}
@@ -241,7 +251,7 @@ export default function WeatherView() {
                 borderBottom: "1px solid rgba(255, 149, 0, 0.2)",
               }}
             >
-              <span className="text-sm">{"\u26A0\uFE0F"}</span>
+              <span className="text-sm" aria-hidden="true">{"\u26A0\uFE0F"}</span>
               {activeWarningCount > 0 && (
                 <span className="text-xs tracking-wider text-[var(--color-amber)] font-bold">
                   {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
@@ -266,31 +276,46 @@ export default function WeatherView() {
             className="lg:hidden shrink-0"
             style={{
               background: "rgba(13, 24, 30, 0.96)",
-              borderBottom: "1px solid rgba(0, 212, 255, 0.08)",
+              borderBottom: "1px solid var(--color-border-faint)",
             }}
           >
             <div className="flex flex-nowrap gap-1.5 px-3 pt-2 pb-1.5 overflow-x-auto scrollbar-none">
               {tabButtons}
             </div>
-            {dateButtons && (
-              <div className="flex gap-1.5 px-3 pb-2">
-                {dateButtons}
+            {(dateButtons || airPills) && (
+              <div className="flex gap-1.5 px-3 pb-2 overflow-x-auto scrollbar-none">
+                {dateButtons ?? airPills}
               </div>
             )}
           </div>
 
           {/* Live conditions strip */}
           <LiveConditions selectedState={selectedState} />
+    </>
+  );
+
+  return (
+    <>
+      {isEnvironment ? (
+        <EnvironmentView
+          key={activeTab}
+          mode={activeTab === "rivers" ? "rivers" : "air"}
+          top={topStrips}
+          tabs={overlayRows}
+        />
+      ) : (
+      <div className="flex flex-1 overflow-hidden">
+        {/* Map area */}
+        <div className="flex-1 relative flex flex-col min-h-0 min-w-0 overflow-hidden">
+          {topStrips}
 
           {/* Map content */}
           <div className="flex-1 relative min-h-0 flex flex-col">
             {mapContent}
 
-            {/* Desktop: sub-tab toggles + date selector (top-right overlay) */}
+            {/* Desktop: sub-tab toggles + date / air view selector (top-right overlay) */}
             <div className="absolute top-4 right-4 hidden lg:flex flex-col items-end gap-1.5 z-10">
-              <div className="flex gap-1.5">
-                {tabButtons}
-              </div>
+              {overlayRows}
               {dateButtons && (
                 <div className="flex gap-1.5">
                   {dateButtons}
@@ -303,13 +328,14 @@ export default function WeatherView() {
         {/* Desktop: right sidebar */}
         <WeatherSidebar {...sidebarProps} />
       </div>
+      )}
 
       {/* Desktop: bottom summary bar */}
       <div
         className="h-11 hidden lg:flex items-center px-5 gap-5 shrink-0 relative z-20"
         style={{
           background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg-card) 100%)",
-          borderTop: "1px solid rgba(0, 212, 255, 0.1)",
+          borderTop: "1px solid var(--color-border)",
         }}
       >
         {/* National temp range */}
@@ -332,10 +358,7 @@ export default function WeatherView() {
             <>
               <span
                 className="inline-block w-1.5 h-1.5 rounded-full"
-                style={{
-                  background: "var(--color-amber)",
-                  boxShadow: "0 0 6px var(--color-amber)",
-                }}
+                style={{ background: "var(--color-amber)" }}
               />
               <span className="text-[var(--color-amber)]">
                 {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
@@ -354,17 +377,14 @@ export default function WeatherView() {
             <>
               <span
                 className="inline-block w-1.5 h-1.5 rounded-full"
-                style={{
-                  background: "var(--color-cyan)",
-                  boxShadow: "0 0 6px var(--color-cyan)",
-                }}
+                style={{ background: "var(--color-cyan)" }}
               />
               <span className="text-[var(--color-cyan)]">
                 {floodAlertCount} FLOOD ALERT{floodAlertCount > 1 ? "S" : ""}
               </span>
             </>
           ) : (
-            <span className="text-[var(--color-text-dim)]">{floodsAvailable ? "NO FLOOD ALERTS" : "FLOOD DATA UNAVAILABLE"}</span>
+            <span className="text-[var(--color-text-dim)]">{floodsAvailable ? "NO VERIFIED FLOOD ALERTS" : "FLOOD DATA UNAVAILABLE"}</span>
           )}
         </div>
 
@@ -415,39 +435,39 @@ export default function WeatherView() {
         </div>
       </div>
 
-      {/* Mobile: bottom sheet with weather sidebar content */}
+      {/* Mobile: bottom sheet with weather sidebar content (environment views bring their own) */}
+      {!isEnvironment && (
       <BottomSheet
         snap={sheetSnap}
         onSnapChange={setSheetSnap}
         peek={
-          <div className="flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-[var(--color-text-bright)] tracking-wider truncate">
-                {displayName}
-              </div>
-              <div className="text-xs tracking-[0.06em] text-[var(--color-text-dim)]">
-                {selectedState ? "STATE WEATHER" : "NATIONAL WEATHER"} / METMALAYSIA
-              </div>
-            </div>
-            {(activeWarningCount > 0 || floodAlertCount > 0) && (
-              <div className="shrink-0 text-right">
-                {activeWarningCount > 0 && (
-                  <div className="text-xs tracking-[0.06em] text-[var(--color-amber)]">
-                    {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
-                  </div>
-                )}
-                {floodAlertCount > 0 && (
-                  <div className="text-xs tracking-[0.06em] text-[var(--color-cyan)]">
-                    {floodAlertCount} FLOOD{floodAlertCount > 1 ? "S" : ""}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <PeekHeader
+            eyebrow={selectedState ? "STATE WEATHER" : "NATIONAL WEATHER"}
+            context="METMALAYSIA"
+            title={displayName}
+            flagSrc={getFlagSrc(selectedState)}
+            aside={
+              (activeWarningCount > 0 || floodAlertCount > 0) && (
+                <>
+                  {activeWarningCount > 0 && (
+                    <div className="text-xs tracking-[0.06em] text-[var(--color-amber)]">
+                      {activeWarningCount} WARNING{activeWarningCount > 1 ? "S" : ""}
+                    </div>
+                  )}
+                  {floodAlertCount > 0 && (
+                    <div className="text-xs tracking-[0.06em] text-[var(--color-cyan)]">
+                      {floodAlertCount} FLOOD{floodAlertCount > 1 ? "S" : ""}
+                    </div>
+                  )}
+                </>
+              )
+            }
+          />
         }
       >
         <WeatherSidebar {...sidebarProps} variant="mobile" />
       </BottomSheet>
+      )}
     </>
   );
 }

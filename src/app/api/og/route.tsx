@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { CYAN, cyanAlpha } from "@/lib/ui/colors";
 
 export const runtime = "edge";
 
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
             position: "absolute",
             inset: 0,
             backgroundImage:
-              "linear-gradient(rgba(0, 212, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.05) 1px, transparent 1px)",
+              `linear-gradient(${cyanAlpha(0.05)} 1px, transparent 1px), linear-gradient(90deg, ${cyanAlpha(0.05)} 1px, transparent 1px)`,
             backgroundSize: "40px 40px",
           }}
         />
@@ -46,11 +47,10 @@ export async function GET(request: Request) {
         {/* Title */}
         <div
           style={{
-            color: "#00d4ff",
+            color: CYAN,
             fontSize: 56,
             fontWeight: 700,
-            letterSpacing: "12px",
-            textShadow: "0 0 30px rgba(0, 212, 255, 0.3)",
+            letterSpacing: "12px", // wordmark: keeps its logo tracking
             marginBottom: 12,
           }}
         >
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
           style={{
             color: "#4a5568",
             fontSize: 18,
-            letterSpacing: "6px",
+            letterSpacing: "1.5px", // 0.08em
           }}
         >
           MALAYSIA INTELLIGENCE TERMINAL
@@ -77,15 +77,15 @@ export async function GET(request: Request) {
             gap: 40,
             color: "#4a5568",
             fontSize: 14,
-            letterSpacing: "2px",
+            letterSpacing: "1px", // 0.08em
           }}
         >
           <span>16 STATES</span>
-          <span style={{ color: "rgba(0, 212, 255, 0.3)" }}>|</span>
+          <span style={{ color: cyanAlpha(0.3) }}>|</span>
           <span>5 DATASETS</span>
-          <span style={{ color: "rgba(0, 212, 255, 0.3)" }}>|</span>
+          <span style={{ color: cyanAlpha(0.3) }}>|</span>
           <span>AI-POWERED ANALYSIS</span>
-          <span style={{ color: "rgba(0, 212, 255, 0.3)" }}>|</span>
+          <span style={{ color: cyanAlpha(0.3) }}>|</span>
           <span>REAL-TIME NEWS</span>
         </div>
       </div>

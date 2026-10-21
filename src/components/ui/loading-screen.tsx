@@ -54,11 +54,11 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center">
         <svg viewBox="0 0 512 512" className="w-16 h-16 mb-4 pulse-dot" aria-label="PANTAULAH">
-          <circle cx="256" cy="256" r="240" fill="#00d4ff" />
+          <circle cx="256" cy="256" r="240" fill="var(--color-cyan)" />
           <circle cx="256" cy="256" r="195" fill="#0d1520" />
-          <circle cx="256" cy="256" r="150" fill="#00d4ff" />
+          <circle cx="256" cy="256" r="150" fill="var(--color-cyan)" />
           <circle cx="256" cy="256" r="105" fill="#0d1520" />
-          <circle cx="256" cy="256" r="55" fill="#00d4ff" />
+          <circle cx="256" cy="256" r="55" fill="var(--color-cyan)" />
         </svg>
         <div className="text-[var(--color-cyan)] text-xl tracking-[0.2em] font-bold">
           PANTAULAH

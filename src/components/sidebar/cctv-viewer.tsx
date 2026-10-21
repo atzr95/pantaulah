@@ -169,7 +169,7 @@ export default function CCTVViewer() {
                   <button
                     key={key}
                     onClick={() => setSelectedGroup(key)}
-                    className="w-full flex justify-between items-center px-3 py-2 text-xs tracking-wider border border-[var(--color-border)] rounded hover:border-[var(--color-border-bright)] hover:text-[var(--color-text)] text-[var(--color-text-muted)] transition-all"
+                    className="w-full flex justify-between items-center px-3 py-2 min-h-11 lg:min-h-0 text-xs tracking-wider border border-[var(--color-border)] rounded hover:border-[var(--color-border-bright)] hover:text-[var(--color-text)] text-[var(--color-text-muted)] transition-all"
                   >
                     <span>{group.label}</span>
                     <span className="text-[var(--color-text-dim)]">{group.highways.length} highways ▸</span>
@@ -183,7 +183,7 @@ export default function CCTVViewer() {
               <div>
                 <button
                   onClick={() => setSelectedGroup(null)}
-                  className="text-xs tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
+                  className="inline-flex items-center min-h-11 lg:min-h-0 text-xs tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
                 >
                   ◂ BACK
                 </button>
@@ -195,7 +195,7 @@ export default function CCTVViewer() {
                     <button
                       key={h.code}
                       onClick={() => loadCameras(h.code)}
-                      className="w-full flex justify-between items-center px-3 py-1.5 text-xs tracking-wider border border-[var(--color-border)] rounded hover:border-[var(--color-border-bright)] hover:text-[var(--color-text)] text-[var(--color-text-muted)] transition-all"
+                      className="w-full flex justify-between items-center px-3 py-1.5 min-h-11 lg:min-h-0 text-xs tracking-wider border border-[var(--color-border)] rounded hover:border-[var(--color-border-bright)] hover:text-[var(--color-text)] text-[var(--color-text-muted)] transition-all"
                     >
                       <span>{h.name}</span>
                       <span className="text-[var(--color-text-dim)]">{h.route}</span>
@@ -210,7 +210,7 @@ export default function CCTVViewer() {
               <div>
                 <button
                   onClick={() => { setSelectedHighway(null); setCameras([]); }}
-                  className="text-xs tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
+                  className="inline-flex items-center min-h-11 lg:min-h-0 text-xs tracking-wider text-[var(--color-cyan)] mb-1 py-2 cursor-pointer hover:underline"
                 >
                   ◂ BACK TO HIGHWAYS
                 </button>
@@ -234,7 +234,7 @@ export default function CCTVViewer() {
                       <button
                         onClick={refreshCameras}
                         disabled={refreshDisabled}
-                        className="text-xs tracking-wider text-[var(--color-cyan)] py-2 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                        className="inline-flex items-center min-h-11 lg:min-h-0 text-xs tracking-wider text-[var(--color-cyan)] py-2 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
                       >
                         {loading ? "REFRESHING..." : refreshCooldown ? "WAIT..." : "REFRESH ↻"}
                       </button>

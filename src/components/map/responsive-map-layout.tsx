@@ -193,7 +193,7 @@ export default function ResponsiveMapLayout({
           </svg>
         </div>
 
-        <div className="mx-4 border-t border-[rgba(0,212,255,0.08)]" />
+        <div className="mx-4 border-t border-[var(--color-border-faint)]" />
 
         <div className="px-1">
           <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] px-2 pt-2">

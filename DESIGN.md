@@ -25,6 +25,19 @@ Operational Clarity. Keep the Malaysia intelligence-terminal identity while maki
 - Warning: `#ffbd5a`
 - Danger: `#ff6b72`
 - Neutral slate borders separate surfaces. Cyan borders are only for active or live states.
+- One cyan. In CSS use `var(--color-cyan)`, `var(--color-cyan-soft)` (selected tint) or `rgba(var(--color-cyan-rgb), X)` for other alpha steps. Where CSS variables cannot reach (MapLibre paint, canvas, OG images), use `CYAN` / `cyanAlpha()` from `src/lib/ui/colors.ts`. Never write the color as a literal.
+- No glow: no colored `text-shadow`, `box-shadow` or `drop-shadow` on text, dots or borders. Dark shadows that keep map labels readable, or lift a popover off the map, are fine. Live dots pulse in scale or opacity only.
+- Map fills: neutral metrics use the cyan ramp, concern metrics (where higher is worse, such as crime or prices) use the cyan→amber ramp from `src/lib/data/choropleth.ts`.
+
+## Shared components
+
+Use these instead of building a local copy.
+
+- `PillButton` — every selectable chip or tab in a row (categories, metrics, sub-tabs, days, layers).
+- `Dropdown` — every pick-one-from-a-list control. No native `<select>` or date pickers.
+- `SidePanel`, `PanelHeader`, `PeekHeader` (`src/components/ui/side-panel.tsx`) — the 400px desktop right panel, its "EYEBROW / CONTEXT + title" header, and the same header as the bottom-sheet peek row.
+- `ItemDialog` — details for an item opened from a map or list.
+- `BottomSheet` — mobile home for the side panel content.
 
 ## Layout
 

@@ -23,7 +23,7 @@ function getApiFill(api: number | undefined): string {
   const status = getAirQualityStatus(api);
   switch (status) {
     case "GOOD": return "rgba(34, 197, 94, 0.35)";
-    case "MODERATE": return "rgba(0, 212, 255, 0.35)";
+    case "MODERATE": return "rgba(var(--color-cyan-rgb), 0.35)";
     case "UNHEALTHY": return "rgba(255, 149, 0, 0.4)";
     case "VERY_UNHEALTHY": return "rgba(239, 68, 68, 0.45)";
     case "HAZARDOUS": return "rgba(139, 92, 246, 0.5)";
@@ -35,7 +35,7 @@ function getApiStroke(api: number | undefined): string {
   const status = getAirQualityStatus(api);
   switch (status) {
     case "GOOD": return "rgba(34, 197, 94, 0.5)";
-    case "MODERATE": return "rgba(0, 212, 255, 0.5)";
+    case "MODERATE": return "rgba(var(--color-cyan-rgb), 0.5)";
     case "UNHEALTHY": return "rgba(255, 149, 0, 0.6)";
     case "VERY_UNHEALTHY": return "rgba(239, 68, 68, 0.7)";
     case "HAZARDOUS": return "rgba(139, 92, 246, 0.7)";
@@ -94,11 +94,11 @@ export default function AirQualityMap({
             <path
               key={name}
               d={pathGen(feat as GeoPermissibleObjects) || ""}
-              fill={isSelected ? "rgba(0, 212, 255, 0.35)" : isHovered ? "rgba(0, 212, 255, 0.3)" : getApiFill(apiValue)}
-              stroke={isSelected ? "#00d4ff" : isHovered ? "rgba(0, 212, 255, 0.8)" : getApiStroke(apiValue)}
+              fill={isSelected ? "rgba(var(--color-cyan-rgb), 0.35)" : isHovered ? "rgba(var(--color-cyan-rgb), 0.3)" : getApiFill(apiValue)}
+              stroke={isSelected ? "var(--color-cyan)" : isHovered ? "rgba(var(--color-cyan-rgb), 0.8)" : getApiStroke(apiValue)}
               strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 1}
               className="transition-all duration-300 cursor-pointer outline-none"
-              style={{ outline: "none", ...(isSelected ? { filter: "drop-shadow(0 0 8px rgba(0, 212, 255, 0.3))" } : {}) }}
+              style={{ outline: "none" }}
               onClick={() => onStateSelect(isSelected ? null : name)}
               onMouseMove={(e) => handleMouseMove(e, name)}
               onMouseLeave={() => setHoveredState(null)}
@@ -148,7 +148,7 @@ export default function AirQualityMap({
       {hoveredState && (() => {
         const reading = stateReadingMap[hoveredState];
         return (
-          <div className="fixed z-50 pointer-events-none px-3 py-2.5 text-xs" style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 10, background: "rgba(13, 24, 30, 0.98)", border: `1px solid ${reading ? getAirQualityColor(reading.status) + "60" : "rgba(0,212,255,0.3)"}`, borderRadius: 4, color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em", minWidth: 200 }}>
+          <div className="fixed z-50 pointer-events-none px-3 py-2.5 text-xs" style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 10, background: "rgba(13, 24, 30, 0.98)", border: `1px solid ${reading ? getAirQualityColor(reading.status) + "60" : "var(--color-border-mid)"}`, borderRadius: 4, color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em", minWidth: 200 }}>
             <div className="font-bold text-[var(--color-cyan)] tracking-wider mb-1.5">{hoveredState.toUpperCase()}</div>
             {reading ? (
               <div className="space-y-1">
@@ -175,9 +175,9 @@ export default function AirQualityMap({
       })()}
 
       <div className="absolute bottom-5 left-5 text-xs text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
-        <div className="tracking-[0.08em] mb-2" style={{ color: "rgba(0, 212, 255, 0.75)" }}>AIR POLLUTANT INDEX</div>
+        <div className="tracking-[0.08em] mb-2" style={{ color: "rgba(var(--color-cyan-rgb), 0.75)" }}>AIR POLLUTANT INDEX</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(34, 197, 94, 0.35)" }} /><span style={{ color: "var(--color-green)" }}>0–50 GOOD</span></div>
-        <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(0, 212, 255, 0.35)" }} /><span style={{ color: "var(--color-cyan)" }}>51–100 MODERATE</span></div>
+        <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(var(--color-cyan-rgb), 0.35)" }} /><span style={{ color: "var(--color-cyan)" }}>51–100 MODERATE</span></div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(255, 149, 0, 0.4)" }} /><span style={{ color: "var(--color-amber)" }}>101–200 UNHEALTHY</span></div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(239, 68, 68, 0.45)" }} /><span style={{ color: "var(--color-red)" }}>201–300 V.UNHEALTHY</span></div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(139, 92, 246, 0.5)" }} /><span style={{ color: "#8b5cf6" }}>300+ HAZARDOUS</span></div>

@@ -46,7 +46,7 @@ export default function StateRanking({
 
   if (!ranking) return null;
 
-  const barColor = config.colorHue === "amber" ? "rgba(255, 149, 0, 0.35)" : "rgba(0, 212, 255, 0.35)";
+  const barColor = config.colorHue === "amber" ? "rgba(255, 149, 0, 0.35)" : "rgba(var(--color-cyan-rgb), 0.35)";
   const accent = config.colorHue === "amber" ? "var(--color-amber)" : "var(--color-cyan)";
 
   return (
@@ -66,11 +66,11 @@ export default function StateRanking({
               type="button"
               onClick={() => onStateSelect?.(isSelected ? null : topoName)}
               aria-label={`Select ${topoName}`}
-              className="relative flex items-center gap-2 h-[22px] px-1.5 text-left rounded-sm cursor-pointer hover:bg-[rgba(0,212,255,0.06)]"
-              style={isSelected ? { background: "rgba(0, 212, 255, 0.1)" } : undefined}
+              className="relative flex items-center gap-2 min-h-11 lg:min-h-0 lg:h-[22px] px-1.5 text-left rounded-sm cursor-pointer hover:bg-[var(--color-cyan-soft)]"
+              style={isSelected ? { background: "var(--color-cyan-soft)" } : undefined}
             >
               <div
-                className="absolute inset-y-[3px] left-0 rounded-sm pointer-events-none transition-[width] duration-500"
+                className="absolute inset-y-[14px] lg:inset-y-[3px] left-0 rounded-sm pointer-events-none transition-[width] duration-500"
                 style={{
                   width: `${Math.max((value / ranking.max) * 100, 1)}%`,
                   background: barColor,

@@ -154,6 +154,33 @@ async function findLiveInRecentUploads(
   }
 }
 
+/**
+ * Read the channel's /live page, whose canonical link names its current stream. Finds
+ * long-running 24/7 streams (Al Jazeera since 2023) that are far past the
+ * recent uploads and that search.list misses. 1 quota unit for the live check.
+ */
+async function findLiveOnChannelPage(
+  channelId: string,
+  apiKey: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(`https://www.youtube.com/channel/${channelId}/live`, {
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    const id = (await res.text()).match(
+      /<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([\w-]{11})"/
+    )?.[1];
+    if (!id) return null;
+    // The page can also point at an upcoming stream or a past VOD
+    const live = await checkLiveBatch([id], apiKey);
+    return live?.has(id) ? id : null;
+  } catch (err) {
+    console.error(`live page error for ${channelId}:`, err);
+    return null;
+  }
+}
+
 /** Expensive fallback: search.list eventType=live. 100 quota units. */
 async function searchLiveVideoId(
   channelId: string,
@@ -194,6 +221,9 @@ async function discoverLiveForChannel(
 
   const cheap = await findLiveInRecentUploads(meta.uploadsPlaylistId, apiKey);
   if (cheap) return cheap;
+
+  const fromPage = await findLiveOnChannelPage(meta.channelId, apiKey);
+  if (fromPage) return fromPage;
 
   return await searchLiveVideoId(meta.channelId, apiKey);
 }

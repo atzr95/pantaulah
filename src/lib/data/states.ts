@@ -62,11 +62,6 @@ for (const state of MALAYSIA_STATES) {
   }
 }
 
-/** Resolve topoName → apiName for API lookups */
-export function getApiName(topoName: string): string | undefined {
-  return byTopoName.get(topoName)?.apiName;
-}
-
 /** Resolve apiName → topoName for map rendering */
 export function getTopoName(apiName: string): string | undefined {
   return byApiName.get(apiName)?.topoName;
@@ -94,8 +89,6 @@ export function matchHeadlineToStates(headline: string): MalaysiaState[] {
 
   return Array.from(matched);
 }
-
-export const STATE_COUNT = MALAYSIA_STATES.length; // 16
 
 /** topoName → flag SVG filename in /public/flags/ */
 const STATE_FLAG_FILE: Record<string, string> = {

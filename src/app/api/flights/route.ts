@@ -35,6 +35,12 @@ const ADSB_LOL_URLS = [
   "https://api.adsb.lol/v2/lat/5.5/lon/116.0/dist/250",    // Sabah
 ];
 
+// adsb.lol returns 403 to a missing or generic User-Agent; Workers send none by default
+const ADSB_HEADERS = {
+  Accept: "application/json",
+  "User-Agent": "Pantaulah/1.0 (+https://pantaulah.com)",
+};
+
 // OpenSky as fallback — works from residential IPs (localhost) but not cloud
 const OPENSKY_URL =
   "https://opensky-network.org/api/states/all?lamin=0&lamax=8&lomin=98&lomax=120";
@@ -147,7 +153,7 @@ async function fetchAdsbLol(): Promise<{ flights: Flight[]; time: number }> {
     ADSB_LOL_URLS.map((url) =>
       fetch(url, {
         signal: AbortSignal.timeout(8_000),
-        headers: { Accept: "application/json" },
+        headers: ADSB_HEADERS,
       }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
     )
   );
@@ -176,7 +182,7 @@ async function fetchMilitary(): Promise<Flight[]> {
   try {
     const res = await fetch("https://api.adsb.lol/v2/mil", {
       signal: AbortSignal.timeout(8_000),
-      headers: { Accept: "application/json" },
+      headers: ADSB_HEADERS,
     });
     if (!res.ok) return [];
     const data = await res.json();

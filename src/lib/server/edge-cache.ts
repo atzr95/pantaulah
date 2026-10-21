@@ -92,19 +92,6 @@ export async function edgePut(
   devCache.set(key, { body, expires: Date.now() + ttlSeconds * 1000 });
 }
 
-export async function edgeDelete(key: string): Promise<void> {
-  const cache = getEdgeCache();
-  if (cache) {
-    try {
-      await cache.delete(keyRequest(key));
-    } catch {
-      // Best effort.
-    }
-    return;
-  }
-  devCache.delete(key);
-}
-
 /**
  * Read-through JSON cache. On a miss the fetcher runs, its result is stored
  * for `ttlSeconds` (write happens via ctx.waitUntil so it doesn't delay the

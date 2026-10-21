@@ -3,13 +3,6 @@
  * All numbers formatted for MY locale conventions.
  */
 
-/** Format population (input is in thousands from API) → "7,194,200" */
-export function formatPopulation(thousands: number | undefined): string {
-  if (thousands == null) return "—";
-  const absolute = Math.round(thousands * 1000);
-  return absolute.toLocaleString("en-MY");
-}
-
 /** Format population compact → "7.2M" or "198.4K" */
 export function formatPopulationCompact(thousands: number | undefined): string {
   if (thousands == null) return "—";
@@ -28,16 +21,6 @@ export function formatGdp(millions: number | undefined): string {
 export function formatCrime(count: number | undefined): string {
   if (count == null) return "—";
   return Math.round(count).toLocaleString("en-MY");
-}
-
-/** Format crime rate per 100K → "342 / 100K" */
-export function formatCrimeRate(
-  crimes: number | undefined,
-  populationThousands: number | undefined
-): string {
-  if (crimes == null || populationThousands == null || populationThousands === 0) return "—";
-  const per100k = (crimes / (populationThousands * 1000)) * 100000;
-  return `${Math.round(per100k)}`;
 }
 
 /** Format unemployment rate → "3.1%" */

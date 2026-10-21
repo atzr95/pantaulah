@@ -87,12 +87,12 @@ export class WindParticles {
     const { ctx, canvas } = this;
     const dpr = canvas.width / parseFloat(canvas.style.width || `${canvas.width}`) || 1;
 
-    // Fade previous frame to leave trails
+    // Fade previous frame to leave trails; a slow fade gives long tails that show the flow direction
     ctx.globalCompositeOperation = "destination-in";
-    ctx.fillStyle = "rgba(0,0,0,0.92)";
+    ctx.fillStyle = "rgba(0,0,0,0.95)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.globalCompositeOperation = "source-over";
-    ctx.lineWidth = 1 * dpr;
+    ctx.lineWidth = 1.6 * dpr;
     ctx.lineCap = "round";
 
     const b = this.map.getBounds();
@@ -107,8 +107,9 @@ export class WindParticles {
       const nlat = p.lat + v * k;
       const a = this.map.project([p.lon, p.lat]);
       const c = this.map.project([nlon, nlat]);
-      const alpha = Math.min(0.9, 0.25 + speed / 40);
-      ctx.strokeStyle = `rgba(39,215,238,${alpha})`;
+      // White reads over satellite, smog and the fire glow; stronger wind is brighter
+      const alpha = Math.min(0.95, 0.4 + speed / 40);
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
       ctx.beginPath();
       ctx.moveTo(a.x * dpr, a.y * dpr);
       ctx.lineTo(c.x * dpr, c.y * dpr);

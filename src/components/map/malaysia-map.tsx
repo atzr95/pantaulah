@@ -25,6 +25,7 @@ import { HIGHWAYS as HIGHWAY_ROUTES } from "@/lib/data/highways";
 import { RAIL_LINES } from "@/lib/data/rail-lines";
 import { POI_COLORS, OVERLAY_COLORS } from "@/lib/ui/colors";
 import { ContextLayer, LabelLayer, ReticleLayer } from "./map-decor";
+import Dropdown from "@/components/ui/dropdown";
 
 function getPOIColor(type: string): string {
   if (type === "airport") return POI_COLORS.airport;
@@ -161,26 +162,21 @@ const StateLayer = memo(function StateLayer({
             d={d}
             fill={
               isSelected
-                ? "rgba(0, 212, 255, 0.35)"
+                ? "rgba(var(--color-cyan-rgb), 0.35)"
                 : isHovered
-                  ? "rgba(0, 212, 255, 0.3)"
+                  ? "rgba(var(--color-cyan-rgb), 0.3)"
                   : getRampColor(t, config.colorHue)
             }
             stroke={
               isSelected
-                ? "#00d4ff"
+                ? "var(--color-cyan)"
                 : isHovered
-                  ? "rgba(0, 212, 255, 0.8)"
+                  ? "rgba(var(--color-cyan-rgb), 0.8)"
                   : getRampStroke(t, config.colorHue)
             }
             strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 1}
             className="transition-all duration-300 cursor-pointer outline-none"
-            style={{
-              outline: "none",
-              ...(isSelected
-                ? { filter: "drop-shadow(0 0 8px rgba(0, 212, 255, 0.3))" }
-                : {}),
-            }}
+            style={{ outline: "none" }}
             onClick={() => onStateSelect(isSelected ? null : name)}
             onMouseEnter={() => onStateEnter(name)}
             onMouseLeave={onStateLeave}
@@ -501,9 +497,10 @@ export default function MalaysiaMap({
   const flights = useFlights(selectedCategory === "transport" && !hiddenPOITypes.has("flight"));
   const transit = useTransit(selectedCategory === "transport" && !hiddenPOITypes.has("transit"));
 
-  // Tooltip position lives outside React state — updated via rAF on mousemove
+  // Tooltip position lives outside React state — updated via rAF on mousemove.
+  // null until the first move, so a hover that starts without one never shows at the corner.
   const tooltipRef = useRef<HTMLDivElement | null>(null);
-  const tooltipPosRef = useRef({ x: 0, y: 0 });
+  const tooltipPosRef = useRef<{ x: number; y: number } | null>(null);
   const rafRef = useRef(0);
 
   const handleRootMouseMove = useCallback((e: React.MouseEvent) => {
@@ -512,9 +509,11 @@ export default function MalaysiaMap({
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = 0;
       const el = tooltipRef.current;
-      if (el) {
-        el.style.left = `${tooltipPosRef.current.x + 12}px`;
-        el.style.top = `${tooltipPosRef.current.y - 10}px`;
+      const pos = tooltipPosRef.current;
+      if (el && pos) {
+        el.style.left = `${pos.x + 12}px`;
+        el.style.top = `${pos.y - 10}px`;
+        el.style.visibility = "visible";
       }
     });
   }, []);
@@ -699,7 +698,7 @@ export default function MalaysiaMap({
     return (
     <>
       <div className={compact ? "space-y-0.5" : "flex items-baseline gap-2"}>
-        <div className="tracking-[0.08em]" style={{ color: "rgba(0, 212, 255, 0.75)" }}>
+        <div className="tracking-[0.08em] text-[var(--color-cyan)]">
           {config.label}
         </div>
         <div className="tracking-[0.06em] text-[var(--color-text-dim)]">AS OF {selectedYear}</div>
@@ -786,7 +785,7 @@ export default function MalaysiaMap({
           style={{
             background: "rgba(13, 24, 30, 0.98)",
             border: `1px solid ${color}40`, borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
+            color: "var(--color-text)", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
           }}
         >
           <div className="font-bold tracking-wider" style={{ color }}>
@@ -809,7 +808,7 @@ export default function MalaysiaMap({
           style={{
             background: "rgba(13, 24, 30, 0.98)",
             border: "1px solid rgba(255, 107, 107, 0.3)", borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
+            color: "var(--color-text)", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
           }}
         >
           <div className="font-bold tracking-wider" style={{ color: POI_COLORS.flight }}>
@@ -844,7 +843,7 @@ export default function MalaysiaMap({
           style={{
             background: "rgba(13, 24, 30, 0.98)",
             border: `1px solid ${hoveredTransit.type === "train" ? "rgba(232, 121, 249, 0.3)" : "rgba(251, 146, 60, 0.3)"}`, borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
+            color: "var(--color-text)", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
           }}
         >
           <div className="font-bold tracking-wider" style={{ color: hoveredTransit.type === "train" ? POI_COLORS.train : POI_COLORS.bus }}>
@@ -865,8 +864,8 @@ export default function MalaysiaMap({
           className="px-3 py-2 text-xs"
           style={{
             background: "rgba(13, 24, 30, 0.98)",
-            border: "1px solid rgba(0, 212, 255, 0.3)", borderRadius: 4,
-            color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
+            border: "1px solid var(--color-border-mid)", borderRadius: 4,
+            color: "var(--color-text)", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em",
           }}
         >
           <div className="font-bold text-[var(--color-cyan)] tracking-wider">
@@ -885,10 +884,17 @@ export default function MalaysiaMap({
 
   const transitVisible = selectedCategory === "transport" && !hiddenPOITypes.has("transit");
 
-  // State names for dropdown — sorted, with transit vehicle counts
-  const stateNames = useMemo(() => {
-    return geojson.features.map(f => f.properties.Name).sort();
-  }, [geojson]);
+  // Transit zoom dropdown: all Malaysia, then states A–Z
+  const transitZoomOptions = useMemo(
+    () => [
+      { value: "", label: "ALL MALAYSIA" },
+      ...geojson.features
+        .map((f) => f.properties.Name)
+        .sort()
+        .map((name) => ({ value: name, label: name.toUpperCase() })),
+    ],
+    [geojson]
+  );
 
   // One map viewport with every layer. Desktop panels get explicit px size; mobile scales to width.
   const renderPanel = (side: "west" | "east", w: number, h: number) => {
@@ -913,8 +919,8 @@ export default function MalaysiaMap({
             x={w - 12}
             y={h - 12}
             textAnchor="end"
-            fontSize={10}
-            letterSpacing="0.14em"
+            fontSize={11}
+            letterSpacing="0.08em"
             fill="rgba(128, 148, 159, 0.7)"
             style={{ fontFamily: "var(--font-jetbrains), monospace", pointerEvents: "none" }}
           >
@@ -982,26 +988,22 @@ export default function MalaysiaMap({
       {selectedState && (
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 top-14 lg:top-auto lg:bottom-[150px] text-center font-mono font-bold uppercase tracking-[0.2em] leading-none pointer-events-none select-none"
-          style={{ fontSize: "clamp(40px, 8vw, 120px)", color: "transparent", WebkitTextStroke: "1px rgba(39, 215, 238, 0.12)" }}
+          className="absolute inset-x-0 top-14 lg:top-auto lg:bottom-[150px] text-center font-mono font-bold uppercase tracking-[0.08em] leading-none pointer-events-none select-none"
+          style={{ fontSize: "clamp(40px, 8vw, 120px)", color: "transparent", WebkitTextStroke: "1px rgba(var(--color-cyan-rgb), 0.12)" }}
         >
           {selectedState}
         </div>
       )}
       {/* Transit zoom dropdown — desktop: absolute top-left */}
       {!isMobile && transitVisible && (
-        <div className="absolute top-2 left-2 z-10 hidden lg:block">
-          <select
-            value={transitZoomState || ""}
-            onChange={(e) => setTransitZoomState(e.target.value || null)}
-            className="px-2 py-1 text-xs tracking-wider rounded border border-[rgba(251,146,60,0.3)] bg-[rgba(13,24,30,0.96)] text-[var(--color-text-muted)] backdrop-blur-sm cursor-pointer outline-none hover:border-[rgba(251,146,60,0.5)] transition-colors"
-            style={{ fontFamily: "var(--font-jetbrains)" }}
-          >
-            <option value="">ALL MALAYSIA</option>
-            {stateNames.map((name) => (
-              <option key={name} value={name}>{name.toUpperCase()}</option>
-            ))}
-          </select>
+        <div className="absolute top-4 left-4 z-20 hidden lg:block">
+          <Dropdown
+            label="Zoom transit map to a state"
+            value={transitZoomState ?? ""}
+            active={transitZoomState != null}
+            options={transitZoomOptions}
+            onChange={(v) => setTransitZoomState(v || null)}
+          />
         </div>
       )}
 
@@ -1031,7 +1033,7 @@ export default function MalaysiaMap({
             {renderPanel("west", M_W, M_H_WEST)}
           </div>
 
-          <div className="mx-4 border-t border-[rgba(0,212,255,0.08)]" />
+          <div className="mx-4 border-t border-[var(--color-border-faint)]" />
 
           <div className="px-1">
             <div className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] px-2 pt-2">
@@ -1055,8 +1057,9 @@ export default function MalaysiaMap({
           ref={tooltipRef}
           className="fixed z-50 pointer-events-none"
           style={{
-            left: tooltipPosRef.current.x + 12,
-            top: tooltipPosRef.current.y - 10,
+            left: (tooltipPosRef.current?.x ?? 0) + 12,
+            top: (tooltipPosRef.current?.y ?? 0) - 10,
+            visibility: tooltipPosRef.current ? "visible" : "hidden",
           }}
         >
           {renderTooltipContent()}
@@ -1077,7 +1080,7 @@ export default function MalaysiaMap({
             onClick={() => setLegendOpen((v) => !v)}
             aria-expanded={legendOpen}
             aria-label="Toggle map legend and layer options"
-            className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs tracking-wider rounded transition-all bg-[rgba(13,24,30,0.94)] backdrop-blur-sm border border-[var(--color-border-mid)] text-[var(--color-text-muted)]"
+            className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs tracking-wider rounded-md transition-all bg-[rgba(13,24,30,0.94)] backdrop-blur-sm border border-[var(--color-border-mid)] text-[var(--color-text-muted)]"
           >
             <div className="w-7 h-2 rounded-sm" style={{ background: getRampGradient(config.colorHue) }} />
             LEGEND
@@ -1085,6 +1088,18 @@ export default function MalaysiaMap({
               <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
+          {/* Right under LEGEND so the long legend list never pushes it below the bottom sheet */}
+          {transitVisible && (
+            <Dropdown
+              className="mt-1"
+              label="Zoom transit map to a state"
+              value={transitZoomState ?? ""}
+              active={transitZoomState != null}
+              align="right"
+              options={transitZoomOptions}
+              onChange={(v) => setTransitZoomState(v || null)}
+            />
+          )}
           {legendOpen && (
             <div
               className="mt-1 px-3 py-2 rounded border border-[var(--color-border-mid)] text-xs text-[var(--color-text-muted)] space-y-1.5"
@@ -1092,19 +1107,6 @@ export default function MalaysiaMap({
             >
               {renderLegendContent(true)}
             </div>
-          )}
-          {transitVisible && (
-            <select
-              value={transitZoomState || ""}
-              onChange={(e) => setTransitZoomState(e.target.value || null)}
-              className="mt-1 w-full px-2 py-1 text-xs tracking-wider rounded border border-[rgba(251,146,60,0.3)] bg-[rgba(13,24,30,0.96)] text-[var(--color-text-muted)] cursor-pointer outline-none"
-              style={{ fontFamily: "var(--font-jetbrains)" }}
-            >
-              <option value="">ALL MALAYSIA</option>
-              {stateNames.map((name) => (
-                <option key={name} value={name}>{name.toUpperCase()}</option>
-              ))}
-            </select>
           )}
         </div>
       )}

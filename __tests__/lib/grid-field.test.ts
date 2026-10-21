@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { windowStart, currentHourIndex, type LiveGrid } from "@/lib/live/grid-field";
+import { windowStart, currentHourIndex, windArrows, type LiveGrid } from "@/lib/live/grid-field";
 
 // Two UTC days of hourly stamps, as Open-Meteo returns with forecast_days=2
 const times = Array.from({ length: 48 }, (_, i) => {
@@ -42,5 +42,18 @@ describe("currentHourIndex over the trimmed window", () => {
     } finally {
       Date.now = realNow;
     }
+  });
+});
+
+describe("windArrows", () => {
+  it("points where the wind blows to and keeps every second grid point", () => {
+    // 3×3 grid; wind from the north-east (45°) everywhere, 12 km/h
+    const grid = {
+      lons: [100, 101, 102], lats: [1, 2, 3],
+      windDir: Array(9).fill([45]), windSpeed: Array(9).fill([12]),
+    } as unknown as LiveGrid;
+    const arrows = windArrows(grid, 0);
+    expect(arrows.map((a) => [a.lon, a.lat])).toEqual([[100, 1], [102, 1], [100, 3], [102, 3]]);
+    expect(arrows[0]).toMatchObject({ to: 225, speed: 12 });
   });
 });

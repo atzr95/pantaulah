@@ -18,6 +18,8 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import * as XLSX from "xlsx";
+import { parquetReadObjects } from "hyparquet";
+import { compressors } from "hyparquet-compressors";
 import { rebuildNational } from "../src/lib/data/national";
 import type { CacheData } from "../src/lib/data/types";
 
@@ -25,6 +27,7 @@ import type { CacheData } from "../src/lib/data/types";
 
 const API_BASE = "https://api.data.gov.my/data-catalogue";
 const DOSM_STORAGE = "https://storage.dosm.gov.my";
+const DATA_GOV_STORAGE = "https://storage.data.gov.my"; // CDN: no rate limit, unlike API_BASE
 const CACHE_DIR = join(process.cwd(), "src", "lib", "data", "cache");
 const DELAY_MS = 16_000; // 16s between requests (safely under 4/min)
 const MIN_YEAR = 2010; // Ignore data before this — other metrics start around 2010
@@ -173,6 +176,34 @@ async function fetchCSV(path: string): Promise<Array<Record<string, string>>> {
     return rows;
   } catch (err) {
     console.error(`  Error downloading CSV ${path}: ${err instanceof Error ? err.message : err}`);
+    return [];
+  }
+}
+
+/**
+ * Download a data.gov.my Parquet file (far smaller than its CSV/API twin) as
+ * rows shaped like the API's JSON: int64 → number, date → "YYYY-MM-DD".
+ * Returns [] on failure.
+ */
+async function fetchParquet(path: string, columns?: string[]): Promise<Array<Record<string, unknown>>> {
+  console.log(`  Downloading ${path}...`);
+  try {
+    const res = await fetch(`${DATA_GOV_STORAGE}/${path}`, { signal: AbortSignal.timeout(120_000) });
+    if (!res.ok) {
+      console.log(`  HTTP ${res.status} for ${path}`);
+      return [];
+    }
+    const rows = await parquetReadObjects({ file: await res.arrayBuffer(), columns, compressors });
+    console.log(`  Got ${rows.length} rows from ${path}`);
+    return rows.map((row) => {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row)) {
+        out[k] = typeof v === "bigint" ? Number(v) : v instanceof Date ? v.toISOString().slice(0, 10) : v;
+      }
+      return out;
+    });
+  } catch (err) {
+    console.error(`  Error downloading ${path}: ${err instanceof Error ? err.message : err}`);
     return [];
   }
 }
@@ -693,18 +724,18 @@ function processHospitalBeds(rows: unknown[]): MetricStore {
 /** Blood donation breakdown by blood group per state per year */
 type BloodGroupStore = Record<string, Record<number, { a: number; b: number; ab: number; o: number }>>;
 
-function processBloodGroups(rows: Array<Record<string, string>>): BloodGroupStore {
+function processBloodGroups(rows: Array<Record<string, unknown>>): BloodGroupStore {
   const store: BloodGroupStore = {};
   for (const row of rows) {
     if (row.state === "Malaysia") continue;
     const bt = row.blood_type;
     if (bt !== "a" && bt !== "b" && bt !== "ab" && bt !== "o") continue;
-    const topo = toTopoName(row.state);
+    const topo = toTopoName(row.state as string);
     if (!topo) continue;
-    const year = new Date(row.date).getFullYear();
+    const year = new Date(row.date as string).getFullYear();
     if (year < MIN_YEAR) continue;
-    const value = parseInt(row.donations);
-    if (isNaN(value)) continue;
+    const value = row.donations;
+    if (typeof value !== "number" || isNaN(value)) continue;
     if (!store[topo]) store[topo] = {};
     if (!store[topo][year]) store[topo][year] = { a: 0, b: 0, ab: 0, o: 0 };
     store[topo][year][bt] += value;
@@ -712,17 +743,17 @@ function processBloodGroups(rows: Array<Record<string, string>>): BloodGroupStor
   return store;
 }
 
-/** Blood donations by state — daily CSV, sum by state+year, blood_type=all */
-function processBloodDonations(rows: Array<Record<string, string>>): MetricStore {
+/** Blood donations by state — daily rows, sum by state+year, blood_type=all */
+function processBloodDonations(rows: Array<Record<string, unknown>>): MetricStore {
   const sums: Record<string, Record<number, number>> = {};
   for (const row of rows) {
     if (row.blood_type !== "all") continue;
-    const topo = toTopoName(row.state);
+    const topo = toTopoName(row.state as string);
     if (!topo) continue;
-    const year = new Date(row.date).getFullYear();
+    const year = new Date(row.date as string).getFullYear();
     if (year < MIN_YEAR) continue;
-    const value = parseInt(row.donations);
-    if (isNaN(value)) continue;
+    const value = row.donations;
+    if (typeof value !== "number" || isNaN(value)) continue;
     if (!sums[topo]) sums[topo] = {};
     sums[topo][year] = (sums[topo][year] || 0) + value;
   }
@@ -758,7 +789,9 @@ function processVitalRate(rows: unknown[]): MetricStore {
 
 /**
  * Per-year state counts cache for JPJ registration dumps. Historical years are
- * immutable, so once counted they never need re-downloading (the files are huge).
+ * immutable, so once counted they are never downloaded again.
+ * Each year also holds a "Malaysia" count of every row, which becomes the
+ * national value: most rows are dealer ("Rakan Niaga") registrations with no state.
  */
 const VEHICLE_REG_CACHE_PATH = join(CACHE_DIR, "vehicle-reg-counts.json");
 const REG_FETCH_CONCURRENCY = 4; // storage.data.gov.my is a CDN, not the rate-limited API
@@ -779,41 +812,25 @@ function loadVehicleRegCache(): VehicleRegCache {
   return { cars: {}, motorcycles: {} };
 }
 
-/** Download one yearly registration CSV and count rows per state, or null on failure */
+/**
+ * Download one yearly registration file (~0.5 MB as Parquet; the CSV twin is ~40 MB)
+ * and count rows nationally and per state, or null on failure.
+ */
 async function countRegistrationsForYear(kind: "cars" | "motorcycles", year: number): Promise<Record<string, number> | null> {
-  const url = `${DOSM_STORAGE.replace("storage.dosm.gov.my", "storage.data.gov.my")}/transportation/${kind}_${year}.csv`;
-  console.log(`  Downloading ${kind} registrations ${year}...`);
+  const rows = await fetchParquet(`transportation/${kind}_${year}.parquet`, ["state"]);
+  if (rows.length === 0) return null;
 
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
-    if (!res.ok) {
-      console.log(`    ${kind} ${year}: not found (${res.status})`);
-      return null;
+  const counts: Record<string, number> = { Malaysia: rows.length };
+  for (const { state } of rows) {
+    const topo = toTopoName(String(state ?? "").trim());
+    if (topo && topo !== "Malaysia") {
+      counts[topo] = (counts[topo] || 0) + 1;
     }
-
-    const text = await res.text();
-    const lines = text.split("\n");
-    const counts: Record<string, number> = {};
-
-    // Skip header, count rows per state (last CSV column)
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-      const lastComma = line.lastIndexOf(",");
-      const state = line.substring(lastComma + 1).trim();
-      const topo = toTopoName(state);
-      if (topo) {
-        counts[topo] = (counts[topo] || 0) + 1;
-      }
-    }
-
-    const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    console.log(`    ${kind} ${year}: ${total.toLocaleString()} registrations across ${Object.keys(counts).length} states`);
-    return counts;
-  } catch (err) {
-    console.error(`    Error fetching ${kind} ${year}: ${err instanceof Error ? err.message : err}`);
-    return null;
   }
+
+  const withState = Object.entries(counts).reduce((a, [k, v]) => (k === "Malaysia" ? a : a + v), 0);
+  console.log(`    ${kind} ${year}: ${counts.Malaysia.toLocaleString()} registrations, ${withState.toLocaleString()} with a state`);
+  return counts;
 }
 
 /**
@@ -831,7 +848,8 @@ async function fetchRegistrations(
 
   for (let year = MIN_YEAR; year <= currentYear; year++) {
     const cached = cachedCounts[year];
-    if (year < currentYear - 1 && cached && Object.keys(cached).length > 0) {
+    // Years cached before the national "Malaysia" count existed are fetched once more
+    if (year < currentYear - 1 && cached?.Malaysia) {
       counts[year] = cached;
     } else {
       toFetch.push(year);
@@ -849,9 +867,13 @@ async function fetchRegistrations(
       const fetched = results[idx];
       if (fetched && Object.keys(fetched).length > 0) {
         counts[year] = fetched;
-      } else if (cachedCounts[year] && Object.keys(cachedCounts[year]).length > 0) {
+      } else if (cachedCounts[year]?.Malaysia) {
         console.warn(`    WARNING: ${kind} ${year} fetch failed — keeping cached counts.`);
         counts[year] = cachedCounts[year];
+      } else {
+        // Counts without the national total would make the national figure a state sum;
+        // leave the year out so the cache merge keeps its last published values.
+        console.warn(`    WARNING: ${kind} ${year} fetch failed — keeping last published values.`);
       }
     });
   }
@@ -1233,28 +1255,17 @@ async function main() {
   // ── DAILY tier: organ pledges, PEKA B40, blood donations ──
   let organRows: unknown[] = [];
   let pekabRows: unknown[] = [];
-  let bloodDonationRows: Array<Record<string, string>> = [];
+  let bloodDonationRows: Array<Record<string, unknown>> = [];
   let ridershipRows: unknown[] = [];
   if (fetchDaily) {
     console.log("── DAILY TIER ──");
-    organRows = await fetchDataset("organ_pledges_state", {}, 200000);
-    await sleep(DELAY_MS);
-    pekabRows = await fetchDataset("pekab40_screenings_state", {}, 100000);
-    await sleep(DELAY_MS);
-    console.log("  Fetching blood donations CSV...");
-    const url = "https://storage.data.gov.my/healthcare/blood_donations_state.csv";
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
-      if (res.ok) {
-        const text = await res.text();
-        bloodDonationRows = parseCSV(text);
-        console.log(`  Got ${bloodDonationRows.length} rows from blood donations CSV`);
-      }
-    } catch (err) {
-      console.error(`  Error fetching blood donations: ${err instanceof Error ? err.message : err}`);
-    }
-    ridershipRows = await fetchDataset("ridership_headline", {}, 100000);
-    await sleep(DELAY_MS);
+    // Parquet from the CDN: ~0.8 MB in total vs ~23 MB via the API/CSV, and no rate-limit waits
+    [organRows, pekabRows, bloodDonationRows, ridershipRows] = await Promise.all([
+      fetchParquet("healthcare/organ_pledges_state.parquet"),
+      fetchParquet("healthcare/pekab40_screenings_state.parquet"),
+      fetchParquet("healthcare/blood_donations_state.parquet"),
+      fetchParquet("transportation/ridership_headline.parquet"),
+    ]);
     tierMeta.daily = new Date().toISOString();
   }
 

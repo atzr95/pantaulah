@@ -50,6 +50,11 @@ jobs:
         continue-on-error: true
         run: npm run ingest:bedutil
 
+      - name: Run food price ingest
+        id: food
+        continue-on-error: true
+        run: npm run ingest:food
+
       - name: Commit and push if changed
         id: commit
         run: |
@@ -62,7 +67,7 @@ jobs:
           else
             # Only app-visible cache files warrant a deploy; ingest metadata
             # (ingest-meta, vehicle-reg-counts, data-gaps) is committed silently.
-            if git diff --cached --name-only | grep -qE '^src/lib/data/cache/(data|energy-data|bedutil)\.json$'; then
+            if git diff --cached --name-only | grep -qE '^src/lib/data/cache/(data|energy-data|bedutil|food-prices)\.json$'; then
               echo "changed=true" >> "$GITHUB_OUTPUT"
             else
               echo "Only ingest metadata changed — skipping deploy"
@@ -82,7 +87,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Fail if any ingest step failed
-        if: steps.ingest.outcome == 'failure' || steps.energy.outcome == 'failure' || steps.bedutil.outcome == 'failure'
+        if: steps.ingest.outcome == 'failure' || steps.energy.outcome == 'failure' || steps.bedutil.outcome == 'failure' || steps.food.outcome == 'failure'
         run: |
-          echo "ingest: ${{ steps.ingest.outcome }}, energy: ${{ steps.energy.outcome }}, bedutil: ${{ steps.bedutil.outcome }}"
+          echo "ingest: ${{ steps.ingest.outcome }}, energy: ${{ steps.energy.outcome }}, bedutil: ${{ steps.bedutil.outcome }}, food: ${{ steps.food.outcome }}"
           exit 1

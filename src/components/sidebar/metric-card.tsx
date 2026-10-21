@@ -121,7 +121,7 @@ export default function MetricCard({
   change,
   isAlert = false,
   sparklineData,
-  sparklineColor = "rgba(0, 212, 255, 0.4)",
+  sparklineColor = "rgba(var(--color-cyan-rgb), 0.4)",
   description,
   vintage,
   rank,
@@ -148,7 +148,7 @@ export default function MetricCard({
             ref={iconRef}
             aria-label={`About ${label}`}
             aria-expanded={showTooltip}
-            className="relative inline-flex items-center justify-center w-4 h-4 rounded-full border border-[var(--color-border-bright)] text-xs text-[var(--color-text-muted)] cursor-help shrink-0 leading-none before:absolute before:-inset-2 before:content-['']"
+            className="relative inline-flex items-center justify-center w-4 h-4 rounded-full border border-[var(--color-border-bright)] text-xs text-[var(--color-text-muted)] cursor-help shrink-0 leading-none before:absolute before:-inset-2 max-lg:before:-inset-3.5 before:content-['']"
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
             onFocus={() => setShowTooltip(true)}

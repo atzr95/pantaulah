@@ -85,6 +85,20 @@ export function sampleWind(g: LiveGrid, h: number, lon: number, lat: number): [n
 }
 
 /**
+ * Wind arrows on every `every`-th grid point for hour `h`. `to` is the compass bearing the
+ * wind blows towards (the source gives where it comes from), i.e. where smoke drifts.
+ */
+export function windArrows(g: LiveGrid, h: number, every = 2): { lon: number; lat: number; to: number; speed: number }[] {
+  const out: { lon: number; lat: number; to: number; speed: number }[] = [];
+  for (let y = 0; y < g.lats.length; y += every)
+    for (let x = 0; x < g.lons.length; x += every) {
+      const i = y * g.lons.length + x;
+      out.push({ lon: g.lons[x], lat: g.lats[y], to: ((g.windDir[i]?.[h] ?? 0) + 180) % 360, speed: g.windSpeed[i]?.[h] ?? 0 });
+    }
+  return out;
+}
+
+/**
  * Paint a smooth raster of one field into an offscreen canvas and return a
  * data URL for a MapLibre `image` source. `color(value)` returns [r,g,b,a].
  * ponytail: canvas raster instead of a heatmap layer — honest blobs, ~1ms per frame.

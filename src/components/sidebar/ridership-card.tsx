@@ -65,7 +65,7 @@ export default function RidershipCard({ data, selectedYear }: RidershipCardProps
             <div className="h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
               <div
                 className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${railPct}%`, background: "rgba(0, 212, 255, 0.7)" }}
+                style={{ width: `${railPct}%`, background: "rgba(var(--color-cyan-rgb), 0.7)" }}
               />
             </div>
           </div>

@@ -26,7 +26,7 @@ function getTempFill(maxTemp: number | undefined): string {
   if (maxTemp >= 35) return "rgba(239, 68, 68, 0.45)";
   if (maxTemp >= 34) return "rgba(255, 149, 0, 0.4)";
   if (maxTemp >= 33) return "rgba(255, 180, 50, 0.3)";
-  if (maxTemp >= 32) return "rgba(0, 212, 255, 0.35)";
+  if (maxTemp >= 32) return "rgba(var(--color-cyan-rgb), 0.35)";
   return "rgba(0, 180, 230, 0.25)";
 }
 
@@ -35,7 +35,7 @@ function getTempStroke(maxTemp: number | undefined): string {
   if (maxTemp >= 35) return "rgba(239, 68, 68, 0.6)";
   if (maxTemp >= 34) return "rgba(255, 149, 0, 0.6)";
   if (maxTemp >= 33) return "rgba(255, 180, 50, 0.5)";
-  return "rgba(0, 212, 255, 0.5)";
+  return "rgba(var(--color-cyan-rgb), 0.5)";
 }
 
 function getWeatherIcon(forecast: string): string {
@@ -105,11 +105,11 @@ export default function WeatherMap({
             <path
               key={name}
               d={pathGen(feat as GeoPermissibleObjects) || ""}
-              fill={isSelected ? "rgba(0, 212, 255, 0.35)" : isHovered ? "rgba(0, 212, 255, 0.3)" : getTempFill(maxTemp)}
-              stroke={isSelected ? "#00d4ff" : isHovered ? "rgba(0, 212, 255, 0.8)" : getTempStroke(maxTemp)}
+              fill={isSelected ? "rgba(var(--color-cyan-rgb), 0.35)" : isHovered ? "rgba(var(--color-cyan-rgb), 0.3)" : getTempFill(maxTemp)}
+              stroke={isSelected ? "var(--color-cyan)" : isHovered ? "rgba(var(--color-cyan-rgb), 0.8)" : getTempStroke(maxTemp)}
               strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 1}
               className="transition-all duration-300 cursor-pointer outline-none"
-              style={{ outline: "none", ...(isSelected ? { filter: "drop-shadow(0 0 8px rgba(0, 212, 255, 0.3))" } : {}) }}
+              style={{ outline: "none" }}
               onClick={() => onStateSelect(isSelected ? null : name)}
               onMouseMove={(e) => handleMouseMove(e, name)}
               onMouseLeave={() => setHoveredState(null)}
@@ -158,7 +158,7 @@ export default function WeatherMap({
       {hoveredState && (() => {
         const forecast = stateForecastMap[hoveredState];
         return (
-          <div className="fixed z-50 pointer-events-none px-3 py-2 text-xs" style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 10, background: "rgba(13, 24, 30, 0.98)", border: "1px solid rgba(0, 212, 255, 0.3)", borderRadius: 4, color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em" }}>
+          <div className="fixed z-50 pointer-events-none px-3 py-2 text-xs" style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 10, background: "rgba(13, 24, 30, 0.98)", border: "1px solid var(--color-border-mid)", borderRadius: 4, color: "#e2e8f0", fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em" }}>
             <div className="font-bold text-[var(--color-cyan)] tracking-wider">{hoveredState.toUpperCase()}</div>
             {forecast ? (
               <div className="mt-1 space-y-0.5">
@@ -173,11 +173,11 @@ export default function WeatherMap({
       })()}
 
       <div className="absolute bottom-5 left-5 text-xs text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
-        <div className="tracking-[0.08em] mb-2" style={{ color: "rgba(0, 212, 255, 0.75)" }}>MAX TEMPERATURE</div>
+        <div className="tracking-[0.08em] mb-2" style={{ color: "rgba(var(--color-cyan-rgb), 0.75)" }}>MAX TEMPERATURE</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(239, 68, 68, 0.45)" }} />&ge; 35°C</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(255, 149, 0, 0.4)" }} />34°C</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(255, 180, 50, 0.3)" }} />33°C</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(0, 212, 255, 0.35)" }} />32°C</div>
+        <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(var(--color-cyan-rgb), 0.35)" }} />32°C</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(0, 180, 230, 0.25)" }} />&le; 31°C</div>
       </div>
 

@@ -10,7 +10,7 @@ interface GdpSectorsProps {
 }
 
 const SECTOR_CONFIG = [
-  { key: "services" as const, label: "Services", color: "rgba(0, 212, 255, 0.7)", desc: "Wholesale & retail trade, finance, real estate, government services, education, healthcare, transport & storage, ICT, hospitality." },
+  { key: "services" as const, label: "Services", color: "rgba(var(--color-cyan-rgb), 0.7)", desc: "Wholesale & retail trade, finance, real estate, government services, education, healthcare, transport & storage, ICT, hospitality." },
   { key: "manufacturing" as const, label: "Manufacturing", color: "rgba(100, 200, 120, 0.7)", desc: "Electronics, petroleum products, rubber & plastics, food processing, metals, machinery, chemicals." },
   { key: "construction" as const, label: "Construction", color: "rgba(255, 180, 50, 0.7)", desc: "Residential & non-residential buildings, civil engineering (roads, bridges, utilities), specialised construction." },
   { key: "agriculture" as const, label: "Agriculture", color: "rgba(180, 130, 255, 0.7)", desc: "Oil palm, rubber, paddy, livestock, forestry & logging, fishing and aquaculture." },

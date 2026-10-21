@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PillButton from "@/components/ui/pill-button";
+import Dropdown from "@/components/ui/dropdown";
 import EmptyState from "@/components/ui/empty-state";
 
 // ── Types ──
@@ -102,8 +103,7 @@ function parseDurationDisplay(iso: string): string {
 function SectionHeader({ title, count }: { title: string; count?: number }) {
   return (
     <div className="flex items-center gap-2 mb-3">
-      <div className="w-1 h-4 bg-[var(--color-cyan)] rounded-sm shadow-[0_0_6px_var(--color-cyan)]" />
-      <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] font-bold">
+      <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] font-bold whitespace-nowrap">
         {title}
       </h2>
       {count != null && (
@@ -142,16 +142,12 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
         <SectionHeader title="LIVE BROADCAST" count={liveChannels.length} />
         {!compact && liveChannels.length > 1 && (
           <div className="flex gap-1 mb-3">
-            <button
+            <PillButton
+              active={gridMode}
               onClick={() => setGridMode(true)}
-              className={`p-2 rounded border transition-all ${
-                gridMode
-                  ? "border-[var(--color-cyan)] text-[var(--color-cyan)]"
-                  : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] cursor-pointer"
-              }`}
+              className="flex items-center justify-center"
               title="Grid view"
               aria-label="Switch to grid view"
-              aria-pressed={gridMode}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <rect x="1" y="1" width="6" height="6" rx="1" />
@@ -159,22 +155,18 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                 <rect x="1" y="9" width="6" height="6" rx="1" />
                 <rect x="9" y="9" width="6" height="6" rx="1" />
               </svg>
-            </button>
-            <button
+            </PillButton>
+            <PillButton
+              active={!gridMode}
               onClick={() => setGridMode(false)}
-              className={`p-2 rounded border transition-all ${
-                !gridMode
-                  ? "border-[var(--color-cyan)] text-[var(--color-cyan)]"
-                  : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] cursor-pointer"
-              }`}
+              className="flex items-center justify-center"
               title="Single view"
               aria-label="Switch to single view"
-              aria-pressed={!gridMode}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <rect x="1" y="1" width="14" height="14" rx="1" />
               </svg>
-            </button>
+            </PillButton>
           </div>
         )}
       </div>
@@ -205,7 +197,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                 title={current.name}
               />
               <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[rgba(0,0,0,0.75)] pointer-events-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_6px_var(--color-red)] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] animate-pulse" />
                 <span className="text-xs tracking-wider text-white font-bold">
                   {current.name}
                 </span>
@@ -216,14 +208,14 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                 <button
                   key={ch.handle}
                   onClick={() => setActiveChannel(i)}
-                  className={`px-2.5 py-1.5 rounded border text-left transition-all ${
+                  className={`px-2.5 py-1.5 min-h-11 lg:min-h-0 rounded-md border text-left transition-all ${
                     i === activeChannel
-                      ? "bg-[rgba(0,212,255,0.08)] border-[var(--color-cyan)]"
+                      ? "bg-[var(--color-cyan-soft)] border-[var(--color-cyan)]"
                       : "border-[var(--color-border)] hover:border-[var(--color-border-bright)] cursor-pointer"
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_4px_var(--color-red)]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)]" />
                     <span className={`text-xs font-bold tracking-wider ${
                       i === activeChannel ? "text-[var(--color-cyan)]" : "text-[var(--color-text)]"
                     }`}>
@@ -250,7 +242,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                 title={current.name}
               />
               <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[rgba(0,0,0,0.75)] pointer-events-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_6px_var(--color-red)] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] animate-pulse" />
                 <span className="text-xs tracking-wider text-white font-bold">
                   {current.name}
                 </span>
@@ -261,14 +253,14 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                 <button
                   key={ch.handle}
                   onClick={() => setActiveChannel(i)}
-                  className={`px-2.5 py-1.5 rounded border text-left transition-all ${
+                  className={`px-2.5 py-1.5 min-h-11 lg:min-h-0 rounded-md border text-left transition-all ${
                     i === activeChannel
-                      ? "bg-[rgba(0,212,255,0.08)] border-[var(--color-cyan)]"
+                      ? "bg-[var(--color-cyan-soft)] border-[var(--color-cyan)]"
                       : "border-[var(--color-border)] hover:border-[var(--color-border-bright)] cursor-pointer"
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_4px_var(--color-red)]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)]" />
                     <span className={`text-xs font-bold tracking-wider ${
                       i === activeChannel ? "text-[var(--color-cyan)]" : "text-[var(--color-text)]"
                     }`}>
@@ -296,7 +288,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
                   title={ch.name}
                 />
                 <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[rgba(0,0,0,0.75)] pointer-events-none">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shadow-[0_0_6px_var(--color-red)] animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] animate-pulse" />
                   <span className="text-xs tracking-wider text-white font-bold">
                     {ch.name}
                   </span>
@@ -328,7 +320,7 @@ function LiveTVPanel({ compact }: { compact?: boolean }) {
               href={`https://www.youtube.com/@${ch.handle}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-2.5 py-1.5 rounded border border-[var(--color-border)] opacity-40 hover:opacity-60 transition-all"
+              className="flex items-center min-h-11 lg:min-h-0 px-2.5 py-1.5 rounded-md border border-[var(--color-border)] opacity-40 hover:opacity-60 transition-all"
             >
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-text-dim)]" />
@@ -373,7 +365,8 @@ function TrendingPanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-3">
-        <SectionHeader title="TRENDING MALAYSIA" count={list.length} />
+        {/* The VIDEOS / SHORTS pills already show the counts */}
+        <SectionHeader title="TRENDING MALAYSIA" />
         <div className="flex gap-1">
           <PillButton
             active={tab === "videos"}
@@ -567,7 +560,7 @@ function RedditPanel() {
                     {post.subreddit}
                   </span>
                   {post.linkFlair && (
-                    <span className="text-xs px-1.5 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[var(--color-border)] text-[var(--color-text-dim)] tracking-wider">
+                    <span className="text-xs px-1.5 py-px rounded bg-[rgba(var(--color-cyan-rgb),0.08)] border border-[var(--color-border)] text-[var(--color-text-dim)] tracking-wider">
                       {post.linkFlair}
                     </span>
                   )}
@@ -618,7 +611,6 @@ function RSSFeedPanel() {
   const [items, setItems] = useState<RssItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [stateFilter, setStateFilter] = useState<string | null>(null);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
   useEffect(() => {
     fetch("/api/rss")
@@ -649,61 +641,17 @@ function RSSFeedPanel() {
       <div className="flex items-center justify-between mb-3">
         <SectionHeader title="NEWS FEED" count={filtered.length} />
         {/* State filter */}
-        <div className="relative">
-          <button
-            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            className={`flex items-center gap-1.5 px-2 py-0.5 text-xs tracking-wider border rounded transition-all cursor-pointer ${
-              stateFilter
-                ? "bg-[rgba(0,212,255,0.1)] border-[var(--color-cyan)] text-[var(--color-cyan)]"
-                : "border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)]"
-            }`}
-          >
-            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M2 4h12M4 8h8M6 12h4" />
-            </svg>
-            {stateFilter ?? "ALL STATES"}
-          </button>
-          {showFilterDropdown && (
-            <>
-              {/* Backdrop */}
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setShowFilterDropdown(false)}
-              />
-              {/* Dropdown */}
-              <div
-                className="absolute right-0 top-full mt-1 z-20 w-48 max-h-64 overflow-y-auto rounded border border-[var(--color-border)] py-1"
-                style={{ background: "rgba(13, 24, 30, 0.98)", backdropFilter: "blur(8px)" }}
-              >
-                <button
-                  onClick={() => { setStateFilter(null); setShowFilterDropdown(false); }}
-                  className={`w-full text-left px-3 py-1.5 text-xs tracking-wider transition-colors cursor-pointer ${
-                    !stateFilter
-                      ? "text-[var(--color-cyan)] bg-[rgba(0,212,255,0.08)]"
-                      : "text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:bg-[rgba(255,255,255,0.03)]"
-                  }`}
-                >
-                  ALL STATES
-                  <span className="ml-1 opacity-50">({items.length})</span>
-                </button>
-                {availableStates.map(({ name, count }) => (
-                  <button
-                    key={name}
-                    onClick={() => { setStateFilter(name); setShowFilterDropdown(false); }}
-                    className={`w-full text-left px-3 py-1.5 text-xs tracking-wider transition-colors cursor-pointer ${
-                      stateFilter === name
-                        ? "text-[var(--color-cyan)] bg-[rgba(0,212,255,0.08)]"
-                        : "text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:bg-[rgba(255,255,255,0.03)]"
-                    }`}
-                  >
-                    {name.toUpperCase()}
-                    <span className="ml-1 opacity-50">({count})</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <Dropdown
+          label="Filter news by state"
+          value={stateFilter ?? ""}
+          active={stateFilter != null}
+          align="right"
+          options={[
+            { value: "", label: "ALL STATES", hint: String(items.length) },
+            ...availableStates.map(({ name, count }) => ({ value: name, label: name.toUpperCase(), hint: String(count) })),
+          ]}
+          onChange={(v) => setStateFilter(v || null)}
+        />
       </div>
 
       {loading ? (
@@ -768,7 +716,7 @@ function RSSFeedPanel() {
                       {item.matchedStates.map((s) => (
                         <span
                           key={s}
-                          className="px-1 py-px rounded bg-[rgba(0,212,255,0.08)] border border-[var(--color-border)] text-[var(--color-cyan)] text-xs tracking-wider"
+                          className="px-1 py-px rounded bg-[rgba(var(--color-cyan-rgb),0.08)] border border-[var(--color-border)] text-[var(--color-cyan)] text-xs tracking-wider"
                         >
                           {s}
                         </span>
@@ -808,7 +756,7 @@ export default function MediaView() {
           className="flex gap-1 px-3 py-2 shrink-0"
           style={{
             background: "rgba(13, 24, 30, 0.96)",
-            borderBottom: "1px solid rgba(0, 212, 255, 0.08)",
+            borderBottom: "1px solid var(--color-border-faint)",
           }}
         >
           {TABS.map((tab) => (

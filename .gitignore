@@ -39,4 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-.gstack/
+
+# AI agent notes that `next dev` writes when an agent starts it
+/AGENTS.md
+/CLAUDE.md
+/REVIEW.md

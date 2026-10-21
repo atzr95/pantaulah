@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useFlights, type Flight } from "@/lib/hooks/use-flights";
-import { useTransit } from "@/lib/hooks/use-transit";
+import { useTransit, type TransitVehicle } from "@/lib/hooks/use-transit";
 import { reportFeedStatus } from "@/lib/feed-status";
 import type { EarthquakeEntry, WeatherData } from "@/lib/data/weather-types";
 import type { RssItem } from "@/app/api/rss/route";
@@ -13,49 +13,15 @@ import { currentHourIndex, type LiveGrid } from "@/lib/live/grid-field";
 import { RAINVIEWER_FRAMES, type RainViewerIndex, type RadarFrame } from "@/lib/live/tiles";
 import cctvCoords from "@/lib/data/cctv-coords.json";
 import type { LayerKey, Basemap, Selection, NewsPin, CctvPin } from "./live-map";
-import { scrollHorizontallyOnWheel } from "@/lib/ui/horizontal-scroll";
 import PillButton from "@/components/ui/pill-button";
+import { SidePanel, PanelHeader } from "@/components/ui/side-panel";
+import LayerControls, { DEFAULT_LAYERS } from "./layer-controls";
+import { useEnvironment } from "@/lib/hooks/use-environment";
+import { useNow } from "@/lib/hooks/use-now";
+import EnvironmentDialog from "@/components/weather/environment-dialog";
+import { currentEnvironmentSelection, FIRE_HEAT_GRADIENT, type EnvironmentSelection } from "@/lib/data/environment";
 
 const LiveMap = dynamic(() => import("./live-map"), { ssr: false });
-
-const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
-  radar: true, smog: true, cloud: false, wind: false, night: false, haze: false, terminator: true,
-  flights: true, transit: true, rail: true, cctv: true, news: true, quakes: true, pop: false, buildings: true, terrain: false,
-};
-
-const LAYER_GROUPS: { title: string; items: { key: LayerKey; label: string; hint: string }[] }[] = [
-  {
-    title: "SKY",
-    items: [
-      { key: "radar", label: "RAIN RADAR", hint: "RainViewer, last 2h" },
-      { key: "cloud", label: "CLOUDS", hint: "Open-Meteo forecast" },
-      { key: "wind", label: "WIND", hint: "Open-Meteo forecast" },
-      { key: "smog", label: "SMOG PM2.5", hint: "Open-Meteo CAMS" },
-      { key: "haze", label: "HAZE (SAT)", hint: "NASA MODIS aerosol, daily" },
-      { key: "terminator", label: "DAY / NIGHT", hint: "Solar terminator" },
-    ],
-  },
-  {
-    title: "GROUND",
-    items: [
-      { key: "flights", label: "AIRCRAFT", hint: "adsb.lol + OpenSky, 60s" },
-      { key: "transit", label: "BUS & TRAIN", hint: "data.gov.my GTFS-RT, 30s" },
-      { key: "rail", label: "RAIL LINES", hint: "OpenStreetMap, detailed" },
-      { key: "cctv", label: "HIGHWAY CCTV", hint: "LLM.gov.my" },
-      { key: "news", label: "NEWS PINS", hint: "RSS, town mentions" },
-      { key: "quakes", label: "EARTHQUAKES", hint: "USGS + MET" },
-    ],
-  },
-  {
-    title: "SURFACE",
-    items: [
-      { key: "buildings", label: "3D BUILDINGS", hint: "zoom in to a city" },
-      { key: "terrain", label: "3D TERRAIN", hint: "hills; slower to pan" },
-      { key: "pop", label: "POPULATION", hint: "Kontur hexagons, 2023" },
-      { key: "night", label: "NIGHT LIGHTS", hint: "NASA Black Marble" },
-    ],
-  },
-];
 
 export default function LiveView() {
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
@@ -72,6 +38,19 @@ export default function LiveView() {
   const [news, setNews] = useState<NewsPin[]>([]);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [environmentSelection, setEnvironmentSelection] = useState<EnvironmentSelection | null>(null);
+  const [treeYear, setTreeYear] = useState(2025);
+  const [treeLoading, setTreeLoading] = useState(false);
+  const [fireDays, setFireDays] = useState(7);
+  const [followKey, setFollowKey] = useState<string | null>(null);
+  const environment = useEnvironment(layers);
+  const now = useNow();
+  const currentEnvironment = currentEnvironmentSelection(environmentSelection, { rivers: environment.rivers.data, shelters: environment.shelters.data, fires: environment.fires.data });
+  const riverData = environment.rivers.data;
+  const recentRivers = useMemo(() => (riverData ?? []).filter((r) => now - Date.parse(r.observedAt) <= 3_600_000), [riverData, now]);
+  const { data: fireData, fetchedAt: firesFetchedAt } = environment.fires;
+  // Age from fetch time, not the 30s clock: a new array would re-cluster every fire point.
+  const visibleFires = useMemo(() => (fireData ?? []).filter((f) => Date.parse(firesFetchedAt ?? "") - Date.parse(f.observedAt) <= fireDays * 86_400_000), [fireData, firesFetchedAt, fireDays]);
 
   const flights = useFlights(layers.flights);
   const transit = useTransit(layers.transit);
@@ -189,19 +168,36 @@ export default function LiveView() {
     return () => clearInterval(t);
   }, []);
 
-  const toggle = useCallback((k: LayerKey) => setLayers((l) => ({ ...l, [k]: !l[k] })), []);
-  const onSelect = useCallback((s: Selection | null) => { setSelection(s); if (s) setPanelOpen(true); }, []);
+  const changeLayers = useCallback((next: Record<LayerKey, boolean>) => {
+    setLayers(next);
+    if (next.treeLoss && !layers.treeLoss) setBasemap("satellite");
+  }, [layers.treeLoss]);
+  const onSelect = useCallback((s: Selection | null) => {
+    if (s?.kind === "river" || s?.kind === "shelter" || s?.kind === "fire") { setEnvironmentSelection(s); return; }
+    setSelection(s); if (s) setPanelOpen(true);
+    // A tap on the vehicle being followed keeps following; anything else stops it.
+    setFollowKey((key) => s?.kind === "transit" && key === `${s.data.feed}::${s.data.id}` ? key : null);
+  }, []);
+  const currentVehicle = selection?.kind === "transit" ? transit.find((v) => v.feed === selection.data.feed && v.id === selection.data.id) : null;
+  const liveSelection = selection?.kind === "transit" && currentVehicle ? { ...selection, data: currentVehicle } : selection;
+  const followControls = liveSelection?.kind === "transit" && <TransitFollowControls vehicle={currentVehicle ?? null} following={!!followKey}
+    onToggle={() => setFollowKey(followKey ? null : `${liveSelection.data.feed}::${liveSelection.data.id}`)} />;
 
   const radarTime = radar?.frames[radarIndex]?.time;
   const radarLabel = radarTime ? new Date(radarTime * 1000).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false }) : "--:--";
 
   return (
-    <div className="flex-1 min-h-0 relative flex flex-col lg:flex-row">
+    <div className="flex-1 min-h-0 relative flex flex-col">
+      <div className="lg:hidden">
+        <LayerControls layers={layers} onChange={changeLayers} />
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
       {/* Map */}
       <div className="relative flex-1 min-h-0">
         <LiveMap
           layers={layers} basemap={basemap} hour={hour} grid={grid} radar={radar} radarIndex={radarIndex}
           flights={flights} transit={transit} quakes={quakes} news={news} cctv={cctv} selection={selection} onSelect={onSelect}
+          rivers={recentRivers} shelters={environment.shelters.data ?? []} fires={visibleFires} treeYear={treeYear} onTreeLossLoading={setTreeLoading} followKey={layers.transit ? followKey : null}
         />
 
         {/* Top-left: basemap + time controls */}
@@ -210,7 +206,7 @@ export default function LiveView() {
             <PillButton active={basemap === "dark"} onClick={() => setBasemap("dark")}>DARK</PillButton>
             <PillButton active={basemap === "satellite"} onClick={() => setBasemap("satellite")}>SATELLITE</PillButton>
           </div>
-          <Hud>
+          {layers.radar && <Hud>
             <Row label="RADAR" value={radarRewind === null ? `${radarLabel} LIVE` : radarIsForecast ? `${radarLabel} FORECAST` : radarLabel}>
               <input type="range" min={0} max={radarLast} value={radarIndex}
                 onChange={(e) => { const i = +e.target.value; setRadarRewind(i === radarLive ? null : radar?.frames[i]?.time ?? null); }} className="w-24 md:w-32 accent-[var(--color-cyan)]" aria-label="Radar frame" />
@@ -218,7 +214,11 @@ export default function LiveView() {
                 <button onClick={() => setRadarRewind(null)} className="text-[var(--color-amber)] hover:text-[var(--color-text-bright)] tracking-[0.08em]" aria-label="Back to live radar">LIVE</button>
               )}
             </Row>
-          </Hud>
+          </Hud>}
+          {layers.wind && <Hud><p className="text-[11px] text-[var(--color-text-muted)] max-w-[16rem]">WIND · white arrows: where wind and smoke go · bigger = stronger</p></Hud>}
+          {layers.treeLoss && <Hud><label className="flex flex-wrap items-center gap-2 text-xs"><span>TREE LOSS · {treeYear}</span><input aria-label="Tree loss year" type="range" min="2001" max="2025" value={treeYear} onChange={(e) => setTreeYear(Number(e.target.value))} className="w-32 accent-[var(--color-cyan)]" /></label><p className="text-[11px] text-[var(--color-text-muted)]"><span className="text-[#e85a9c]">■ Pink: tree loss in {treeYear}</span>{treeLoading && <span role="status" className="text-[var(--color-amber)]"> · loading…</span>}<br />Annual estimate · not proof of illegal logging</p></Hud>}
+          {layers.fires && <Hud><label className="flex flex-wrap items-center gap-2 text-xs"><span>FIRES · LAST {fireDays} DAYS</span><input aria-label="Fire detection days" type="range" min="1" max="7" value={fireDays} onChange={(e) => setFireDays(Number(e.target.value))} className="w-24 accent-[var(--color-cyan)]" /></label><p className="flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]"><span className="h-2 w-16 shrink-0 rounded" style={{ background: FIRE_HEAT_GRADIENT }} />Fewer → more detections · zoom in to tap one</p></Hud>}
+          {(Object.keys(environment) as (keyof typeof environment)[]).filter((key) => layers[key]).map((key) => <div key={key} role="status" className="text-xs bg-[var(--color-bg-panel)] px-2 py-1 rounded max-w-xs">{key.toUpperCase()}: {environment[key].error ?? (environment[key].data ? `${key === "fires" ? visibleFires.length : key === "rivers" ? recentRivers.length : environment[key].data.length} ${key === "fires" ? "regional detections" : "locations"}` : "Loading…")}</div>)}
         </div>
 
         {/* Bottom: live counters */}
@@ -233,43 +233,25 @@ export default function LiveView() {
           </Hud>
         </div>
 
-        {/* Mobile: layer strip */}
-        <div className="lg:hidden absolute bottom-16 left-0 right-0 z-10 px-3">
-          <div className="flex gap-1 overflow-x-auto scrollbar-none touch-pan-x" onWheel={scrollHorizontallyOnWheel}>
-            {LAYER_GROUPS.flatMap((g) => g.items).map((it) => (
-              <PillButton key={it.key} active={layers[it.key]} onClick={() => toggle(it.key)}>{it.label}</PillButton>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Desktop sidebar: layers + selection */}
-      <aside className={`hidden lg:flex flex-col w-72 shrink-0 border-l border-[var(--color-border-mid)] bg-[var(--color-bg-panel)] overflow-y-auto`}>
-        <SelectionPanel selection={selection} onClose={() => setSelection(null)} />
-        <div className="p-3 flex flex-col gap-4">
-          {LAYER_GROUPS.map((g) => (
-            <div key={g.title}>
-              <div className="text-xs tracking-[0.1em] text-[var(--color-text-dim)] mb-1.5">{g.title}</div>
-              <div className="flex flex-col gap-0.5">
-                {g.items.map((it) => (
-                  <label key={it.key} className="flex items-center gap-2 py-1 cursor-pointer text-xs hover:bg-[var(--color-bg-card)] px-1 -mx-1 rounded">
-                    <input type="checkbox" checked={layers[it.key]} onChange={() => toggle(it.key)} className="accent-[var(--color-cyan)]" />
-                    <span className={layers[it.key] ? "text-[var(--color-text)]" : "text-[var(--color-text-muted)]"}>{it.label}</span>
-                    <span className="ml-auto text-[var(--color-text-dim)] text-[10px] truncate max-w-[45%]">{it.hint}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </aside>
+      {/* Desktop sidebar: quick views, layers and selection */}
+      <SidePanel label="Map controls">
+        <PanelHeader eyebrow="LIVE MAP" context="REAL-TIME" title="MALAYSIA" subtitle="Aircraft, transit, weather and hazards" />
+        <LayerControls sidebar layers={layers} onChange={changeLayers} />
+        <SelectionPanel selection={liveSelection} onClose={() => { setSelection(null); setFollowKey(null); }} />
+        {followControls}
+      </SidePanel>
+      </div>
 
       {/* Mobile: selection sheet */}
       {selection && panelOpen && (
         <div className="lg:hidden absolute inset-x-0 bottom-0 z-20 max-h-[55%] overflow-y-auto border-t border-[var(--color-border-mid)] bg-[var(--color-bg-panel)]">
-          <SelectionPanel selection={selection} onClose={() => { setSelection(null); setPanelOpen(false); }} />
+          <SelectionPanel selection={liveSelection} onClose={() => { setSelection(null); setPanelOpen(false); setFollowKey(null); }} />
+          {followControls}
         </div>
       )}
+      {currentEnvironment && <EnvironmentDialog {...currentEnvironment} onClose={() => setEnvironmentSelection(null)} />}
     </div>
   );
 }
@@ -298,11 +280,23 @@ function Row({ label, value, children }: { label: string; value: string; childre
 function Stat({ color, label, value }: { color: string; label: string; value: number }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: color }} />
       <span className="text-[var(--color-text-dim)]">{label}</span>
       <span className="tabular-nums text-[var(--color-text)]">{value}</span>
     </span>
   );
+}
+
+function TransitFollowControls({ vehicle, following, onToggle }: { vehicle: TransitVehicle | null; following: boolean; onToggle: () => void }) {
+  const now = useNow(1000);
+  const age = vehicle ? Math.max(0, Math.floor(now / 1000 - vehicle.timestamp)) : null;
+  const fresh = age !== null && age < 180;
+  return <div className="px-3 pb-3 space-y-2 text-xs">
+    <PillButton active={following} disabled={!following && !fresh} onClick={onToggle}>{following ? "STOP FOLLOWING" : "FOLLOW"}</PillButton>
+    <p className="text-[var(--color-text-muted)]">{age !== null ? `Updated ${age} seconds ago · checks every 30 seconds` : "Vehicle has no recent report."}</p>
+    {!fresh && <p>Following is unavailable until a new position arrives.</p>}
+    {following && <p role="status">{fresh ? "Dashed line = estimated path, not a recorded route. Smooth view may lag one report." : "Following paused · no recent position"}</p>}
+  </div>;
 }
 
 function SelectionPanel({ selection, onClose }: { selection: Selection | null; onClose: () => void }) {
@@ -316,12 +310,12 @@ function SelectionPanel({ selection, onClose }: { selection: Selection | null; o
   return (
     <div className="p-3 border-b border-[var(--color-border)] font-mono text-xs">
       <div className="flex items-center justify-between mb-2">
-        <span className="tracking-[0.1em] text-[var(--color-cyan)]">{selection.kind.toUpperCase()}</span>
-        <button onClick={onClose} className="text-[var(--color-text-dim)] hover:text-[var(--color-text)] min-w-[44px] min-h-[24px] text-right" aria-label="Close">✕</button>
+        <span className="tracking-[0.08em] text-[var(--color-cyan)]">{selection.kind.toUpperCase()}</span>
+        <button onClick={onClose} className="text-[var(--color-text-dim)] hover:text-[var(--color-text)] min-w-[44px] min-h-11 text-right" aria-label="Close">✕</button>
       </div>
       {selection.kind === "flight" && <FlightDetail f={selection.data} />}
       {selection.kind === "transit" && (
-        <KV rows={[["VEHICLE", selection.data.label], ["ROUTE", selection.data.routeId || "—"], ["FEED", selection.data.feed], ["SPEED", `${Math.round(selection.data.speed)} km/h`]]} />
+        <KV rows={[["VEHICLE", selection.data.label], ["ROUTE", selection.data.routeId || "—"], ["FEED", selection.data.feed], ["SPEED", selection.data.type === "train" ? "Not verified" : `${Math.round(selection.data.speed)} km/h`]]} />
       )}
       {selection.kind === "cctv" && <CctvDetail c={selection.data} />}
       {selection.kind === "quake" && (
@@ -405,13 +399,13 @@ function CctvDetail({ c }: { c: CctvPin }) {
           </div>
         )}
         <img src={src} alt={c.name} onError={() => { setErr(true); setLoaded(false); }} onLoad={() => { setErr(false); setLoaded(true); }} className={`w-full rounded border border-[var(--color-border)] ${loaded && !err ? "" : "hidden"}`} />
-        <div className="text-[10px] text-[var(--color-text-dim)] mt-1 tracking-[0.06em]">LIVE STILL · refreshes every 30s · click to enlarge</div>
+        <div className="text-[11px] text-[var(--color-text-dim)] mt-1 tracking-[0.06em]">LIVE STILL · refreshes every 30s · click to enlarge</div>
       </button>
       {full && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 cursor-zoom-out" style={{ background: "rgba(7,16,21,0.92)" }} onClick={() => setFull(false)} role="dialog" aria-label={c.name}>
           {/* Source stills are 320×240; upscale to fill the viewport */}
           <img src={src} alt={c.name} style={{ width: "min(92vw, 133vh)" }} className="max-h-full rounded border border-[var(--color-border-bright)]" />
-          <div className="absolute top-4 left-4 font-mono text-xs text-[var(--color-cyan)] tracking-[0.1em]">{c.name} · CLICK TO CLOSE</div>
+          <div className="absolute top-4 left-4 font-mono text-xs text-[var(--color-cyan)] tracking-[0.08em]">{c.name} · CLICK TO CLOSE</div>
         </div>
       )}
     </div>

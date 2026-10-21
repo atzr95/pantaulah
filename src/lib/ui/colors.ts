@@ -3,6 +3,11 @@
  * as presentation attributes. Keep in sync with the --color-poi-* variables
  * in src/app/globals.css.
  */
+/** Brand cyan (--color-cyan) for MapLibre paint, canvas and OG images. */
+export const CYAN = "#27d7ee";
+/** Same cyan at an alpha, for places that need an rgba string. */
+export const cyanAlpha = (a: number) => `rgba(39, 215, 238, ${a})`;
+
 export const POI_COLORS = {
   airport: "#ff9f43",
   university: "#ffd43b",

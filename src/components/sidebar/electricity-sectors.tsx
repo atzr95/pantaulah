@@ -11,7 +11,7 @@ interface ElectricitySectorsProps {
 
 const SECTOR_CONFIG = [
   { key: "industrial" as const, label: "Industrial", color: "rgba(255, 180, 50, 0.7)", desc: "Manufacturing plants, factories, and industrial facilities." },
-  { key: "commercial" as const, label: "Commercial", color: "rgba(0, 212, 255, 0.7)", desc: "Offices, shopping malls, hotels, restaurants, and commercial buildings." },
+  { key: "commercial" as const, label: "Commercial", color: "rgba(var(--color-cyan-rgb), 0.7)", desc: "Offices, shopping malls, hotels, restaurants, and commercial buildings." },
   { key: "domestic" as const, label: "Domestic", color: "rgba(100, 200, 120, 0.7)", desc: "Residential households — the electricity you use at home." },
   { key: "mining" as const, label: "Mining", color: "rgba(255, 100, 100, 0.7)", desc: "Mining and quarrying operations including tin, bauxite, and sand." },
   { key: "publicLighting" as const, label: "Public Lighting", color: "rgba(180, 130, 255, 0.7)", desc: "Street lights, highway lighting, and public area illumination." },

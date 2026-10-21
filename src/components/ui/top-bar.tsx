@@ -106,19 +106,23 @@ export default function TopBar({
       {/* Top row: Logo + System status */}
       <div className="min-h-12 py-2 flex items-center justify-between px-3 md:px-5 gap-3">
         {/* Logo */}
-        <div className="flex items-center gap-2 md:gap-2.5 shrink-0">
-          <img src="/logo-64.png" alt="PANTAULAH" className="w-7 h-7" />
+        <button
+          onClick={() => onCategoryChange("live")}
+          aria-label="PANTAULAH, go to live map"
+          className="flex items-center gap-2 md:gap-2.5 shrink-0 min-h-[44px] lg:min-h-0 cursor-pointer"
+        >
+          <img src="/logo-64.png" alt="" className="w-7 h-7" />
           <span className="font-mono text-[var(--color-cyan)] text-sm md:text-base font-bold tracking-[0.12em] md:tracking-[0.16em]">
             PANTAULAH
           </span>
-          <span className="text-[var(--color-text-muted)] text-xs tracking-[0.08em] ml-3 hidden 2xl:inline">
+          <span className="text-[var(--color-text-muted)] text-xs tracking-[0.08em] ml-3 hidden min-[1800px]:inline">
             MALAYSIA INTELLIGENCE TERMINAL
           </span>
-        </div>
+        </button>
 
         {/* Category tabs — inline and horizontally scrollable on large screens */}
         <div
-          className="hidden min-w-0 flex-1 overflow-x-auto overscroll-x-contain scrollbar-none lg:block"
+          className="hidden min-w-0 flex-1 overflow-x-auto overscroll-x-contain scrollbar-none 2xl:block"
           onWheel={scrollHorizontallyOnWheel}
         >
           <div className="ml-auto flex w-max gap-1">
@@ -136,14 +140,11 @@ export default function TopBar({
               onClick={() => setShowApiPopover((v) => !v)}
               aria-expanded={showApiPopover}
               aria-label="Feed status"
-              className="flex items-center gap-1.5 min-h-[44px] md:min-h-0 hover:text-[var(--color-text)] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 min-h-[44px] lg:min-h-0 hover:text-[var(--color-text)] transition-colors cursor-pointer"
             >
               <span
                 className="inline-block w-1.5 h-1.5 rounded-full"
-                style={{
-                  backgroundColor: summaryColor,
-                  boxShadow: `0 0 6px ${summaryColor}`,
-                }}
+                style={{ backgroundColor: summaryColor }}
               />
               <span>{allHealthy ? "ALL SYSTEMS" : "DEGRADED"}</span>
               <svg
@@ -190,10 +191,7 @@ export default function TopBar({
                         >
                           <span
                             className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-                            style={{
-                              backgroundColor: color,
-                              boxShadow: `0 0 6px ${color}`,
-                            }}
+                            style={{ backgroundColor: color }}
                           />
                           {FEED_LABELS[feed] ?? feed.toUpperCase()}
                           {!status.ok && (
@@ -215,7 +213,7 @@ export default function TopBar({
                   </div>
                   <Link
                     href="/about"
-                    className="text-xs tracking-[0.06em] text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
+                    className="flex items-center min-h-11 text-xs tracking-[0.06em] text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
                   >
                     ABOUT PANTAULAH
                   </Link>
@@ -238,16 +236,16 @@ export default function TopBar({
           </span>
           <Link
             href="/about"
-            className="hidden md:inline text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
+            className="hidden md:inline-flex items-center justify-center min-h-11 min-w-11 lg:min-h-0 lg:min-w-0 text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
           >
             ABOUT
           </Link>
         </div>
       </div>
 
-      {/* Bottom row: Category tabs on small/medium screens */}
+      {/* Bottom row: Category tabs below 1536px */}
       <div
-        className="flex lg:hidden gap-1 overflow-x-auto overscroll-x-contain touch-pan-x px-3 py-1.5 scrollbar-none"
+        className="flex 2xl:hidden gap-1 overflow-x-auto overscroll-x-contain touch-pan-x px-3 py-1.5 scrollbar-none"
         onWheel={scrollHorizontallyOnWheel}
         style={{ borderTop: "1px solid var(--color-border-faint)" }}
       >

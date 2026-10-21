@@ -28,6 +28,7 @@ export const CATEGORY_METRICS: Record<string, ChoroplethConfig[]> = {
     { key: "cpi", label: "CPI", colorHue: "amber", unit: "index", description: "Consumer Price Index (base 2010 = 100). Measures average change in prices paid by consumers." },
     { key: "population", label: "POPULATION", colorHue: "cyan", unit: "K", description: "Estimated resident population including citizens and non-citizens." },
     { key: "householdIncome", label: "HOUSEHOLD INCOME", colorHue: "cyan", unit: "RM", description: "Median monthly gross household income from all sources." },
+    { key: "foodPrice", label: "FOOD PRICES", colorHue: "amber", unit: "RM", description: "Recorded shelf prices for selected items and pack sizes." },
   ],
   crime: [
     { key: "crime", label: "CRIME INDEX", colorHue: "amber", unit: "cases", description: "Total index crimes reported, including violent crimes (murder, robbery) and property crimes (burglary, theft)." },
@@ -48,8 +49,8 @@ export const CATEGORY_METRICS: Record<string, ChoroplethConfig[]> = {
     { key: "icuUtilization", label: "ICU UTILIZATION", colorHue: "amber", unit: "%", description: "ICU bed occupancy rate (%). Source: MOH KKMNow dashboard (updates irregularly). Critical indicator of intensive care capacity pressure." },
   ],
   transport: [
-    { key: "vehicleReg", label: "CAR REGISTRATIONS", colorHue: "cyan", unit: "cars", description: "New car registrations recorded by JPJ (Road Transport Department) per year." },
-    { key: "motorcycleReg", label: "MOTORCYCLE REGISTRATIONS", colorHue: "cyan", unit: "motorcycles", description: "New motorcycle registrations recorded by JPJ per year. Malaysia has one of the highest motorcycle-per-capita rates globally." },
+    { key: "vehicleReg", label: "CAR REGISTRATIONS", colorHue: "cyan", unit: "cars", description: "New car registrations recorded by JPJ (Road Transport Department) per year. State figures exclude dealer (Rakan Niaga) registrations, which JPJ records without a state; the national total includes them." },
+    { key: "motorcycleReg", label: "MOTORCYCLE REGISTRATIONS", colorHue: "cyan", unit: "motorcycles", description: "New motorcycle registrations recorded by JPJ per year. Malaysia has one of the highest motorcycle-per-capita rates globally. State figures exclude dealer (Rakan Niaga) registrations, which JPJ records without a state; the national total includes them." },
   ],
   education: [
     { key: "schools", label: "SCHOOLS", colorHue: "cyan", unit: "schools", description: "Total number of government and government-aided schools (primary and secondary)." },
@@ -120,15 +121,15 @@ export function computeRankScale(values: Record<string, number | undefined>): Ra
 
 type RGBA = [number, number, number, number];
 
-// Neutral metrics: dim cyan → bright cyan.
+// Neutral metrics: dim cyan → bright cyan. [39, 215, 238] is the brand CYAN (src/lib/ui/colors.ts) as numbers.
 // Concern metrics: cyan (good) → warm grey → amber (bad); blue-orange stays readable for colour-blind users.
 const FILL_STOPS: Record<"cyan" | "amber", RGBA[]> = {
-  cyan: [[0, 110, 150, 0.18], [0, 212, 255, 0.65]],
+  cyan: [[0, 110, 150, 0.18], [39, 215, 238, 0.65]],
   amber: [[0, 110, 150, 0.22], [120, 120, 110, 0.35], [255, 149, 0, 0.65]],
 };
 const STROKE_STOPS: Record<"cyan" | "amber", RGBA[]> = {
-  cyan: [[0, 212, 255, 0.4], [0, 212, 255, 0.85]],
-  amber: [[0, 212, 255, 0.4], [180, 170, 150, 0.5], [255, 149, 0, 0.85]],
+  cyan: [[39, 215, 238, 0.4], [39, 215, 238, 0.85]],
+  amber: [[39, 215, 238, 0.4], [180, 170, 150, 0.5], [255, 149, 0, 0.85]],
 };
 const NO_DATA_FILL = "rgba(30, 40, 55, 0.6)";
 const NO_DATA_STROKE = "rgba(100, 140, 170, 0.3)";

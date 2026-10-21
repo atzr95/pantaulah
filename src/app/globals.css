@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source("../");
 
 @theme inline {
   --font-sans: var(--font-geist);
@@ -16,8 +16,10 @@
   --color-border-mid: #2d4652;
   --color-border-bright: #3c5e6c;
   --color-border-hover: #4d7684;
-  --color-cyan: #27d7ee;
-  --color-cyan-soft: rgba(39, 215, 238, 0.12);
+  /* One cyan. Alpha steps use rgba(var(--color-cyan-rgb), X); JS/canvas uses CYAN in src/lib/ui/colors.ts. */
+  --color-cyan-rgb: 39, 215, 238;
+  --color-cyan: rgb(var(--color-cyan-rgb));
+  --color-cyan-soft: rgba(var(--color-cyan-rgb), 0.12);
   --color-amber: #ffbd5a;
   --color-text: #e9f1f5;
   --color-text-muted: #a9bac3;
@@ -50,8 +52,8 @@ body {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 212, 255, 0.015) 2px,
-    rgba(0, 212, 255, 0.015) 4px
+    rgba(var(--color-cyan-rgb), 0.015) 2px,
+    rgba(var(--color-cyan-rgb), 0.015) 4px
   );
   pointer-events: none;
   z-index: 1000;
@@ -63,21 +65,21 @@ body {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(var(--color-cyan-rgb), 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--color-cyan-rgb), 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
   z-index: -1;
 }
 
-/* Pulsing animation */
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 6px var(--color-cyan), 0 0 12px rgba(0, 212, 255, 0.3); transform: scale(1); }
-  50% { box-shadow: 0 0 12px var(--color-cyan), 0 0 24px rgba(0, 212, 255, 0.5); transform: scale(1.3); }
+/* Live dot: scale pulse only, no glow */
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
 }
 
 .pulse-dot {
-  animation: pulse-glow 2s infinite;
+  animation: pulse-dot 2s infinite;
   border-radius: 50%;
 }
 
@@ -111,8 +113,7 @@ svg [role="button"]:focus-visible,
 svg [tabindex]:focus-visible {
   outline: none;
   stroke: var(--color-cyan);
-  stroke-width: 1.5px;
-  filter: drop-shadow(0 0 4px rgba(0, 212, 255, 0.7));
+  stroke-width: 2px;
 }
 
 button:focus-visible,
@@ -126,7 +127,7 @@ input:focus-visible,
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.2); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--color-border-bright); border-radius: 2px; }
 
 /* Hide scrollbar utility */
 .scrollbar-none {
@@ -198,3 +199,21 @@ input:focus-visible,
 @media (max-width: 1023px) {
   .maplibregl-ctrl-bottom-right { display: none; }
 }
+
+/* MapLibre controls (zoom, credits) in panel colors, not the default white boxes.
+   Selectors carry an extra .maplibregl-ctrl because maplibre-gl.css loads after this file. */
+.maplibregl-ctrl.maplibregl-ctrl-group:not(:empty) {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-mid);
+  box-shadow: none;
+}
+.maplibregl-ctrl.maplibregl-ctrl-group button + button { border-top-color: var(--color-border); }
+.maplibregl-ctrl.maplibregl-ctrl-group button:not(:disabled):hover { background-color: var(--color-bg-raised); }
+.maplibregl-ctrl button .maplibregl-ctrl-icon,
+.maplibregl-ctrl-attrib-button { filter: invert(0.9); }
+.maplibregl-ctrl.maplibregl-ctrl-attrib,
+.maplibregl-ctrl.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: rgba(13, 24, 30, 0.88);
+  color: var(--color-text-dim);
+}
+.maplibregl-ctrl.maplibregl-ctrl-attrib a { color: var(--color-text-muted); }

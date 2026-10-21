@@ -14,7 +14,7 @@ interface GenerationByFuelProps {
 const FUEL_CONFIG: Record<string, { color: string; desc: string }> = {
   "Coal": { color: "rgba(255, 100, 100, 0.7)", desc: "Coal-fired thermal plants — Manjung, Tanjung Bin, Jimah East Power." },
   "Natural Gas": { color: "rgba(255, 180, 50, 0.7)", desc: "Combined-cycle and open-cycle gas turbine plants running on piped and LNG gas." },
-  "Hydro": { color: "rgba(0, 212, 255, 0.7)", desc: "Hydroelectric dams — Bakun, Murum, Kenyir, Temenggor and others." },
+  "Hydro": { color: "rgba(var(--color-cyan-rgb), 0.7)", desc: "Hydroelectric dams — Bakun, Murum, Kenyir, Temenggor and others." },
   "Solar": { color: "rgba(255, 220, 100, 0.7)", desc: "Large-scale solar farms (LSS programme) and rooftop photovoltaic systems." },
   "Biomass": { color: "rgba(120, 220, 180, 0.7)", desc: "Power from palm oil residues, wood waste, and other organic matter." },
   "Biogas": { color: "rgba(100, 200, 120, 0.7)", desc: "Methane captured from palm oil mill effluent and landfills." },

@@ -31,7 +31,7 @@ export default function ClampedText({
           type="button"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
-          className="mt-1 text-xs tracking-wider cursor-pointer hover:opacity-80"
+          className="mt-1 inline-flex items-center min-h-11 lg:min-h-0 text-xs tracking-wider cursor-pointer hover:opacity-80"
           style={{ color: accent }}
         >
           {expanded ? "SHOW LESS ▲" : "SHOW MORE ▼"}

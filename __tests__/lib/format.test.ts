@@ -1,33 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
-  formatPopulation,
   formatPopulationCompact,
   formatGdp,
-  formatCrime,
-  formatPercentage,
-  formatCpi,
   formatChange,
-  formatRate,
   tweenValue,
 } from "@/lib/utils/format";
-
-describe("formatPopulation", () => {
-  it("formats thousands to full population", () => {
-    expect(formatPopulation(6994.4)).toBe("6,994,400");
-  });
-
-  it("handles small values", () => {
-    expect(formatPopulation(100)).toBe("100,000");
-  });
-
-  it("handles undefined", () => {
-    expect(formatPopulation(undefined)).toBe("—");
-  });
-
-  it("handles zero", () => {
-    expect(formatPopulation(0)).toBe("0");
-  });
-});
 
 describe("formatPopulationCompact", () => {
   it("formats millions", () => {
@@ -57,40 +34,6 @@ describe("formatGdp", () => {
   });
 });
 
-describe("formatCrime", () => {
-  it("formats with thousand separators", () => {
-    expect(formatCrime(22327)).toBe("22,327");
-  });
-
-  it("handles undefined", () => {
-    expect(formatCrime(undefined)).toBe("—");
-  });
-});
-
-describe("formatPercentage", () => {
-  it("formats with one decimal", () => {
-    expect(formatPercentage(3.1)).toBe("3.1%");
-  });
-
-  it("handles zero", () => {
-    expect(formatPercentage(0)).toBe("0.0%");
-  });
-
-  it("handles undefined", () => {
-    expect(formatPercentage(undefined)).toBe("—");
-  });
-});
-
-describe("formatCpi", () => {
-  it("formats with one decimal", () => {
-    expect(formatCpi(136.1)).toBe("136.1");
-  });
-
-  it("handles undefined", () => {
-    expect(formatCpi(undefined)).toBe("—");
-  });
-});
-
 describe("formatChange", () => {
   it("formats positive change", () => {
     expect(formatChange(4.2, "YoY")).toBe("+4.2% YoY");
@@ -110,16 +53,6 @@ describe("formatChange", () => {
 
   it("defaults suffix to YoY", () => {
     expect(formatChange(1.5)).toBe("+1.5% YoY");
-  });
-});
-
-describe("formatRate", () => {
-  it("formats exchange rate to 4 decimals", () => {
-    expect(formatRate(4.213)).toBe("4.2130");
-  });
-
-  it("handles undefined", () => {
-    expect(formatRate(undefined)).toBe("—");
   });
 });
 

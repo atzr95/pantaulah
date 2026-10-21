@@ -68,7 +68,7 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
       <div
         className="flex items-center gap-4 px-5 py-2 shrink-0"
         style={{
-          background: "linear-gradient(90deg, rgba(0,212,255,0.03) 0%, transparent 100%)",
+          background: "linear-gradient(90deg, rgba(var(--color-cyan-rgb), 0.03) 0%, transparent 100%)",
           borderBottom: "1px solid var(--color-border)",
         }}
       >
@@ -97,7 +97,7 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
     <div
       className="shrink-0"
       style={{
-        background: "linear-gradient(90deg, rgba(0,212,255,0.04) 0%, transparent 100%)",
+        background: "linear-gradient(90deg, rgba(var(--color-cyan-rgb), 0.04) 0%, transparent 100%)",
         borderBottom: "1px solid var(--color-border)",
       }}
     >
@@ -107,7 +107,7 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
         <div className="flex items-center gap-2 px-3 pt-1.5 pb-1">
           <span
             className="inline-block w-1.5 h-1.5 rounded-full pulse-dot shrink-0"
-            style={{ background: "var(--color-green)", boxShadow: "0 0 6px var(--color-green)" }}
+            style={{ background: "var(--color-green)" }}
           />
           <span className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">LIVE</span>
           <span className="text-xs text-[var(--color-text-bright)] font-bold tracking-wider truncate">
@@ -141,7 +141,7 @@ export default function LiveConditions({ selectedState }: LiveConditionsProps) {
         <div className="flex items-center gap-2 pr-4 py-2 border-r border-[var(--color-border)] shrink-0">
           <span
             className="inline-block w-1.5 h-1.5 rounded-full pulse-dot"
-            style={{ background: "var(--color-green)", boxShadow: "0 0 6px var(--color-green)" }}
+            style={{ background: "var(--color-green)" }}
           />
           <span className="text-xs tracking-[0.08em] text-[var(--color-cyan)]">LIVE</span>
           <span className="text-xs text-[var(--color-text-bright)] font-bold tracking-wider">

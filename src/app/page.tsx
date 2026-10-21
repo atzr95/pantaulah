@@ -54,6 +54,8 @@ const MediaView = dynamic(() => import("@/components/media/media-view"), {
   ),
 });
 
+const FoodPricesView = dynamic(() => import("@/components/economy/food-prices-view"), { ssr: false });
+
 /** Find the latest year where a metric has data in at least 10 states */
 function findBestYear(cacheData: CacheData, metric: string): number {
   const years = cacheData.availableYears;
@@ -198,10 +200,13 @@ function Home() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [booted, setBooted] = useState(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window === "undefined") return false;
+    // Reading sessionStorage throws when the browser blocks site data
+    try {
       return sessionStorage.getItem("pantaulah-booted") === "1";
+    } catch {
+      return false;
     }
-    return false;
   });
   const [data, setData] = useState<CacheData | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -358,7 +363,9 @@ function Home() {
 
   const handleBootComplete = useCallback(() => {
     setBooted(true);
-    sessionStorage.setItem("pantaulah-booted", "1");
+    try {
+      sessionStorage.setItem("pantaulah-booted", "1");
+    } catch { /* site data blocked: boot screen shows again next load */ }
   }, []);
 
   if (!data) {
@@ -371,7 +378,7 @@ function Home() {
             </div>
             <button
               onClick={() => window.location.reload()}
-              className="text-[var(--color-cyan)] text-xs tracking-[0.08em] border border-[var(--color-border-bright)] px-4 py-2 hover:bg-[rgba(0,212,255,0.08)] transition-colors"
+              className="px-4 py-2 min-h-11 lg:min-h-9 text-xs tracking-[0.08em] border rounded-md transition-colors cursor-pointer border-[var(--color-border-mid)] text-[var(--color-cyan)] hover:border-[var(--color-cyan)] hover:bg-[var(--color-cyan-soft)]"
             >
               RELOAD
             </button>
@@ -417,6 +424,8 @@ function Home() {
         <WeatherView />
       ) : selectedCategory === "media" ? (
         <MediaView />
+      ) : selectedCategory === "economy" && selectedMetric === "foodPrice" ? (
+        <FoodPricesView selectedState={selectedState} onStateSelect={setSelectedState} onMetricChange={handleMetricChange} />
       ) : (
         <>
           <div className="flex flex-1 overflow-hidden">
@@ -426,7 +435,7 @@ function Home() {
                 className="lg:hidden flex min-w-0 items-center gap-1.5 overflow-hidden px-3 py-2 shrink-0"
                 style={{
                   background: "rgba(13, 24, 30, 0.96)",
-                  borderBottom: "1px solid rgba(0, 212, 255, 0.08)",
+                  borderBottom: "1px solid var(--color-border-faint)",
                 }}
               >
                 <div
@@ -439,10 +448,7 @@ function Home() {
                     onMetricChange={handleMetricChange}
                   />
                 </div>
-                <div
-                  className="text-xs font-bold tracking-[0.08em] text-[var(--color-cyan)] shrink-0 pl-1"
-                  style={{ textShadow: "0 0 10px rgba(0, 212, 255, 0.3)" }}
-                >
+                <div className="text-xs font-bold tracking-[0.08em] text-[var(--color-cyan)] shrink-0 pl-1">
                   {selectedYear}
                 </div>
               </div>
@@ -488,10 +494,7 @@ function Home() {
                     onMetricChange={handleMetricChange}
                   />
                 </div>
-                <div
-                  className="text-sm font-bold tracking-[0.12em] text-[var(--color-cyan)] pr-1"
-                  style={{ textShadow: "0 0 10px rgba(0, 212, 255, 0.3)" }}
-                >
+                <div className="text-sm font-bold tracking-[0.08em] text-[var(--color-cyan)] pr-1">
                   {selectedYear}
                 </div>
               </div>

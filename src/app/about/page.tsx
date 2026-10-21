@@ -18,6 +18,12 @@ const DATA_SOURCES = [
   { name: "LLM.gov.my", url: "https://www.llm.gov.my", description: "Highway CCTV feeds" },
   { name: "MyEnergyStats", url: "https://myenergystats.st.gov.my", description: "Electricity consumption & generation" },
   { name: "KKMNow", url: "https://data.gov.my", description: "Hospital bed & ICU utilization" },
+  { name: "JPS InfoBanjir", url: "https://publicinfobanjir.water.gov.my", description: "Recent river readings and seven-day history" },
+  { name: "JKM InfoBencana", url: "https://infobencanajkmv2.jkm.gov.my/landing/index.php", description: "Open shelters, locations and reported people counts" },
+  { name: "NASA FIRMS", url: "https://firms.modaps.eosdis.nasa.gov", description: "NOAA-20 satellite heat detections" },
+  { name: "ASMC", url: "https://wis2.asmc.asean.org/regional-haze-situation/", description: "Daily regional haze report" },
+  { name: "Global Forest Watch / UMD", url: "https://www.globalforestwatch.org", description: "Annual tree-cover loss, 2001–2025" },
+  { name: "KPDN / DOSM PriceCatcher", url: "https://data.gov.my/data-catalogue/pricecatcher", description: "Food prices by state and exact pack size; CC BY 4.0" },
 ];
 
 const GITHUB_URL = "https://github.com/atzr95/pantaulah";
@@ -34,7 +40,7 @@ export default function AboutPage() {
           <div>
             <Link
               href="/"
-              className="text-xs tracking-[0.12em] text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
+              className="text-xs tracking-[0.08em] text-[var(--color-text-dim)] hover:text-[var(--color-cyan)] transition-colors"
             >
               PANTAULAH
             </Link>
@@ -44,7 +50,7 @@ export default function AboutPage() {
           </div>
           <Link
             href="/"
-            className="text-xs tracking-[0.08em] px-3 py-1.5 border rounded text-[var(--color-text-muted)] border-[var(--color-border-mid)] hover:border-[var(--color-cyan)] hover:text-[var(--color-cyan)] transition-all"
+            className="inline-flex items-center min-h-11 lg:min-h-9 text-xs tracking-[0.08em] px-3 border rounded-md text-[var(--color-cyan)] border-[var(--color-border-mid)] hover:border-[var(--color-cyan)] hover:bg-[var(--color-cyan-soft)] transition-colors"
           >
             <span className="sm:hidden">DASHBOARD</span>
             <span className="hidden sm:inline">BACK TO DASHBOARD</span>
@@ -55,7 +61,7 @@ export default function AboutPage() {
       <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-12">
         {/* Project description */}
         <section>
-          <h2 className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-4">
+          <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-4">
             PROJECT
           </h2>
           <p className="break-words text-sm leading-7 text-[var(--color-text-muted)]">
@@ -74,15 +80,15 @@ export default function AboutPage() {
 
         {/* Tech stack */}
         <section>
-          <h2 className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-4">
+          <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-4">
             TECH STACK
           </h2>
           <div className="flex flex-wrap gap-2">
-            {["Next.js 16", "React 19", "TypeScript", "Tailwind CSS", "D3-Geo", "Recharts", "TopoJSON"].map((tech) => (
+            {["Next.js 16", "React 19", "TypeScript", "Tailwind CSS", "D3-Geo", "TopoJSON"].map((tech) => (
               <span
                 key={tech}
                 className="text-xs tracking-wider px-2.5 py-1 rounded-sm border text-[var(--color-text-muted)]"
-                style={{ borderColor: "rgba(0, 212, 255, 0.15)", background: "rgba(0, 212, 255, 0.04)" }}
+                style={{ borderColor: "var(--color-border)", background: "rgba(var(--color-cyan-rgb), 0.04)" }}
               >
                 {tech}
               </span>
@@ -92,7 +98,7 @@ export default function AboutPage() {
 
         {/* Data sources */}
         <section>
-          <h2 className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-4">
+          <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-4">
             DATA SOURCES
           </h2>
           <div className="space-y-2">
@@ -119,7 +125,7 @@ export default function AboutPage() {
 
         {/* Data freshness */}
         <section>
-          <h2 className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-4">
+          <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-4">
             DATA FRESHNESS
           </h2>
           <p className="break-words text-sm leading-7 text-[var(--color-text-muted)]">
@@ -135,7 +141,7 @@ export default function AboutPage() {
 
         {/* Contribute */}
         <section>
-          <h2 className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-4">
+          <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-4">
             CONTRIBUTE
           </h2>
           <p className="mb-4 break-words text-sm leading-7 text-[var(--color-text-muted)]">
@@ -146,7 +152,7 @@ export default function AboutPage() {
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs tracking-[0.08em] px-4 py-2 rounded-sm border text-[var(--color-cyan)] border-[var(--color-cyan)] hover:bg-[rgba(0,212,255,0.1)] transition-all"
+              className="inline-flex items-center min-h-11 lg:min-h-9 text-xs tracking-[0.08em] px-4 rounded-md border text-[var(--color-cyan)] border-[var(--color-border-mid)] hover:border-[var(--color-cyan)] hover:bg-[var(--color-cyan-soft)] transition-colors"
             >
               VIEW ON GITHUB
             </a>
@@ -154,7 +160,7 @@ export default function AboutPage() {
               href={`${GITHUB_URL}/issues/new`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs tracking-[0.08em] px-4 py-2 rounded-sm border text-[var(--color-text-muted)] border-[var(--color-border-mid)] hover:border-[var(--color-cyan)] hover:text-[var(--color-cyan)] transition-all"
+              className="inline-flex items-center min-h-11 lg:min-h-9 text-xs tracking-[0.08em] px-4 rounded-md border text-[var(--color-text-muted)] border-[var(--color-border-mid)] hover:border-[var(--color-cyan)] hover:text-[var(--color-cyan)] hover:bg-[var(--color-cyan-soft)] transition-colors"
             >
               REPORT ISSUE
             </a>
@@ -163,7 +169,7 @@ export default function AboutPage() {
 
         {/* License */}
         <section className="pb-10">
-          <h2 className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-4">
+          <h2 className="text-xs tracking-[0.08em] text-[var(--color-cyan)] mb-4">
             LICENSE
           </h2>
           <p className="text-sm text-[var(--color-text-muted)]">

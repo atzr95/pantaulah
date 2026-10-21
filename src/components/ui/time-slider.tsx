@@ -97,7 +97,7 @@ export default function TimeSlider({
     if (!labelRowRef.current || dataYears.length <= 1) { setLabelStep(1); return; }
     const observe = () => {
       const width = labelRowRef.current?.offsetWidth ?? 0;
-      // ~36px per 4-digit year label at 10px font + tracking
+      // ~36px per 4-digit year label at 12px font + tracking
       const fits = Math.max(1, Math.floor(width / 36));
       const step = Math.ceil(dataYears.length / fits);
       setLabelStep(step);
@@ -129,10 +129,7 @@ export default function TimeSlider({
       {/* Mobile: selected year display */}
       <div className="flex lg:hidden items-center justify-between mb-0.5">
         <span className="text-xs tracking-wider text-[var(--color-text-dim)]">YEAR</span>
-        <span
-          className="text-xs font-bold tracking-[0.08em] text-[var(--color-cyan)]"
-          style={{ textShadow: "0 0 8px rgba(0, 212, 255, 0.3)" }}
-        >
+        <span className="text-xs font-bold tracking-[0.08em] text-[var(--color-cyan)]">
           {displayYear}
         </span>
       </div>
@@ -147,7 +144,7 @@ export default function TimeSlider({
           <div
             className="absolute inset-x-0 h-1 pointer-events-none"
             style={{
-              background: `linear-gradient(to right, rgba(0,212,255,0.4) ${pct}%, rgba(0,212,255,0.1) ${pct}%)`,
+              background: `linear-gradient(to right, rgba(var(--color-cyan-rgb), 0.4) ${pct}%, rgba(var(--color-cyan-rgb), 0.1) ${pct}%)`,
               borderRadius: 2,
             }}
           />
@@ -167,8 +164,7 @@ export default function TimeSlider({
               width: 14px;
               height: 14px;
               border-radius: 50%;
-              background: #00d4ff;
-              box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+              background: var(--color-cyan);
               cursor: pointer;
               border: 2px solid var(--color-bg);
             }
@@ -176,8 +172,7 @@ export default function TimeSlider({
               width: 14px;
               height: 14px;
               border-radius: 50%;
-              background: #00d4ff;
-              box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+              background: var(--color-cyan);
               cursor: pointer;
               border: 2px solid var(--color-bg);
             }
@@ -223,9 +218,8 @@ export default function TimeSlider({
                     className="absolute -translate-x-1/2 text-xs tracking-wider transition-all cursor-pointer px-1.5 py-1 -top-1"
                     style={{
                       left: `${leftPct}%`,
-                      color: isSelected ? "#00d4ff" : "var(--color-text-dim)",
+                      color: isSelected ? "var(--color-cyan)" : "var(--color-text-dim)",
                       fontWeight: isSelected ? 700 : 400,
-                      textShadow: isSelected ? "0 0 8px rgba(0, 212, 255, 0.3)" : "none",
                     }}
                   >
                     {y}

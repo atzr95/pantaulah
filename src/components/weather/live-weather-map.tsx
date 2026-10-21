@@ -47,7 +47,7 @@ function getLiveTempFill(temp: number | undefined): string {
   if (temp >= 35) return "rgba(239, 68, 68, 0.5)";
   if (temp >= 33) return "rgba(255, 149, 0, 0.45)";
   if (temp >= 31) return "rgba(255, 200, 50, 0.35)";
-  if (temp >= 28) return "rgba(0, 212, 255, 0.35)";
+  if (temp >= 28) return "rgba(var(--color-cyan-rgb), 0.35)";
   if (temp >= 25) return "rgba(0, 180, 230, 0.25)";
   return "rgba(100, 200, 255, 0.2)";
 }
@@ -57,7 +57,7 @@ function getLiveTempStroke(temp: number | undefined): string {
   if (temp >= 35) return "rgba(239, 68, 68, 0.7)";
   if (temp >= 33) return "rgba(255, 149, 0, 0.6)";
   if (temp >= 31) return "rgba(255, 200, 50, 0.5)";
-  if (temp >= 28) return "rgba(0, 212, 255, 0.5)";
+  if (temp >= 28) return "rgba(var(--color-cyan-rgb), 0.5)";
   return "rgba(0, 180, 230, 0.4)";
 }
 
@@ -126,24 +126,21 @@ export default function LiveWeatherMap({
               d={pathGen(feat as GeoPermissibleObjects) || ""}
               fill={
                 isSelected
-                  ? "rgba(0, 212, 255, 0.35)"
+                  ? "rgba(var(--color-cyan-rgb), 0.35)"
                   : isHovered
-                    ? "rgba(0, 212, 255, 0.3)"
+                    ? "rgba(var(--color-cyan-rgb), 0.3)"
                     : getLiveTempFill(temp)
               }
               stroke={
                 isSelected
-                  ? "#00d4ff"
+                  ? "var(--color-cyan)"
                   : isHovered
-                    ? "rgba(0, 212, 255, 0.8)"
+                    ? "rgba(var(--color-cyan-rgb), 0.8)"
                     : getLiveTempStroke(temp)
               }
               strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 1}
               className="transition-all duration-300 cursor-pointer outline-none"
-              style={{
-                outline: "none",
-                ...(isSelected ? { filter: "drop-shadow(0 0 8px rgba(0, 212, 255, 0.3))" } : {}),
-              }}
+              style={{ outline: "none" }}
               onClick={() => onStateSelect(isSelected ? null : name)}
               onMouseMove={(e) => handleMouseMove(e, name)}
               onMouseLeave={() => setHoveredState(null)}
@@ -218,7 +215,7 @@ export default function LiveWeatherMap({
             style={{
               left: tooltipPos.x + 12, top: tooltipPos.y - 10,
               background: "rgba(13, 24, 30, 0.98)",
-              border: "1px solid rgba(0, 212, 255, 0.3)",
+              border: "1px solid var(--color-border-mid)",
               borderRadius: 4, color: "#e2e8f0",
               fontFamily: "var(--font-jetbrains)", letterSpacing: "0.05em", minWidth: 180,
             }}
@@ -262,11 +259,11 @@ export default function LiveWeatherMap({
 
       {/* Legend — desktop */}
       <div className="absolute bottom-5 left-5 text-xs text-[var(--color-text-muted)] space-y-1.5 hidden lg:block">
-        <div className="tracking-[0.08em] mb-2" style={{ color: "rgba(0, 212, 255, 0.75)" }}>LIVE TEMPERATURE</div>
+        <div className="tracking-[0.08em] mb-2" style={{ color: "rgba(var(--color-cyan-rgb), 0.75)" }}>LIVE TEMPERATURE</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(239, 68, 68, 0.5)" }} />{"\u2265"} 35°C</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(255, 149, 0, 0.45)" }} />33–34°C</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(255, 200, 50, 0.35)" }} />31–32°C</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(0, 212, 255, 0.35)" }} />28–30°C</div>
+        <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(var(--color-cyan-rgb), 0.35)" }} />28–30°C</div>
         <div className="flex items-center gap-2"><div className="w-4 h-2.5 rounded-sm" style={{ background: "rgba(0, 180, 230, 0.25)" }} />{"\u2264"} 27°C</div>
         <div className="mt-2 pt-2 border-t border-[rgba(255,255,255,0.06)]">
           <div className="flex items-center gap-1.5">

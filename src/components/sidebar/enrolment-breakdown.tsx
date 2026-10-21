@@ -8,7 +8,7 @@ interface EnrolmentBreakdownProps {
 }
 
 const LEVEL_CONFIG = [
-  { key: "primary" as const, label: "Primary", color: "rgba(0, 212, 255, 0.8)", desc: "Standard 1 to Standard 6 (ages 7-12). Government and government-aided primary schools." },
+  { key: "primary" as const, label: "Primary", color: "rgba(var(--color-cyan-rgb), 0.8)", desc: "Standard 1 to Standard 6 (ages 7-12). Government and government-aided primary schools." },
   { key: "secondary" as const, label: "Secondary", color: "rgba(180, 130, 255, 0.8)", desc: "Form 1 to Form 5 (ages 13-17). Includes lower and upper secondary education." },
 ];
 

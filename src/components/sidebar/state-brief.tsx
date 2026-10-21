@@ -11,6 +11,7 @@ import GenerationByFuel from "./generation-by-fuel";
 import RidershipCard from "./ridership-card";
 import StateRanking from "./state-ranking";
 import CCTVViewer from "./cctv-viewer";
+import { SidePanel, PanelHeader, PeekHeader } from "@/components/ui/side-panel";
 import type { CacheData, SparklinePoint } from "@/lib/data/types";
 import {
   formatPopulationCompact,
@@ -166,22 +167,12 @@ export function StateBriefPeek({
   const { displayName, flagSrc } = useStateBriefData(data, selectedState, selectedYear);
 
   return (
-    <div className="flex items-center gap-3">
-      <img
-        src={flagSrc}
-        alt={`${displayName} flag`}
-        className="w-7 h-4.5 object-cover rounded-sm shrink-0"
-        style={{ border: "1px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.08)" }}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-bold text-[var(--color-text-bright)] tracking-wider truncate">
-          {displayName}
-        </div>
-        <div className="text-xs tracking-[0.06em] text-[var(--color-text-dim)]">
-          {selectedState ? "STATE BRIEF" : "NATIONAL"} / {selectedCategory.toUpperCase()}
-        </div>
-      </div>
-    </div>
+    <PeekHeader
+      eyebrow={selectedState ? "STATE BRIEF" : "NATIONAL"}
+      context={selectedCategory.toUpperCase()}
+      title={displayName}
+      flagSrc={flagSrc}
+    />
   );
 }
 
@@ -195,8 +186,14 @@ export function StateBriefContent({
   onStateSelect,
 }: StateBriefProps) {
   const { years, populationResolved, nationalYears } = useStateBriefData(data, selectedState, selectedYear);
-  const categoryMetrics = CATEGORY_METRICS[selectedCategory] ?? [];
-  const activeConfig = categoryMetrics.find((m) => m.key === selectedMetric);
+  const allMetrics = (CATEGORY_METRICS[selectedCategory] ?? []).filter((metric) => metric.key !== "foodPrice");
+  // National view drops state-only metrics (no Malaysia figure in any year) instead of showing "—".
+  const categoryMetrics = selectedState
+    ? allMetrics
+    : allMetrics.filter((metric) => getMetricResolved(years, metric.key, selectedYear));
+  // From the full list, so a state-only metric still gets its state ranking in national view.
+  const activeConfig = allMetrics.find((m) => m.key === selectedMetric);
+  const activeStateOnly = activeConfig && !categoryMetrics.includes(activeConfig);
 
   const gdpPanel = useMemo(
     () =>
@@ -313,8 +310,14 @@ export function StateBriefContent({
       {/* Metrics Grid - dynamic based on category */}
       <div
         className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-px overflow-hidden"
-        style={{ background: "rgba(0, 212, 255, 0.05)", padding: 1 }}
+        style={{ background: "var(--color-border-faint)", padding: 1 }}
       >
+        {activeStateOnly && (
+          <div className="col-span-2 min-w-0 bg-[var(--color-bg-panel)] px-4 py-3 text-xs tracking-[0.04em] text-[var(--color-text-muted)]">
+            {activeConfig.label} — state figures only, see the ranking below.
+          </div>
+        )}
+
         {/* Active metric leads as a full-width hero; the rest follow in pairs */}
         {[...categoryMetrics].sort((a, b) => Number(b.key === selectedMetric) - Number(a.key === selectedMetric)).map((config) => {
           const resolved = getMetricResolved(years, config.key, selectedYear);
@@ -329,7 +332,7 @@ export function StateBriefContent({
               change={m?.change != null ? formatChange(m.change, getChangeSuffix(config.key), getChangeUnit(config.key)) : undefined}
               isAlert={config.colorHue === "amber" && (m?.change ?? 0) > 5}
               sparklineData={spark}
-              sparklineColor={config.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(0, 212, 255, 0.4)"}
+              sparklineColor={config.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(var(--color-cyan-rgb), 0.4)"}
               description={config.description}
               vintage={resolved ? formatVintage(resolved.year) : undefined}
               rank={selectedState && resolved ? getStateRank(data, config.key, resolved.year, selectedState) : undefined}
@@ -451,7 +454,7 @@ export function StateBriefContent({
           </div>
           <div
             className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-px overflow-hidden"
-            style={{ background: "rgba(0, 212, 255, 0.05)", padding: 1 }}
+            style={{ background: "var(--color-border-faint)", padding: 1 }}
           >
             {NATIONAL_ECONOMY_INDICATORS.map((ind) => {
               const resolved = getMetricResolved(nationalYears, ind.key, selectedYear);
@@ -465,7 +468,7 @@ export function StateBriefContent({
                   change={m?.change != null ? formatChange(m.change, ind.changeSuffix, getChangeUnit(ind.key)) : undefined}
                   isAlert={ind.colorHue === "amber" && (m?.change ?? 0) > 5}
                   sparklineData={spark}
-                  sparklineColor={ind.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(0, 212, 255, 0.4)"}
+                  sparklineColor={ind.colorHue === "amber" ? "rgba(255, 149, 0, 0.4)" : "rgba(var(--color-cyan-rgb), 0.4)"}
                   description={ind.description}
                   vintage={resolved ? formatVintage(resolved.year) : undefined}
                 />
@@ -498,34 +501,14 @@ export default function StateBrief({
   const categoryLabel = selectedCategory.toUpperCase();
 
   return (
-    <div
-      className="w-[400px] hidden lg:flex flex-col overflow-y-auto shrink-0"
-      style={{
-        background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg) 100%)",
-        borderLeft: "1px solid var(--color-border-mid)",
-      }}
-    >
-      {/* Header */}
-      <div className="px-5 py-4 border-b border-[var(--color-border)]">
-        <div className="text-xs tracking-[0.12em] text-[var(--color-cyan)] mb-1">
-          {selectedState ? "STATE INTELLIGENCE BRIEF" : "NATIONAL OVERVIEW"}
-          <span className="text-[var(--color-text-dim)] ml-2">/ {categoryLabel}</span>
-        </div>
-        <div className="text-[22px] font-bold text-[var(--color-text-bright)] tracking-[0.02em] flex items-center gap-3">
-          <img
-            src={flagSrc}
-            alt={`${displayName} flag`}
-            className="w-8 h-5 object-cover rounded-sm"
-            style={{ border: "1px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.08)" }}
-          />
-          {displayName}
-        </div>
-        {subtitle && (
-          <div className="text-xs text-[var(--color-text-dim)] mt-0.5">
-            {subtitle}
-          </div>
-        )}
-      </div>
+    <SidePanel label="State brief">
+      <PanelHeader
+        eyebrow={selectedState ? "STATE INTELLIGENCE BRIEF" : "NATIONAL OVERVIEW"}
+        context={categoryLabel}
+        title={displayName}
+        flagSrc={flagSrc}
+        subtitle={subtitle}
+      />
 
       <StateBriefContent
         data={data}
@@ -535,6 +518,6 @@ export default function StateBrief({
         selectedMetric={selectedMetric}
         onStateSelect={onStateSelect}
       />
-    </div>
+    </SidePanel>
   );
 }

@@ -22,7 +22,7 @@ export const ContextLayer = memo(function ContextLayer({ pathGen }: { pathGen: P
   const grid = useMemo(() => pathGen(GRATICULE) ?? "", [pathGen]);
   return (
     <g style={{ pointerEvents: "none" }}>
-      <path d={grid} fill="none" stroke="rgba(39, 215, 238, 0.07)" strokeWidth={1} />
+      <path d={grid} fill="none" stroke="rgba(var(--color-cyan-rgb), 0.07)" strokeWidth={1} />
       <path d={land} fill="rgba(128, 148, 159, 0.09)" stroke="rgba(128, 148, 159, 0.3)" strokeWidth={0.8} strokeLinejoin="round" />
     </g>
   );
@@ -56,10 +56,12 @@ interface LabelLayerProps {
   selectedState: string | null;
   hoveredState: string | null;
   fontSize: number;
+  /** Value maps (e.g. prices): show these instead of names. Tiny territories (2–3 letter labels) are skipped. */
+  values?: Record<string, string>;
 }
 
 /** State names at each state's centroid. Dim by default, cyan when hovered or selected. */
-export const LabelLayer = memo(function LabelLayer({ features, pathGen, selectedState, hoveredState, fontSize }: LabelLayerProps) {
+export const LabelLayer = memo(function LabelLayer({ features, pathGen, selectedState, hoveredState, fontSize, values }: LabelLayerProps) {
   const labels = useMemo(
     () =>
       features.map((f) => {
@@ -80,16 +82,18 @@ export const LabelLayer = memo(function LabelLayer({ features, pathGen, selected
     >
       {labels.map((l) => {
         const on = l.name === selectedState || l.name === hoveredState;
+        const value = values?.[l.name];
+        if (values && (value == null || l.text.length <= 3)) return null;
         return (
           <text
             key={l.name}
             x={l.x}
             y={l.y}
-            fill={on ? "#27d7ee" : "rgba(233, 241, 245, 0.55)"}
+            fill={on ? "var(--color-cyan)" : value ? "var(--color-text)" : "rgba(233, 241, 245, 0.55)"}
             fontWeight={on ? 700 : 500}
             style={{ paintOrder: "stroke", stroke: "rgba(7, 16, 21, 0.85)", strokeWidth: 3 }}
           >
-            {l.text}
+            {value ?? l.text}
           </text>
         );
       })}
@@ -124,7 +128,7 @@ export const ReticleLayer = memo(function ReticleLayer({ features, pathGen, sele
     `M${x1 - L},${y1} L${x1},${y1} L${x1},${y1 - L}`,
   ].join(" ");
   return (
-    <g style={{ pointerEvents: "none" }} stroke="#27d7ee" fill="none">
+    <g style={{ pointerEvents: "none" }} stroke="var(--color-cyan)" fill="none">
       <path d={corners} strokeWidth={1.5} strokeOpacity={0.9} />
       <circle
         cx={cx}

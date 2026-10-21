@@ -52,7 +52,7 @@ export default function NewsTicker() {
       className="h-11 flex items-center px-5 gap-3 shrink-0 relative z-20"
       style={{
         background: "linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg-card) 100%)",
-        borderTop: "1px solid rgba(0, 212, 255, 0.1)",
+        borderTop: "1px solid var(--color-border)",
       }}
     >
       <div className="text-xs tracking-[0.08em] text-[var(--color-cyan)] whitespace-nowrap shrink-0 pr-3 border-r border-[var(--color-border)]">
@@ -68,7 +68,7 @@ export default function NewsTicker() {
                 <span className="text-xs text-[var(--color-text-muted)] ml-1">
                   [{h.source}]
                 </span>
-                <span className="text-[rgba(0,212,255,0.3)] mx-5">{"///"}</span>
+                <span className="text-[var(--color-border-bright)] mx-5">{"///"}</span>
               </span>
             ))}
           </div>
@@ -107,7 +107,7 @@ export default function NewsTicker() {
               className="absolute bottom-full right-0 mb-2 hidden group-hover/rates:block z-50"
               style={{
                 background: "linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-card) 100%)",
-                border: "1px solid rgba(0, 212, 255, 0.15)",
+                border: "1px solid var(--color-border)",
                 borderRadius: "4px",
                 padding: "8px 12px",
                 minWidth: "160px",
@@ -136,7 +136,7 @@ export default function NewsTicker() {
               className="absolute bottom-full right-0 mb-2 hidden group-hover/gold:block z-50"
               style={{
                 background: "linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-card) 100%)",
-                border: "1px solid rgba(0, 212, 255, 0.15)",
+                border: "1px solid var(--color-border)",
                 borderRadius: "4px",
                 padding: "8px 12px",
                 minWidth: "160px",
@@ -173,7 +173,7 @@ export default function NewsTicker() {
               className="absolute bottom-full right-0 mb-2 hidden group-hover/fuel:block z-50"
               style={{
                 background: "linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-card) 100%)",
-                border: "1px solid rgba(0, 212, 255, 0.15)",
+                border: "1px solid var(--color-border)",
                 borderRadius: "4px",
                 padding: "8px 12px",
                 minWidth: "140px",

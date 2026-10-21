@@ -49,7 +49,7 @@ const CACHE_TTL_SECONDS = 120; // 2 minutes
 
 export async function GET() {
   const data = await cachedJson<WeatherData>(
-    "weather:data:v2",
+    "weather:data:v3",
     CACHE_TTL_SECONDS,
     async () => {
       // Fetch all endpoints in parallel; each settles independently

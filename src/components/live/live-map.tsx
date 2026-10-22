@@ -64,6 +64,8 @@ interface Props {
   rivers?: RiverStation[];
   shelters?: Shelter[];
   fires?: FireDetection[];
+  /** Hide fires observed before this time (ms). A filter, so the days slider never resends ~40k points. */
+  fireCutoff?: number;
   treeYear?: number;
   followKey?: string | null;
 }
@@ -286,6 +288,8 @@ export default function LiveMap(p: Props) {
         maxZoom: 19, // Esri imagery goes this deep
         maxPitch: 60, // steeper pitch = many more tiles per frame
         maxBounds: MALAYSIA_BOUNDS,
+        // 3× phones draw 2.25× the pixels of 2× for little visible gain; on a weak GPU that halved the frame rate
+        pixelRatio: Math.min(window.devicePixelRatio, 2),
         // Open-Meteo terms require visible credit for its forecast and CAMS air-quality data
         attributionControl: { compact: true, customAttribution: '<a href="https://open-meteo.com">Open-Meteo</a> · <a href="https://atmosphere.copernicus.eu">CAMS</a> · <a href="https://routing.openstreetmap.de/about.html">Road paths: FOSSGIS / OSRM</a> · <a href="https://www.openstreetmap.org/fixthemap">Fix the map</a>' },
       });
@@ -551,7 +555,12 @@ export default function LiveMap(p: Props) {
 
   useEffect(() => { const m = ready(); if (m) setData(m, "rivers", toFC(p.rivers ?? [], (r) => [r.lon, r.lat], (r) => ({ status: r.status, __data: JSON.stringify(r) }))); }, [p.rivers, loaded]);
   useEffect(() => { const m = ready(); if (m) setData(m, "shelters", toFC(p.shelters ?? [], (s) => [s.lon, s.lat], (s) => ({ people: s.people, __data: JSON.stringify(s) }))); }, [p.shelters, loaded]);
-  useEffect(() => { const m = ready(); if (m) setData(m, "fires", toFC(p.fires ?? [], (f) => [f.lon, f.lat], (f) => ({ __data: JSON.stringify(f) }))); }, [p.fires, loaded]);
+  // Fire fields are all flat, so they go in as plain properties (no JSON string for ~40k points).
+  useEffect(() => { const m = ready(); if (m) setData(m, "fires", toFC(p.fires ?? [], (f) => [f.lon, f.lat], (f) => ({ ...f, time: Date.parse(f.observedAt) }))); }, [p.fires, loaded]);
+  useEffect(() => {
+    const m = ready(); if (!m) return;
+    for (const id of ["fires-heat", "fires"]) m.setFilter(id, [">=", ["get", "time"], p.fireCutoff ?? 0]);
+  }, [p.fireCutoff, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Use one displayed position for the body, icon, selection, follow camera and trail.
   useEffect(() => {

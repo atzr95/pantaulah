@@ -2,14 +2,18 @@ export type Point = [number, number];
 const M = 111_320;
 const X = M * Math.cos(4 * Math.PI / 180);
 const key = (p: Point) => `${p[0].toFixed(6)},${p[1].toFixed(6)}`;
+/** Grid cell size in degrees (~220 m): snapping checks only the cells near a point. */
+const CELL = 0.002;
+const cellKey = (x: number, y: number) => x * 100_000 + y;
 
 export interface NetworkLine { coordinates: number[][]; oneway: -1 | 0 | 1 }
 interface Segment { a: Point; b: Point; length: number; bearing: number; oneway: -1 | 0 | 1 }
-export interface LineNetwork { segments: Segment[]; joins: Map<string, number[]> }
+/** `grid` maps a cell to the segments whose bounding box touches it. */
+export interface LineNetwork { segments: Segment[]; joins: Map<string, number[]>; grid: Map<number, number[]> }
 export interface LineMatch { lon: number; lat: number; bearing: number; segment: number; t: number; reverse: boolean }
 
 export function lineNetwork(lines: (number[][] | NetworkLine)[]): LineNetwork {
-  const segments: Segment[] = [], joins = new Map<string, number[]>();
+  const segments: Segment[] = [], grid = new Map<number, number[]>();
   for (const input of lines) {
     const line = Array.isArray(input) ? input : input.coordinates;
     const oneway = Array.isArray(input) ? 0 : input.oneway;
@@ -20,13 +24,31 @@ export function lineNetwork(lines: (number[][] | NetworkLine)[]): LineNetwork {
       if (!Number.isFinite(length) || length < 0.01) continue;
       const id = segments.length;
       segments.push({ a, b, length, bearing: (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360, oneway });
-      for (const p of [a, b]) {
-        const k = key(p), ids = joins.get(k) ?? [];
-        ids.push(id); joins.set(k, ids);
+      const x1 = Math.floor(Math.max(a[0], b[0]) / CELL), y1 = Math.floor(Math.max(a[1], b[1]) / CELL);
+      for (let x = Math.floor(Math.min(a[0], b[0]) / CELL); x <= x1; x++) {
+        for (let y = Math.floor(Math.min(a[1], b[1]) / CELL); y <= y1; y++) {
+          const ids = grid.get(cellKey(x, y));
+          if (ids) ids.push(id); else grid.set(cellKey(x, y), [id]);
+        }
       }
     }
   }
-  return { segments, joins };
+  // Built on first use: only path finding and train cars read joins, and roads are rebuilt on every map move.
+  let joins: Map<string, number[]> | undefined;
+  return {
+    segments, grid,
+    get joins() {
+      if (joins) return joins;
+      joins = new Map();
+      segments.forEach((s, id) => {
+        for (const p of [s.a, s.b]) {
+          const k = key(p), ids = joins!.get(k) ?? [];
+          ids.push(id); joins!.set(k, ids);
+        }
+      });
+      return joins;
+    },
+  };
 }
 
 const angle = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
@@ -81,19 +103,27 @@ export function pathOnNetwork(network: LineNetwork, from: Point, to: Point, maxS
 export function snapToNetwork(network: LineNetwork, lon: number, lat: number, maxM: number, heading?: number): LineMatch | null {
   if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
   let best = Infinity, match: LineMatch | null = null;
-  network.segments.forEach((s, segment) => {
-    const dx = (s.b[0] - s.a[0]) * X, dy = (s.b[1] - s.a[1]) * M;
-    const t = Math.max(0, Math.min(1, (((lon - s.a[0]) * X * dx) + ((lat - s.a[1]) * M * dy)) / (s.length * s.length)));
-    const x = s.a[0] + (s.b[0] - s.a[0]) * t, y = s.a[1] + (s.b[1] - s.a[1]) * t;
-    const distance = Math.hypot((lon - x) * X, (lat - y) * M);
-    if (distance > maxM) return;
-    const reverse = s.oneway === -1 || (s.oneway !== 1 && heading !== undefined && angle(heading, s.bearing) > 90);
-    const bearing = (s.bearing + (reverse ? 180 : 0)) % 360;
-    const turn = heading === undefined ? 0 : angle(heading, bearing);
-    if (turn > 60) return;
-    const score = distance + turn * 0.5;
-    if (score < best) { best = score; match = { lon: x, lat: y, bearing, segment, t, reverse }; }
-  });
+  // Any segment within maxM touches a cell inside this box (distances use the same constant X and M).
+  const x1 = Math.floor((lon + maxM / X) / CELL), y1 = Math.floor((lat + maxM / M) / CELL);
+  for (let cx = Math.floor((lon - maxM / X) / CELL); cx <= x1; cx++) {
+    for (let cy = Math.floor((lat - maxM / M) / CELL); cy <= y1; cy++) {
+      for (const segment of network.grid.get(cellKey(cx, cy)) ?? []) {
+        const s = network.segments[segment];
+        const dx = (s.b[0] - s.a[0]) * X, dy = (s.b[1] - s.a[1]) * M;
+        const t = Math.max(0, Math.min(1, (((lon - s.a[0]) * X * dx) + ((lat - s.a[1]) * M * dy)) / (s.length * s.length)));
+        const x = s.a[0] + (s.b[0] - s.a[0]) * t, y = s.a[1] + (s.b[1] - s.a[1]) * t;
+        const distance = Math.hypot((lon - x) * X, (lat - y) * M);
+        if (distance > maxM) continue;
+        const reverse = s.oneway === -1 || (s.oneway !== 1 && heading !== undefined && angle(heading, s.bearing) > 90);
+        const bearing = (s.bearing + (reverse ? 180 : 0)) % 360;
+        const turn = heading === undefined ? 0 : angle(heading, bearing);
+        if (turn > 60) continue;
+        const score = distance + turn * 0.5;
+        // Ties go to the lower segment id, as the old full scan did, whatever order the cells come in.
+        if (score < best || (score === best && segment < match!.segment)) { best = score; match = { lon: x, lat: y, bearing, segment, t, reverse }; }
+      }
+    }
+  }
   return match;
 }
 

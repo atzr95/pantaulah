@@ -14,6 +14,13 @@ describe("line matching", () => {
     expect(snapToNetwork(roads, 101.001, 3.00005, 40, 0)!.lon).toBe(101.001);
   });
 
+  it("finds a line that ends in the next grid cell", () => {
+    // The line ends just before the 101.002 cell edge; the point is 22 m past it, in the next cell.
+    const short = lineNetwork([[[101, 3], [101.0019, 3]]]);
+    expect(snapToNetwork(short, 101.0021, 3.0001, 40)).toMatchObject({ lon: 101.0019, lat: 3 });
+    expect(snapToNetwork(short, 101.0021, 3.0001, 10)).toBeNull();
+  });
+
   it("leaves distant or invalid positions unmatched", () => {
     expect(snapToNetwork(roads, 101.005, 3.005, 40)).toBeNull();
     expect(snapToNetwork(roads, NaN, 3, 40)).toBeNull();

@@ -49,8 +49,9 @@ export default function LiveView() {
   const riverData = environment.rivers.data;
   const recentRivers = useMemo(() => (riverData ?? []).filter((r) => now - Date.parse(r.observedAt) <= 3_600_000), [riverData, now]);
   const { data: fireData, fetchedAt: firesFetchedAt } = environment.fires;
-  // Age from fetch time, not the 30s clock: a new array would re-cluster every fire point.
-  const visibleFires = useMemo(() => (fireData ?? []).filter((f) => Date.parse(firesFetchedAt ?? "") - Date.parse(f.observedAt) <= fireDays * 86_400_000), [fireData, firesFetchedAt, fireDays]);
+  // Age from fetch time, not the 30s clock, so the cutoff only moves with the slider or new data.
+  const fireCutoff = Date.parse(firesFetchedAt ?? "") - fireDays * 86_400_000;
+  const visibleFireCount = useMemo(() => (fireData ?? []).filter((f) => Date.parse(f.observedAt) >= fireCutoff).length, [fireData, fireCutoff]);
 
   const flights = useFlights(layers.flights);
   const transit = useTransit(layers.transit);
@@ -197,12 +198,12 @@ export default function LiveView() {
         <LiveMap
           layers={layers} basemap={basemap} hour={hour} grid={grid} radar={radar} radarIndex={radarIndex}
           flights={flights} transit={transit} quakes={quakes} news={news} cctv={cctv} selection={selection} onSelect={onSelect}
-          rivers={recentRivers} shelters={environment.shelters.data ?? []} fires={visibleFires} treeYear={treeYear} onTreeLossLoading={setTreeLoading} followKey={layers.transit ? followKey : null}
+          rivers={recentRivers} shelters={environment.shelters.data ?? []} fires={fireData ?? undefined} fireCutoff={fireCutoff} treeYear={treeYear} onTreeLossLoading={setTreeLoading} followKey={layers.transit ? followKey : null}
         />
 
         {/* Top-left: basemap + time controls */}
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-2 max-w-[calc(100%-1.5rem)]">
-          <div className="flex gap-1 p-1 rounded w-max" style={{ background: "rgba(13,24,30,0.9)", backdropFilter: "blur(8px)" }}>
+          <div className="flex gap-1 p-1 rounded w-max" style={{ background: HUD_BG }}>
             <PillButton active={basemap === "dark"} onClick={() => setBasemap("dark")}>DARK</PillButton>
             <PillButton active={basemap === "satellite"} onClick={() => setBasemap("satellite")}>SATELLITE</PillButton>
           </div>
@@ -218,7 +219,7 @@ export default function LiveView() {
           {layers.wind && <Hud><p className="text-[11px] text-[var(--color-text-muted)] max-w-[16rem]">WIND · white arrows: where wind and smoke go · bigger = stronger</p></Hud>}
           {layers.treeLoss && <Hud><label className="flex flex-wrap items-center gap-2 text-xs"><span>TREE LOSS · {treeYear}</span><input aria-label="Tree loss year" type="range" min="2001" max="2025" value={treeYear} onChange={(e) => setTreeYear(Number(e.target.value))} className="w-32 accent-[var(--color-cyan)]" /></label><p className="text-[11px] text-[var(--color-text-muted)]"><span className="text-[#e85a9c]">■ Pink: tree loss in {treeYear}</span>{treeLoading && <span role="status" className="text-[var(--color-amber)]"> · loading…</span>}<br />Annual estimate · not proof of illegal logging</p></Hud>}
           {layers.fires && <Hud><label className="flex flex-wrap items-center gap-2 text-xs"><span>FIRES · LAST {fireDays} DAYS</span><input aria-label="Fire detection days" type="range" min="1" max="7" value={fireDays} onChange={(e) => setFireDays(Number(e.target.value))} className="w-24 accent-[var(--color-cyan)]" /></label><p className="flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]"><span className="h-2 w-16 shrink-0 rounded" style={{ background: FIRE_HEAT_GRADIENT }} />Fewer → more detections · zoom in to tap one</p></Hud>}
-          {(Object.keys(environment) as (keyof typeof environment)[]).filter((key) => layers[key]).map((key) => <div key={key} role="status" className="text-xs bg-[var(--color-bg-panel)] px-2 py-1 rounded max-w-xs">{key.toUpperCase()}: {environment[key].error ?? (environment[key].data ? `${key === "fires" ? visibleFires.length : key === "rivers" ? recentRivers.length : environment[key].data.length} ${key === "fires" ? "regional detections" : "locations"}` : "Loading…")}</div>)}
+          {(Object.keys(environment) as (keyof typeof environment)[]).filter((key) => layers[key]).map((key) => <div key={key} role="status" className="text-xs bg-[var(--color-bg-panel)] px-2 py-1 rounded max-w-xs">{key.toUpperCase()}: {environment[key].error ?? (environment[key].data ? `${key === "fires" ? visibleFireCount : key === "rivers" ? recentRivers.length : environment[key].data.length} ${key === "fires" ? "regional detections" : "locations"}` : "Loading…")}</div>)}
         </div>
 
         {/* Bottom: live counters */}
@@ -258,10 +259,13 @@ export default function LiveView() {
 
 // ── Small UI bits ──
 
+// Solid, no backdrop blur: blurring the live map behind each panel on every frame cost weak GPUs about a third of their frame rate
+const HUD_BG = "rgba(13,24,30,0.94)";
+
 function Hud({ children }: { children: React.ReactNode }) {
   return (
     <div className="font-mono text-xs px-3 py-2 rounded border border-[var(--color-border-mid)] flex flex-col gap-1.5"
-      style={{ background: "rgba(13,24,30,0.9)", backdropFilter: "blur(8px)" }}>
+      style={{ background: HUD_BG }}>
       {children}
     </div>
   );

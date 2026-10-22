@@ -1,5 +1,11 @@
-import type { Map as MLMap } from "maplibre-gl";
+import { LngLat, type Map as MLMap } from "maplibre-gl";
 import { sampleWind, type LiveGrid } from "./grid-field";
+
+// Few brightness steps, so each frame strokes a few paths instead of one per particle
+const STYLES = Array.from({ length: 10 }, (_, i) => `rgba(255,255,255,${(0.4 + (0.55 * i) / 9).toFixed(3)})`);
+
+/** x/y: screen position (CSS px) of lon/lat, kept so each frame projects one point per particle. */
+type Particle = { lon: number; lat: number; age: number; x: number; y: number };
 
 /**
  * Wind particle animation drawn on a <canvas> stacked over a MapLibre map.
@@ -11,7 +17,7 @@ import { sampleWind, type LiveGrid } from "./grid-field";
  */
 export class WindParticles {
   private raf = 0;
-  private particles: { lon: number; lat: number; age: number }[] = [];
+  private particles: Particle[] = [];
   private hour = 0;
   private grid: LiveGrid | null = null;
   private moving = false;
@@ -74,11 +80,28 @@ export class WindParticles {
     const c = this.map.getCanvas();
     const area = parseFloat(c.style.width || "0") * parseFloat(c.style.height || "0");
     const n = Math.min(this.count, Math.max(200, Math.round(area / 900)));
-    this.particles = Array.from({ length: n }, () => ({
-      lon: b.getWest() + Math.random() * (b.getEast() - b.getWest()),
-      lat: b.getSouth() + Math.random() * (b.getNorth() - b.getSouth()),
-      age: Math.random() * 80,
-    }));
+    this.particles = Array.from({ length: n }, () => {
+      const p = { lon: 0, lat: 0, age: Math.random() * 80, x: 0, y: 0 };
+      this.respawn(p, b);
+      return p;
+    });
+  }
+
+  /** Move a particle to a random spot in view and record its screen position. */
+  private respawn(p: Particle, b: ReturnType<MLMap["getBounds"]>) {
+    p.lon = b.getWest() + Math.random() * (b.getEast() - b.getWest());
+    p.lat = b.getSouth() + Math.random() * (b.getNorth() - b.getSouth());
+    const s = this.screen(p.lon, p.lat);
+    p.x = s.x;
+    p.y = s.y;
+  }
+
+  /**
+   * Screen point at sea level. map.project also looks up the 3D terrain height, which with
+   * terrain on made each frame use the whole CPU; wind is a flat overlay, so skip it.
+   */
+  private screen(lon: number, lat: number) {
+    return this.map.transform.locationToScreenPoint(new LngLat(lon, lat));
   }
 
   private frame = () => {
@@ -100,29 +123,36 @@ export class WindParticles {
     const zoomScale = Math.pow(2, 5 - this.map.getZoom());
     const k = 0.00025 * zoomScale;
 
+    // Line ends [x0, y0, x1, y1, …] in canvas px, one list per brightness step
+    const lines: number[][] = STYLES.map(() => []);
     for (const p of this.particles) {
       const [u, v] = sampleWind(this.grid, this.hour, p.lon, p.lat);
       const speed = Math.hypot(u, v);
       const nlon = p.lon + u * k;
       const nlat = p.lat + v * k;
-      const a = this.map.project([p.lon, p.lat]);
-      const c = this.map.project([nlon, nlat]);
-      // White reads over satellite, smog and the fire glow; stronger wind is brighter
-      const alpha = Math.min(0.95, 0.4 + speed / 40);
-      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-      ctx.beginPath();
-      ctx.moveTo(a.x * dpr, a.y * dpr);
-      ctx.lineTo(c.x * dpr, c.y * dpr);
-      ctx.stroke();
+      const c = this.screen(nlon, nlat);
+      // White reads over satellite, smog and the fire glow; stronger wind is brighter (0.4 → 0.95 alpha)
+      lines[Math.round(Math.min(1, speed / 22) * (STYLES.length - 1))].push(p.x * dpr, p.y * dpr, c.x * dpr, c.y * dpr);
       p.lon = nlon;
       p.lat = nlat;
+      p.x = c.x;
+      p.y = c.y;
       p.age++;
       const out = nlon < b.getWest() || nlon > b.getEast() || nlat < b.getSouth() || nlat > b.getNorth();
       if (out || p.age > 90 || speed < 0.5) {
-        p.lon = b.getWest() + Math.random() * (b.getEast() - b.getWest());
-        p.lat = b.getSouth() + Math.random() * (b.getNorth() - b.getSouth());
+        this.respawn(p, b);
         p.age = 0;
       }
     }
+    lines.forEach((xy, i) => {
+      if (!xy.length) return;
+      ctx.strokeStyle = STYLES[i];
+      ctx.beginPath();
+      for (let j = 0; j < xy.length; j += 4) {
+        ctx.moveTo(xy[j], xy[j + 1]);
+        ctx.lineTo(xy[j + 2], xy[j + 3]);
+      }
+      ctx.stroke();
+    });
   };
 }

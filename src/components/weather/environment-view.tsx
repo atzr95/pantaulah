@@ -366,7 +366,8 @@ export default function EnvironmentView({
             cctv={EMPTY}
             rivers={layers.rivers ? rivers : EMPTY}
             shelters={layers.shelters ? shelters : EMPTY}
-            fires={layers.fires ? fires : EMPTY}
+            fires={layers.fires ? (fireData ?? EMPTY) : EMPTY}
+            fireCutoff={Date.parse(firesFetchedAt ?? "") - fireDays * 86_400_000}
             selection={selection}
             onSelect={onSelect}
           />

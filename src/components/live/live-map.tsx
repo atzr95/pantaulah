@@ -186,6 +186,9 @@ function selectionPoint(sel: Selection | null, flights: Flight[], transit: Trans
   }
 }
 
+/** 3× phones draw 2.25× the pixels of 2× for little visible gain; on a weak GPU that halved the frame rate. */
+const cappedPixelRatio = () => Math.min(window.devicePixelRatio, 2);
+
 /** Zoom below which vehicles are dots; at/above they become 3D boxes. */
 const VEHICLE_3D_MINZOOM = 11;
 
@@ -288,8 +291,7 @@ export default function LiveMap(p: Props) {
         maxZoom: 19, // Esri imagery goes this deep
         maxPitch: 60, // steeper pitch = many more tiles per frame
         maxBounds: MALAYSIA_BOUNDS,
-        // 3× phones draw 2.25× the pixels of 2× for little visible gain; on a weak GPU that halved the frame rate
-        pixelRatio: Math.min(window.devicePixelRatio, 2),
+        pixelRatio: cappedPixelRatio(),
         // Open-Meteo terms require visible credit for its forecast and CAMS air-quality data
         attributionControl: { compact: true, customAttribution: '<a href="https://open-meteo.com">Open-Meteo</a> · <a href="https://atmosphere.copernicus.eu">CAMS</a> · <a href="https://routing.openstreetmap.de/about.html">Road paths: FOSSGIS / OSRM</a> · <a href="https://www.openstreetmap.org/fixthemap">Fix the map</a>' },
       });
@@ -303,6 +305,18 @@ export default function LiveMap(p: Props) {
     const failTimer = setTimeout(() => { if (!map.loaded()) setFailed(true); }, 20_000);
     map.once("load", () => clearTimeout(failTimer));
     mapRef.current = map;
+    // A set pixelRatio stops MapLibre following the screen, so re-cap it when the density changes (browser zoom, another monitor)
+    let density: MediaQueryList;
+    const onDensity = () => {
+      // setPixelRatio resizes the map and stops camera moves, so only call it when the capped value changes
+      if (cappedPixelRatio() !== map.getPixelRatio()) map.setPixelRatio(cappedPixelRatio());
+      watchDensity();
+    };
+    const watchDensity = () => {
+      density = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      density.addEventListener("change", onDensity, { once: true });
+    };
+    watchDensity();
     if (process.env.NODE_ENV !== "production") (window as unknown as { __liveMap: MLMap }).__liveMap = map; // dev console access
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
 
@@ -524,6 +538,7 @@ export default function LiveMap(p: Props) {
       busRequest.current?.abort();
       clearInterval(terminatorTimer);
       clearTimeout(failTimer);
+      density.removeEventListener("change", onDensity);
       windRef.current?.destroy();
       map.remove();
       mapRef.current = null;

@@ -97,8 +97,8 @@ export class WindParticles {
   }
 
   /**
-   * Screen point at sea level. map.project also looks up the 3D terrain height, which with
-   * terrain on made each frame use the whole CPU; wind is a flat overlay, so skip it.
+   * Screen point without the 3D terrain height lookup. map.project does that lookup for each
+   * point, which with terrain on made each frame use the whole CPU; wind is a flat overlay.
    */
   private screen(lon: number, lat: number) {
     return this.map.transform.locationToScreenPoint(new LngLat(lon, lat));

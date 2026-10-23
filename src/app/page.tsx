@@ -402,9 +402,10 @@ function Home() {
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
+          timeZone: "Asia/Kuala_Lumpur",
         }) + " MYT"
       : fetchedDate
-          .toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric" })
+          .toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kuala_Lumpur" })
           .toUpperCase();
 
   return (

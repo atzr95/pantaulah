@@ -94,8 +94,10 @@ function saveTierMeta(meta: Record<Tier, string | null>): void {
 
 /**
  * Check if a tier needs re-fetching.
- * Daily compares UTC calendar dates — the timestamp is saved mid-run, so a
+ * Daily compares MYT calendar dates — the timestamp is saved mid-run, so a
  * float 24h threshold would see ~0.98d at the next cron and skip every other day.
+ * MYT, not UTC: the 04:00 MYT cron is still the previous UTC day, so a manual
+ * run that afternoon made it skip.
  * Monthly/annual thresholds carry a margin for the same reason (29/89 days).
  */
 function isTierStale(tier: Tier, meta: Record<Tier, string | null>): boolean {
@@ -104,7 +106,8 @@ function isTierStale(tier: Tier, meta: Record<Tier, string | null>): boolean {
   const last = new Date(lastFetched);
   if (isNaN(last.getTime())) return true;
   if (tier === "daily") {
-    return last.toISOString().slice(0, 10) !== new Date().toISOString().slice(0, 10);
+    const mytDate = (d: Date) => new Date(d.getTime() + 8 * 3_600_000).toISOString().slice(0, 10);
+    return mytDate(last) !== mytDate(new Date());
   }
   const age = (Date.now() - last.getTime()) / (1000 * 60 * 60 * 24);
   return age >= TIER_STALE_DAYS[tier];

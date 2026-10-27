@@ -241,6 +241,9 @@ export default function EnvironmentView({
       {layers.rivers && (
         <>
           <h3 className="pt-1 tracking-[0.08em] text-[var(--color-cyan)]">RIVER STATIONS</h3>
+          {rivers.some(r => r.lat === null || r.lon === null) && (
+            <p className="text-[var(--color-text-muted)]">JPS does not provide locations in this feed. Stations without locations appear in this list only.</p>
+          )}
           {rivers.slice(0, 40).map((r) => (
             <button
               key={r.id}

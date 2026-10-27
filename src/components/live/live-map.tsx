@@ -182,6 +182,7 @@ function selectionPoint(sel: Selection | null, flights: Flight[], transit: Trans
     case "flight": { const f = flights.find((x) => x.icao24 === sel.data.icao24) ?? sel.data; return [f.lon, f.lat]; }
     case "transit": { const v = transit.find((x) => x.feed === sel.data.feed && x.id === sel.data.id) ?? sel.data; return [v.lon, v.lat]; }
     case "pop": return null;
+    case "river": return sel.data.lon === null || sel.data.lat === null ? null : [sel.data.lon, sel.data.lat];
     default: return [sel.data.lon, sel.data.lat];
   }
 }
@@ -568,7 +569,7 @@ export default function LiveMap(p: Props) {
     return () => { clearTimeout(t); clearInterval(poll); };
   }, [p.treeYear, p.layers.treeLoss, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { const m = ready(); if (m) setData(m, "rivers", toFC(p.rivers ?? [], (r) => [r.lon, r.lat], (r) => ({ status: r.status, __data: JSON.stringify(r) }))); }, [p.rivers, loaded]);
+  useEffect(() => { const m = ready(); if (m) setData(m, "rivers", toFC((p.rivers ?? []).filter((r): r is RiverStation & { lat: number; lon: number } => r.lat !== null && r.lon !== null), (r) => [r.lon, r.lat], (r) => ({ status: r.status, __data: JSON.stringify(r) }))); }, [p.rivers, loaded]);
   useEffect(() => { const m = ready(); if (m) setData(m, "shelters", toFC(p.shelters ?? [], (s) => [s.lon, s.lat], (s) => ({ people: s.people, __data: JSON.stringify(s) }))); }, [p.shelters, loaded]);
   // Fire fields are all flat, so they go in as plain properties (no JSON string for ~40k points).
   useEffect(() => { const m = ready(); if (m) setData(m, "fires", toFC(p.fires ?? [], (f) => [f.lon, f.lat], (f) => ({ ...f, time: Date.parse(f.observedAt) }))); }, [p.fires, loaded]);

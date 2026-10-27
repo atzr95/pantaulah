@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cachedJson } from "./edge-cache";
+import { MALAYSIA_STATES } from "@/lib/data/states";
 import {
   jpsDate,
   malaysiaState,
@@ -19,18 +20,18 @@ const coord = {
   lon: z.coerce.number().min(99).max(120),
 };
 const jpsStation = z.object({
-  a: z.string().min(1),
-  b: z.string().min(1),
-  c: z.string(),
-  d: z.string(),
-  e: z.string(),
-  f: z.string(),
-  i: z.string(),
-  m: z.string(),
-  n: z.string(),
-  o: z.string(),
-  q: z.string(),
-  s: z.string(),
+  station_id: z.string().regex(/^[A-Za-z0-9_()-]{1,40}$/),
+  station_name: z.string().min(1),
+  state: z.string(),
+  district: z.string(),
+  water_level: z.string().nullable(),
+  alert: z.string().nullable(),
+  warning: z.string().nullable(),
+  danger: z.string().nullable(),
+  wl_severity: z.string().nullable(),
+  last_update: z.string(),
+  trend: z.string().nullable(),
+  graph_url: z.string().nullable(),
 });
 const shelterSchema = z.object({
   id: z.union([z.number(), z.string()]),
@@ -66,40 +67,42 @@ export function parseRivers(raw: unknown, now = Date.now()): RiverStation[] {
     const parsed = jpsStation.safeParse(row);
     if (!parsed.success) continue;
     const s = parsed.data,
-      level = numeric(s.m),
-      observedAt = jpsDate(s.q),
-      state = malaysiaState(s.f);
-    const location = z.object(coord).safeParse({ lat: s.c, lon: s.d });
-    if (
-      !s.i.includes("WL") ||
-      level === null ||
-      !observedAt ||
-      !state ||
-      !location.success
-    )
-      continue;
+      level = numeric(s.water_level),
+      observedAt = jpsDate(s.last_update),
+      state = malaysiaState(s.state);
+    if (level === null || !observedAt || !state) continue;
     const age = now - Date.parse(observedAt);
     if (age < -300_000 || age > 3_600_000) continue;
-    const status = z
-      .enum(["Normal", "Alert", "Warning", "Danger"])
-      .safeParse(s.n);
-    if (!status.success) continue;
-    const threshold = numeric(s.o);
-    // Some stations report Danger against a missing zero threshold; do not repeat that as a warning.
+    const statuses = {
+      NORMAL: "Normal", WASPADA: "Alert", AMARAN: "Warning", BAHAYA: "Danger",
+    } as const;
+    const severity = z.enum(["NORMAL", "WASPADA", "AMARAN", "BAHAYA"]).safeParse(s.wl_severity);
+    const status = severity.success ? statuses[severity.data] : "Unknown";
+    const alert = numeric(s.alert),
+      warning = numeric(s.warning),
+      danger = numeric(s.danger);
+    const validThresholds =
+      alert !== null && warning !== null && danger !== null &&
+      alert > 0 && warning > alert && danger > warning;
+    const threshold = status === "Danger" ? danger
+      : status === "Warning" ? warning : status === "Alert" ? alert : null;
     const verifiedStatus =
-      status.data !== "Normal" && (threshold === null || threshold === 0)
-        ? "Unknown"
-        : status.data;
+      status !== "Normal" && (!validThresholds || threshold === null || level < threshold)
+        ? "Unknown" : status;
+    const trend = s.trend?.toLowerCase();
     rivers.push({
-      id: s.a,
-      name: s.b,
+      id: `${state.replaceAll(" ", "-")}_${s.station_id}`,
+      name: s.station_name,
       state,
-      district: s.e,
-      ...location.data,
+      district: s.district,
+      // The replacement national feed has no coordinates. Keep readings usable without false map pins.
+      lat: null,
+      lon: null,
+      graphUrl: jpsGraphUrl(s.graph_url),
       level,
       status: verifiedStatus,
       threshold,
-      trend: s.s,
+      trend: trend === "rising" ? "Rising" : trend === "receding" ? "Receding" : s.trend ?? "",
       observedAt,
     });
   }
@@ -108,15 +111,54 @@ export function parseRivers(raw: unknown, now = Date.now()): RiverStation[] {
 }
 
 export function fetchRivers() {
-  return cachedSource("environment:rivers:v3", 120, async () =>
-    parseRivers(
-      await (
-        await get(
-          "https://publicinfobanjir.water.gov.my/wp-content/themes/enlighten/data/latestreadingstrendabc.json",
-        )
-      ).json(),
-    ),
-  );
+  return cachedSource("environment:rivers:v4", 120, async () => {
+    // Use the same public token as JPS's state selector; do not hard-code a token that can change.
+    const token = await cachedJson("environment:jps-token:v1", 300, async () => {
+      const html = await (
+        await get("https://publicinfobanjir.water.gov.my/waterleveldata/Kedah")
+      ).text();
+      const value = /['"]Authorization['"]\s*:\s*['"]Bearer ([^'"]+)['"]/.exec(html)?.[1];
+      if (!value) throw new Error("JPS public data access unavailable");
+      return value;
+    });
+    // Putrajaya has no separate JPS table. Require all published tables, so a failed state cannot mean all clear.
+    const states = MALAYSIA_STATES.filter(s => s.topoName !== "Putrajaya");
+    const rows = await Promise.all(
+      states.map(async (state) => {
+        const res = await fetch("https://publicinfobanjir.water.gov.my/api/detailstation", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            state: state.apiName.replace("W.P.", "Wilayah Persekutuan"),
+            district: "ALL", station_name: "ALL", parameter: "waterlevel",
+          }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!res.ok) throw new Error(`JPS ${state.topoName} returned ${res.status}`);
+        return z.array(jpsStation).parse(await res.json());
+      }),
+    );
+    return parseRivers(rows.flat());
+  });
+}
+
+/** Only link to official sources, and never use a client-supplied URL for history requests. */
+function jpsGraphUrl(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (
+      !url.hostname.endsWith(".gov.my") || url.username || url.password || url.port ||
+      !["http:", "https:"].includes(url.protocol)
+    ) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
 }
 
 export function parseShelters(raw: unknown): Shelter[] {
@@ -236,22 +278,20 @@ export function fetchFires() {
 export function parseRiverHistory(raw: unknown): RiverHistory {
   const data = z
     .object({
-      info: z.object({
-        name: z.string(),
-        normal: z.string(),
-        alert: z.string(),
-        warning: z.string(),
-        danger: z.string(),
-      }),
-      values: z.array(z.object({ dt: z.string(), final: z.string() })),
+      stationName: z.string(),
+      normalSetPoint: z.number().nullable(),
+      alertSetPoint: z.number().nullable(),
+      warningSetPoint: z.number().nullable(),
+      dangerSetPoint: z.number().nullable(),
+      data: z.array(z.object({ timestamp: z.string(), wl: z.number().nullable() })),
     })
     .parse(raw);
-  const thresholds = [
-    ["Normal", data.info.normal],
-    ["Alert", data.info.alert],
-    ["Warning", data.info.warning],
-    ["Danger", data.info.danger],
-  ].flatMap(([label, v]) => {
+  const thresholds = ([
+    ["Normal", data.normalSetPoint],
+    ["Alert", data.alertSetPoint],
+    ["Warning", data.warningSetPoint],
+    ["Danger", data.dangerSetPoint],
+  ] as const).flatMap(([label, v]) => {
     const value = numeric(v);
     return value === null ? [] : [{ label, value }];
   });
@@ -259,23 +299,23 @@ export function parseRiverHistory(raw: unknown): RiverHistory {
     thresholds.length === 4 &&
     thresholds.every((t, i) => i === 0 || t.value > thresholds[i - 1].value);
   return {
-    name: data.info.name,
+    name: data.stationName,
     thresholds: validThresholds ? thresholds : [],
-    readings: data.values.flatMap((v) => {
-      const time = jpsDate(v.dt);
-      return time ? [{ time, value: numeric(v.final) }] : [];
+    readings: data.data.flatMap((v) => {
+      const time = jpsDate(v.timestamp);
+      return time ? [{ time, value: numeric(v.wl) }] : [];
     }),
   };
 }
 
 export function fetchRiverHistory(station: string) {
-  return cachedSource(`environment:history:v2:${station}`, 300, async () =>
-    parseRiverHistory(
-      await (
-        await get(
-          `https://publicinfobanjir.water.gov.my/wp-content/themes/enlighten/query/getwaterlevellast7dayslead.php?extra=&station=${encodeURIComponent(station)}`,
-        )
-      ).json(),
-    ),
-  );
+  return cachedSource(`environment:history:v3:${station}`, 300, async () => {
+    const { data: rivers } = await fetchRivers();
+    const river = rivers.find(r => r.id === station);
+    const url = river?.graphUrl ? new URL(river.graphUrl) : null;
+    if (!url || !/^\/WaterLevel\/Station\/\d+$/.test(url.pathname))
+      throw new Error("Station history unavailable");
+    url.pathname = url.pathname.replace("/Station/", "/GetWaterLevelGraph/");
+    return parseRiverHistory(await (await get(url.href)).json());
+  });
 }

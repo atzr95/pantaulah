@@ -66,7 +66,9 @@ export default function EnvironmentDialog({
             </h3>
             {history.error ? (
               <p role="status">
-                River history unavailable. Try reopening the details.
+                {river.graphUrl
+                  ? "River history is not available here. Use the JPS link below."
+                  : "River history is not available for this station."}
               </p>
             ) : !history.data ? (
               <p role="status">Loading river history…</p>
@@ -89,6 +91,11 @@ export default function EnvironmentDialog({
               Source: JPS InfoBanjir. River height is not flood depth on nearby
               streets.
             </p>
+            {river.graphUrl && (
+              <a href={river.graphUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--color-cyan)] underline">
+                View this station on JPS
+              </a>
+            )}
           </>
         )}
         {selection.kind === "shelter" && (

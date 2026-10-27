@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const station = request.nextUrl.searchParams.get("station") ?? "";
   if (
     !["rivers", "shelters", "fires", "history"].includes(kind ?? "") ||
-    (kind === "history" && !/^[A-Za-z0-9_-]{1,40}$/.test(station))
+    (kind === "history" && !/^[A-Za-z0-9_()-]{1,80}$/.test(station))
   )
     return NextResponse.json(
       { error: "Invalid data request" },

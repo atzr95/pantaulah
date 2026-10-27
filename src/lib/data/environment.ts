@@ -5,8 +5,9 @@ export interface RiverStation {
   name: string;
   state: string;
   district: string;
-  lat: number;
-  lon: number;
+  lat: number | null;
+  lon: number | null;
+  graphUrl: string | null;
   level: number;
   status: "Normal" | "Alert" | "Warning" | "Danger" | "Unknown";
   threshold: number | null;
@@ -79,9 +80,12 @@ export function malaysiaState(name: string): string | null {
 
 /** JPS dates are Malaysia time, including when the server runs in UTC. */
 export function jpsDate(value: string): string | null {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/.exec(value);
-  if (!m) return null;
-  const iso = `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00+08:00`;
+  const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
+  const local = m
+    ? `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6] ?? "00"}`
+    : value;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(local)) return null;
+  const iso = `${local}+08:00`;
   return Number.isFinite(Date.parse(iso)) ? new Date(iso).toISOString() : null;
 }
 

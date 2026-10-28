@@ -1,0 +1,568 @@
+"use client";
+
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef, useTransition } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import LoadingScreen from "@/components/ui/loading-screen";
+import TopBar from "@/components/ui/top-bar";
+import MetricToggles from "@/components/map/metric-toggles";
+import TerritoryList, { MobileTerritoryChips } from "@/components/map/territory-list";
+import TimeSlider from "@/components/ui/time-slider";
+import StateBrief from "@/components/sidebar/state-brief";
+import { StateBriefPeek, StateBriefContent } from "@/components/sidebar/state-brief";
+import NewsTicker from "@/components/ticker/news-ticker";
+import MobileRatesBar from "@/components/ticker/mobile-rates-bar";
+import BottomSheet from "@/components/ui/bottom-sheet";
+import type { MetricKey, CacheData } from "@/lib/data/types";
+import { CATEGORY_METRICS } from "@/lib/data/choropleth";
+import { rebuildNational } from "@/lib/data/national";
+import { scrollHorizontallyOnWheel } from "@/lib/ui/horizontal-scroll";
+
+const MalaysiaMap = dynamic(() => import("@/components/map/malaysia-map"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
+      LOADING MAP...
+    </div>
+  ),
+});
+
+const WeatherView = dynamic(() => import("@/components/weather/weather-view"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
+      LOADING WEATHER SYSTEMS...
+    </div>
+  ),
+});
+
+const LiveView = dynamic(() => import("@/components/live/live-view"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
+      LOADING LIVE MAP...
+    </div>
+  ),
+});
+
+const MediaView = dynamic(() => import("@/components/media/media-view"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-[var(--color-text-dim)] text-xs tracking-wider">
+      LOADING MEDIA FEEDS...
+    </div>
+  ),
+});
+
+const FoodPricesView = dynamic(() => import("@/components/economy/food-prices-view"), { ssr: false });
+
+/** Find the latest year where a metric has data in at least 10 states */
+function findBestYear(cacheData: CacheData, metric: string): number {
+  const years = cacheData.availableYears;
+  const stateEntries = Object.values(cacheData.states);
+  for (let i = years.length - 1; i >= 0; i--) {
+    const y = years[i];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const count = stateEntries.filter((s: any) => s.years[y]?.[metric]).length;
+    if (count >= 10) return y;
+  }
+  return years[years.length - 1];
+}
+
+// Valid category names for URL param validation
+const VALID_CATEGORIES = new Set([
+  ...Object.keys(CATEGORY_METRICS),
+  "live",
+  "weather",
+  "media",
+]);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mergeCacheData(mainMod: { default: unknown }, energyMod: { default: any } | null): CacheData {
+  const cacheData = mainMod.default as unknown as CacheData;
+  rebuildNational(cacheData);
+
+  // Merge energy data into main cache if available
+  if (energyMod) {
+    const energyData = energyMod.default;
+    cacheData.energy = energyData;
+
+    // Inject energy metrics into state year data for choropleth
+    if (energyData.electricityTotal) {
+      for (const [state, years] of Object.entries(energyData.electricityTotal)) {
+        if (cacheData.states[state]) {
+          for (const [yearStr, metric] of Object.entries(years as Record<string, { value: number; year: number; change?: number }>)) {
+            const year = Number(yearStr);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const stateYears = (cacheData.states[state] as any).years;
+            if (!stateYears[year]) stateYears[year] = {};
+            stateYears[year].electricityConsumption = metric;
+          }
+        }
+      }
+    }
+
+    // Inject water metrics (state-level)
+    for (const [metricKey, dataKey] of [
+      ["waterConsumption", "waterConsumption"],
+      ["waterProduction", "waterProduction"],
+      ["waterAccess", "waterAccess"],
+    ] as const) {
+      const waterData = energyData[dataKey];
+      if (!waterData) continue;
+      for (const [state, years] of Object.entries(waterData)) {
+        if (!cacheData.states[state]) continue;
+        for (const [yearStr, val] of Object.entries(years as Record<string, number | { total: number }>)) {
+          const year = Number(yearStr);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const stateYears = (cacheData.states[state] as any).years;
+          if (!stateYears[year]) stateYears[year] = {};
+          const value = typeof val === "object" ? val.total : val;
+          stateYears[year][metricKey] = { value, year };
+        }
+      }
+    }
+
+    // Inject national totals into national.years
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const natYears = (cacheData.national as any).years;
+
+    // National electricity: sum from nationalConsumptionBySector (already in GWh)
+    if (energyData.nationalConsumptionBySector) {
+      for (const [yearStr, sectors] of Object.entries(energyData.nationalConsumptionBySector as Record<string, Record<string, number>>)) {
+        const year = Number(yearStr);
+        if (!natYears[year]) natYears[year] = {};
+        const total = Object.values(sectors).reduce((s: number, v: number) => s + v, 0);
+        natYears[year].electricityConsumption = { value: Math.round(total * 100) / 100, year };
+      }
+    }
+
+    // Water access needs a published national value; state percentages cannot be averaged.
+    for (const metricKey of ["waterConsumption", "waterProduction", "waterAccess"] as const) {
+      const wd = energyData[metricKey];
+      if (!wd) continue;
+      const yearTotals: Record<number, number> = {};
+      for (const years of Object.values(wd) as Array<Record<string, number | { total: number }>>) {
+        for (const [yearStr, val] of Object.entries(years)) {
+          const year = Number(yearStr);
+          const value = typeof val === "object" ? val.total : val;
+          yearTotals[year] = (yearTotals[year] ?? 0) + value;
+        }
+      }
+      for (const [yearStr, sum] of Object.entries(yearTotals)) {
+        const year = Number(yearStr);
+        if (metricKey === "waterAccess" && wd.Malaysia?.[year] == null) continue;
+        if (!natYears[year]) natYears[year] = {};
+        const value = metricKey === "waterAccess"
+          ? wd.Malaysia[year]
+          : Math.round(sum * 100) / 100;
+        natYears[year][metricKey] = { value, year };
+      }
+    }
+  }
+
+  return cacheData;
+}
+
+// Module scope: the JSON chunks start downloading as soon as this chunk
+// evaluates, in parallel with hydration, instead of after the first effect.
+const cacheDataPromise: Promise<CacheData> = Promise.all([
+  import("@/lib/data/cache/data.json"),
+  import("@/lib/data/cache/energy-data.json").catch(() => null),
+]).then(([mainMod, energyMod]) => mergeCacheData(mainMod, energyMod));
+// Defer rejection handling to the consumer in Home; avoid unhandled-rejection noise.
+cacheDataPromise.catch(() => {});
+
+export default function HomeView() {
+  return (
+    <Suspense>
+      <Home />
+    </Suspense>
+  );
+}
+
+function Home() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Resolve initial state from URL search params
+  const initialCategory = useMemo(() => {
+    const param = searchParams.get("tab");
+    return param && VALID_CATEGORIES.has(param) ? param : "live";
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const initialMetric = useMemo(() => {
+    const param = searchParams.get("metric");
+    // Non-choropleth tabs fall back to the economy metric list
+    const metrics = CATEGORY_METRICS[initialCategory] ?? CATEGORY_METRICS.economy;
+    if (param && metrics?.some((m) => m.key === param)) return param;
+    return metrics?.[0]?.key ?? "population";
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [booted, setBooted] = useState(() => {
+    if (typeof window === "undefined") return false;
+    // Reading sessionStorage throws when the browser blocks site data
+    try {
+      return sessionStorage.getItem("pantaulah-booted") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [data, setData] = useState<CacheData | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>(initialMetric);
+  const [selectedYear, setSelectedYear] = useState<number>(2023);
+  const [sheetSnap, setSheetSnap] = useState<"peek" | "half" | "full">("half");
+  const [transitZoomed, setTransitZoomed] = useState(false);
+  const bedUtilFetched = useRef(false);
+  const [, startTransition] = useTransition();
+
+  // Sync state changes to URL search params
+  const updateURL = useCallback(
+    (category: string, metric?: string) => {
+      const params = new URLSearchParams();
+      params.set("tab", category);
+      if (metric && category !== "weather") {
+        params.set("metric", metric);
+      }
+      router.replace(`?${params.toString()}`, { scroll: false });
+    },
+    [router]
+  );
+
+  // When metric changes, sync to URL. The choropleth recompute is heavy, so
+  // mark it as a transition to keep the toggle buttons responsive.
+  const handleMetricChange = useCallback(
+    (metric: MetricKey) => {
+      startTransition(() => {
+        setSelectedMetric(metric);
+      });
+      updateURL(selectedCategory, metric);
+    },
+    [updateURL, selectedCategory]
+  );
+
+  // When category changes, switch to first metric in that category
+  const handleCategoryChange = useCallback((category: string) => {
+    const metrics = CATEGORY_METRICS[category];
+    const firstMetric = metrics?.[0]?.key;
+    startTransition(() => {
+      setSelectedCategory(category);
+      if (firstMetric) setSelectedMetric(firstMetric);
+    });
+    if (firstMetric) {
+      updateURL(category, firstMetric);
+    } else {
+      updateURL(category);
+    }
+  }, [updateURL]);
+
+  // Fetch live bed/ICU utilization from KKMNow when health category is active
+  useEffect(() => {
+    if (selectedCategory !== "health" || !data || bedUtilFetched.current) return;
+    bedUtilFetched.current = true;
+
+    let cancelled = false;
+    fetch("/api/health/bed-utilization")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((bedUtil) => {
+        if (!bedUtil || cancelled) return;
+        // File the values under the year the source was actually published
+        // (KKMNow updates irregularly), not the current year.
+        const currentYear = bedUtil.asOf
+          ? new Date(bedUtil.asOf).getFullYear()
+          : new Date().getFullYear();
+        setData((prev) => {
+          if (!prev) return prev;
+          // Deep-clone to avoid mutating current state
+          const next = { ...prev, states: { ...prev.states }, national: { ...prev.national } };
+
+          // Inject utilization into each state's current year
+          for (const [topoName, entry] of Object.entries(
+            bedUtil.states as Record<string, { bedUtil: number; icuUtil: number }>
+          )) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const old = next.states[topoName] as any;
+            if (!old) continue;
+            const stateYears = { ...old.years };
+            if (!stateYears[currentYear]) stateYears[currentYear] = {};
+            else stateYears[currentYear] = { ...stateYears[currentYear] };
+            stateYears[currentYear].bedUtilization = { value: entry.bedUtil, year: currentYear };
+            stateYears[currentYear].icuUtilization = { value: entry.icuUtil, year: currentYear };
+            next.states[topoName] = { ...old, years: stateYears };
+          }
+          // Inject national
+          if (bedUtil.national) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const oldNat = next.national as any;
+            const natYears = { ...oldNat.years };
+            if (!natYears[currentYear]) natYears[currentYear] = {};
+            else natYears[currentYear] = { ...natYears[currentYear] };
+            natYears[currentYear].bedUtilization = { value: bedUtil.national.bedUtil, year: currentYear };
+            natYears[currentYear].icuUtilization = { value: bedUtil.national.icuUtil, year: currentYear };
+            next.national = { ...oldNat, years: natYears };
+          }
+          // Ensure current year is in availableYears
+          if (!next.availableYears.includes(currentYear)) {
+            next.availableYears = [...next.availableYears, currentYear].sort((a, b) => a - b);
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedCategory, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When metric changes, clamp year to the metric's data range
+  useEffect(() => {
+    if (!data) return;
+    const best = findBestYear(data, selectedMetric);
+    // Only adjust if current year has no data for this metric
+    const stateEntries = Object.values(data.states);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const count = stateEntries.filter((s: any) => s.years[selectedYear]?.[selectedMetric]).length;
+    if (count < 10) setSelectedYear(best);
+  }, [selectedMetric, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let cancelled = false;
+    cacheDataPromise
+      .then((cacheData) => {
+        if (cancelled) return;
+        setData(cacheData);
+        setSelectedYear(findBestYear(cacheData, "population"));
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // First visit only: open the visitor's own state (Cloudflare geo).
+  useEffect(() => {
+    if (!data) return;
+    try {
+      if (localStorage.getItem("pantaulah-geo") === "1") return;
+      localStorage.setItem("pantaulah-geo", "1");
+    } catch {
+      return;
+    }
+    fetch("/api/geo")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((geo) => {
+        if (geo?.state && data.states[geo.state]) {
+          setSelectedState((prev) => prev ?? geo.state);
+        }
+      })
+      .catch(() => {});
+  }, [data]);
+
+  const handleBootComplete = useCallback(() => {
+    setBooted(true);
+    try {
+      sessionStorage.setItem("pantaulah-booted", "1");
+    } catch { /* site data blocked: boot screen shows again next load */ }
+  }, []);
+
+  if (!data) {
+    return (
+      <main className="h-dvh bg-[var(--color-bg)] flex items-center justify-center">
+        {loadFailed ? (
+          <div className="flex flex-col items-center gap-3">
+            <div className="text-[var(--color-amber)] text-xs tracking-wider">
+              DATA SYNC FAILED
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 min-h-11 lg:min-h-9 text-xs tracking-[0.08em] border rounded-md transition-colors cursor-pointer border-[var(--color-border-mid)] text-[var(--color-cyan)] hover:border-[var(--color-cyan)] hover:bg-[var(--color-cyan-soft)]"
+            >
+              RELOAD
+            </button>
+          </div>
+        ) : (
+          <div className="text-[var(--color-text-dim)] text-xs tracking-wider">
+            AWAITING DATA SYNC...
+          </div>
+        )}
+      </main>
+    );
+  }
+
+  const fetchedDate = new Date(data.fetchedAt);
+  const syncAgeDays = (Date.now() - fetchedDate.getTime()) / 86_400_000;
+  // Same-day data shows the time; older data shows its date so users see
+  // exactly how fresh the snapshot is.
+  const lastSync =
+    syncAgeDays < 1
+      ? fetchedDate.toLocaleTimeString("en-MY", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Kuala_Lumpur",
+        }) + " MYT"
+      : fetchedDate
+          .toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kuala_Lumpur" })
+          .toUpperCase();
+
+  return (
+    <main className="h-dvh bg-[var(--color-bg)] scan-lines grid-bg flex flex-col overflow-hidden">
+      {!booted && <LoadingScreen onComplete={handleBootComplete} />}
+
+      <TopBar
+        selectedCategory={selectedCategory}
+        onCategoryChange={handleCategoryChange}
+        lastSync={lastSync}
+        syncStale={syncAgeDays > 2}
+      />
+
+      {selectedCategory === "live" ? (
+        <LiveView />
+      ) : selectedCategory === "weather" ? (
+        <WeatherView />
+      ) : selectedCategory === "media" ? (
+        <MediaView />
+      ) : selectedCategory === "economy" && selectedMetric === "foodPrice" ? (
+        <FoodPricesView selectedState={selectedState} onStateSelect={setSelectedState} onMetricChange={handleMetricChange} />
+      ) : (
+        <>
+          <div className="flex flex-1 overflow-hidden">
+            <div className="flex-1 min-w-0 relative flex flex-col">
+              {/* Mobile: horizontal metric toggles strip */}
+              <div
+                className="lg:hidden flex min-w-0 items-center gap-1.5 overflow-hidden px-3 py-2 shrink-0"
+                style={{
+                  background: "rgba(13, 24, 30, 0.96)",
+                  borderBottom: "1px solid var(--color-border-faint)",
+                }}
+              >
+                <div
+                  className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto overscroll-x-contain touch-pan-x scrollbar-none"
+                  onWheel={scrollHorizontallyOnWheel}
+                >
+                  <MetricToggles
+                    selectedCategory={selectedCategory}
+                    selectedMetric={selectedMetric}
+                    onMetricChange={handleMetricChange}
+                  />
+                </div>
+                <div className="text-xs font-bold tracking-[0.08em] text-[var(--color-cyan)] shrink-0 pl-1">
+                  {selectedYear}
+                </div>
+              </div>
+
+              <MalaysiaMap
+                data={data}
+                selectedState={selectedState}
+                selectedMetric={selectedMetric}
+                selectedYear={selectedYear}
+                selectedCategory={selectedCategory}
+                onStateSelect={setSelectedState}
+                onTransitZoomChange={setTransitZoomed}
+                sheetSnap={sheetSnap}
+                mobileSlider={
+                  <>
+                    <MobileTerritoryChips
+                      selectedState={selectedState}
+                      onStateSelect={setSelectedState}
+                    />
+                    {data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" && (
+                      <TimeSlider
+                        availableYears={data.availableYears}
+                        selectedYear={selectedYear}
+                        selectedMetric={selectedMetric}
+                        data={data}
+                        onYearChange={setSelectedYear}
+                        inline
+                      />
+                    )}
+                  </>
+                }
+              />
+
+              {/* Desktop: metric toggles overlay */}
+              <div className="absolute top-4 right-4 z-10 hidden lg:flex flex-col items-end gap-1.5 max-w-[70%]">
+                <div
+                  className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain scrollbar-none"
+                  onWheel={scrollHorizontallyOnWheel}
+                >
+                  <MetricToggles
+                    selectedCategory={selectedCategory}
+                    selectedMetric={selectedMetric}
+                    onMetricChange={handleMetricChange}
+                  />
+                </div>
+                <div className="text-sm font-bold tracking-[0.08em] text-[var(--color-cyan)] pr-1">
+                  {selectedYear}
+                </div>
+              </div>
+
+              <TerritoryList
+                selectedState={selectedState}
+                onStateSelect={setSelectedState}
+              />
+
+              {/* Desktop: absolute-positioned time slider */}
+              <div className="hidden lg:block">
+                {!transitZoomed && data.availableYears.length > 1 && selectedMetric !== "bedUtilization" && selectedMetric !== "icuUtilization" && (
+                  <TimeSlider
+                    availableYears={data.availableYears}
+                    selectedYear={selectedYear}
+                    selectedMetric={selectedMetric}
+                    data={data}
+                    onYearChange={setSelectedYear}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Desktop: sidebar */}
+            <StateBrief
+              data={data}
+              selectedState={selectedState}
+              selectedYear={selectedYear}
+              selectedCategory={selectedCategory}
+              selectedMetric={selectedMetric}
+              onStateSelect={setSelectedState}
+            />
+          </div>
+
+          {/* Desktop: news ticker */}
+          <div className="hidden lg:block">
+            <NewsTicker />
+          </div>
+
+          {/* Mobile: bottom sheet with rates bar + peek */}
+          <BottomSheet
+            snap={sheetSnap}
+            onSnapChange={setSheetSnap}
+            peek={
+              <>
+                <MobileRatesBar />
+                <StateBriefPeek
+                  data={data}
+                  selectedState={selectedState}
+                  selectedYear={selectedYear}
+                  selectedCategory={selectedCategory}
+                  selectedMetric={selectedMetric}
+                />
+              </>
+            }
+          >
+            <StateBriefContent
+              data={data}
+              selectedState={selectedState}
+              selectedYear={selectedYear}
+              selectedCategory={selectedCategory}
+              selectedMetric={selectedMetric}
+              onStateSelect={setSelectedState}
+            />
+          </BottomSheet>
+        </>
+      )}
+    </main>
+  );
+}

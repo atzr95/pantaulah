@@ -1,32 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DATA_SOURCES, GITHUB_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "About — PANTAULAH",
   description:
     "About the PANTAULAH Malaysia Intelligence Terminal. Open source, built with public government data.",
+  alternates: { canonical: "/about" },
 };
-
-const DATA_SOURCES = [
-  { name: "data.gov.my", url: "https://developer.data.gov.my", description: "Demographics, GDP, crime, health, education, weather, fuel prices" },
-  { name: "DOSM", url: "https://storage.dosm.gov.my", description: "Population estimates, GDP & crime publications" },
-  { name: "BNM API", url: "https://api.bnm.gov.my", description: "Exchange rates, OPR" },
-  { name: "Open-Meteo", url: "https://open-meteo.com", description: "Current weather, air quality" },
-  { name: "MET Malaysia", url: "https://api.met.gov.my", description: "Radar & satellite imagery" },
-  { name: "USGS", url: "https://earthquake.usgs.gov", description: "Live regional seismic catalogue" },
-  { name: "OpenSky Network", url: "https://opensky-network.org", description: "Live flight tracking" },
-  { name: "LLM.gov.my", url: "https://www.llm.gov.my", description: "Highway CCTV feeds" },
-  { name: "MyEnergyStats", url: "https://myenergystats.st.gov.my", description: "Electricity consumption & generation" },
-  { name: "KKMNow", url: "https://data.gov.my", description: "Hospital bed & ICU utilization" },
-  { name: "JPS InfoBanjir", url: "https://publicinfobanjir.water.gov.my", description: "Recent river readings and seven-day history" },
-  { name: "JKM InfoBencana", url: "https://infobencanajkmv2.jkm.gov.my/landing/index.php", description: "Open shelters, locations and reported people counts" },
-  { name: "NASA FIRMS", url: "https://firms.modaps.eosdis.nasa.gov", description: "NOAA-20 satellite heat detections" },
-  { name: "ASMC", url: "https://wis2.asmc.asean.org/regional-haze-situation/", description: "Daily regional haze report" },
-  { name: "Global Forest Watch / UMD", url: "https://www.globalforestwatch.org", description: "Annual tree-cover loss, 2001–2025" },
-  { name: "KPDN / DOSM PriceCatcher", url: "https://data.gov.my/data-catalogue/pricecatcher", description: "Food prices by state and exact pack size; CC BY 4.0" },
-];
-
-const GITHUB_URL = "https://github.com/atzr95/pantaulah";
 
 export default function AboutPage() {
   return (

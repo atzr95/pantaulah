@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(source, {
       headers: { "Cache-Control": "public, max-age=60" },
     });
-  } catch {
+  } catch (error) {
+    // Keep the public message generic, but log the real cause for `wrangler tail`.
+    console.error(`environment ${kind} unavailable:`, error instanceof Error ? error.message : error);
     return NextResponse.json(
       { error: "Source data is unavailable. Try again shortly." },
       { status: 503 },

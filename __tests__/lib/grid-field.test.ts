@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { windowStart, currentHourIndex, windArrows, type LiveGrid } from "@/lib/live/grid-field";
+import { windowStart, currentHourIndex, windArrows, sampleGridCubic, smogColor, type LiveGrid } from "@/lib/live/grid-field";
 
 // Two UTC days of hourly stamps, as Open-Meteo returns with forecast_days=2
 const times = Array.from({ length: 48 }, (_, i) => {
@@ -55,5 +55,40 @@ describe("windArrows", () => {
     const arrows = windArrows(grid, 0);
     expect(arrows.map((a) => [a.lon, a.lat])).toEqual([[100, 1], [102, 1], [100, 3], [102, 3]]);
     expect(arrows[0]).toMatchObject({ to: 225, speed: 12 });
+  });
+});
+
+describe("sampleGridCubic", () => {
+  // 4×4 grid, one value per point for hour 0
+  const grid = (values: number[]) =>
+    ({ lons: [100, 101, 102, 103], lats: [1, 2, 3, 4], pm25: values.map((v) => [v]) }) as unknown as LiveGrid;
+
+  it("passes through grid points and is 0 outside the grid", () => {
+    const g = grid(Array.from({ length: 16 }, (_, i) => i * 10));
+    expect(sampleGridCubic(g, g.pm25, 0, 101, 2)).toBeCloseTo(50);
+    expect(sampleGridCubic(g, g.pm25, 0, 99, 2)).toBe(0);
+  });
+
+  it("stays between neighbouring values on a ramp", () => {
+    const g = grid(Array.from({ length: 16 }, (_, i) => (i % 4) * 10));
+    const mid = sampleGridCubic(g, g.pm25, 0, 101.5, 2.5);
+    expect(mid).toBeGreaterThan(10);
+    expect(mid).toBeLessThan(20);
+  });
+
+  it("does not ring into a clear hole beside a sharp peak", () => {
+    const g = grid([20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 400, 20, 20, 20, 20, 20]);
+    for (let lon = 100; lon <= 103; lon += 0.25)
+      for (let lat = 1; lat <= 4; lat += 0.25) expect(sampleGridCubic(g, g.pm25, 0, lon, lat)).toBeGreaterThanOrEqual(20);
+  });
+});
+
+describe("smogColor", () => {
+  it("leaves clean air transparent and gets darker and more opaque as PM2.5 rises", () => {
+    expect(smogColor(5)[3]).toBe(0);
+    const [mid, high, extreme] = [50, 150, 600].map(smogColor);
+    expect(high[3]).toBeGreaterThanOrEqual(mid[3]);
+    // Above the old 150 cap the colour still changes, so a haze event keeps its shape
+    expect(extreme[0] + extreme[1] + extreme[2]).toBeLessThan(high[0] + high[1] + high[2]);
   });
 });

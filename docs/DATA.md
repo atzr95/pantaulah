@@ -32,7 +32,7 @@ Government sources are used where available. Live third-party sources are listed
 | [adsbdb](https://www.adsbdb.com) | Flight route / airline lookup on click | Route lookup |
 | [Kontur Population](https://data.humdata.org/dataset/kontur-population-malaysia) | Population hexagons (H3 res 5, from 400m data) | 2023 snapshot |
 | [JPS](https://publicinfobanjir.water.gov.my) / [JKM InfoBencana](https://infobencanajkmv2.jkm.gov.my/landing/index.php) | Recent river stations, seven-day history, open shelter locations and counts | River observation times; shelters follow JKM reports |
-| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov) | NOAA-20 heat detections in Malaysia and most of Indonesia (west of 126°E) | Satellite observations, past seven days |
+| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov) | NOAA-20 heat detections in Malaysia and most of Indonesia (west of 126°E), with fire radiative power (MW) | Satellite observations, past seven days |
 | [ASMC](https://wis2.asmc.asean.org/regional-haze-situation/) | Regional haze report (linked, not embedded) | Daily; use the date printed in the report |
 | [Global Forest Watch / UMD](https://www.globalforestwatch.org) | Annual tree-cover loss images, v1.13 | 2001–2025 |
 | [KPDN / DOSM PriceCatcher](https://data.gov.my/data-catalogue/pricecatcher) | State prices for 21 exact items and pack sizes | Daily observations, processed by the scheduled job |

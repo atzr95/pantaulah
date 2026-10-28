@@ -9,7 +9,7 @@ import type { EarthquakeEntry, WeatherData } from "@/lib/data/weather-types";
 import type { RssItem } from "@/app/api/rss/route";
 import type { FlightRoute } from "@/app/api/live/flight-route/route";
 import { matchTown } from "@/lib/live/towns";
-import { currentHourIndex, type LiveGrid } from "@/lib/live/grid-field";
+import { currentHourIndex, smogScale, SMOG_GRADIENT, type LiveGrid } from "@/lib/live/grid-field";
 import { RAINVIEWER_FRAMES, type RainViewerIndex, type RadarFrame } from "@/lib/live/tiles";
 import cctvCoords from "@/lib/data/cctv-coords.json";
 import type { LayerKey, Basemap, Selection, NewsPin, CctvPin } from "./live-map";
@@ -27,7 +27,11 @@ export default function LiveView() {
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
   const [basemap, setBasemap] = useState<Basemap>("dark");
   const [grid, setGrid] = useState<LiveGrid | null>(null);
-  const [hour, setHour] = useState(0);
+  const [liveHour, setLiveHour] = useState(0);
+  // Smog, cloud and wind follow the current hour ("live"). Dragging or playing pins an hour
+  // by its timestamp (an index would drift when the grid refreshes); LIVE snaps back.
+  const [gridPinned, setGridPinned] = useState<string | null>(null);
+  const [gridPlaying, setGridPlaying] = useState(false);
   // `past` = number of observed frames; anything after is nowcast (forecast)
   const [radar, setRadar] = useState<{ host: string; frames: RadarFrame[]; past: number } | null>(null);
   // Radar shows the newest observed frame and follows new frames as they arrive ("live").
@@ -88,13 +92,13 @@ export default function LiveView() {
     return () => clearInterval(t);
   }, []);
 
-  // Weather/air grid (3h server cache) — smog/cloud/wind always show the current hour;
-  // grid re-fetched hourly (also retries a failed load), hour re-picked every 15 min
+  // Weather/air grid (3h server cache) — smog/cloud/wind show the current hour unless pinned;
+  // grid re-fetched hourly (also retries a failed load), current hour re-picked every 15 min
   useEffect(() => {
     const load = () =>
       fetch("/api/live/grid")
         .then((r) => { reportFeedStatus("grid", r.ok); return r.ok ? r.json() : null; })
-        .then((g: LiveGrid | null) => { if (g) { setGrid(g); setHour(currentHourIndex(g)); } })
+        .then((g: LiveGrid | null) => { if (g) { setGrid(g); setLiveHour(currentHourIndex(g)); } })
         .catch(() => reportFeedStatus("grid", false));
     load();
     const t = setInterval(load, 3_600_000);
@@ -102,9 +106,27 @@ export default function LiveView() {
   }, []);
   useEffect(() => {
     if (!grid) return;
-    const t = setInterval(() => setHour(currentHourIndex(grid)), 900_000);
+    const t = setInterval(() => setLiveHour(currentHourIndex(grid)), 900_000);
     return () => clearInterval(t);
   }, [grid]);
+
+  const gridOn = layers.smog || layers.cloud || layers.wind;
+  const gridLast = Math.max(0, (grid?.times.length ?? 1) - 1);
+  const pinnedAt = gridPinned === null ? -1 : (grid?.times.indexOf(gridPinned) ?? -1);
+  // A pinned hour that has aged out of the grid falls back to now
+  const hour = pinnedAt >= 0 ? pinnedAt : liveHour;
+  // Playback steps one hour at a time through the whole window, then wraps
+  useEffect(() => {
+    if (!gridPlaying || !gridOn || !grid) return;
+    const t = setInterval(() => setGridPinned((pin) => {
+      const i = pin === null ? -1 : grid.times.indexOf(pin);
+      return grid.times[((i < 0 ? liveHour : i) + 1) % grid.times.length];
+    }), 800);
+    return () => clearInterval(t);
+  }, [gridPlaying, gridOn, grid, liveHour]);
+  const gridTime = grid?.times[hour];
+  const gridLabel = gridTime ? new Date(gridTime + "Z").toLocaleString("en-MY", { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kuala_Lumpur" }) : "--:--";
+  const gridOffset = hour - liveHour;
 
   // Radar frame index from RainViewer, refreshed every 5 min
   useEffect(() => {
@@ -216,9 +238,26 @@ export default function LiveView() {
               )}
             </Row>
           </Hud>}
+          {gridOn && grid && <Hud>
+            <Row label="HOUR" value={`${gridLabel} ${gridOffset === 0 ? "NOW" : `${gridOffset > 0 ? "+" : "−"}${Math.abs(gridOffset)}h`}`}>
+              <button onClick={() => setGridPlaying(!gridPlaying)} className="w-5 text-[var(--color-cyan)] hover:text-[var(--color-text-bright)]" aria-label={gridPlaying ? "Pause forecast" : "Play forecast"}>{gridPlaying ? "❚❚" : "▶"}</button>
+              <input type="range" min={0} max={gridLast} value={hour}
+                onChange={(e) => { const i = +e.target.value; setGridPlaying(false); setGridPinned(i === liveHour ? null : grid.times[i] ?? null); }} className="w-24 md:w-32 accent-[var(--color-cyan)]" aria-label="Forecast hour" />
+              {gridPinned !== null && (
+                <button onClick={() => { setGridPinned(null); setGridPlaying(false); }} className="text-[var(--color-amber)] hover:text-[var(--color-text-bright)] tracking-[0.08em]" aria-label="Back to current hour">LIVE</button>
+              )}
+            </Row>
+            {layers.smog && <div className="text-[11px] text-[var(--color-text-muted)]">
+              <span>SMOG · PM2.5 µg/m³</span>
+              <div className="h-2 w-48 mt-1 rounded" style={{ background: SMOG_GRADIENT }} />
+              <div className="relative h-3 w-48 tabular-nums">
+                {[15, 50, 150, 500].map((v) => <span key={v} className="absolute -translate-x-1/2" style={{ left: `${smogScale(v) * 100}%` }}>{v}</span>)}
+              </div>
+            </div>}
+          </Hud>}
           {layers.wind && <Hud><p className="text-[11px] text-[var(--color-text-muted)] max-w-[16rem]">WIND · white arrows: where wind and smoke go · bigger = stronger</p></Hud>}
           {layers.treeLoss && <Hud><label className="flex flex-wrap items-center gap-2 text-xs"><span>TREE LOSS · {treeYear}</span><input aria-label="Tree loss year" type="range" min="2001" max="2025" value={treeYear} onChange={(e) => setTreeYear(Number(e.target.value))} className="w-32 accent-[var(--color-cyan)]" /></label><p className="text-[11px] text-[var(--color-text-muted)]"><span className="text-[#e85a9c]">■ Pink: tree loss in {treeYear}</span>{treeLoading && <span role="status" className="text-[var(--color-amber)]"> · loading…</span>}<br />Annual estimate · not proof of illegal logging</p></Hud>}
-          {layers.fires && <Hud><label className="flex flex-wrap items-center gap-2 text-xs"><span>FIRES · LAST {fireDays} DAYS</span><input aria-label="Fire detection days" type="range" min="1" max="7" value={fireDays} onChange={(e) => setFireDays(Number(e.target.value))} className="w-24 accent-[var(--color-cyan)]" /></label><p className="flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]"><span className="h-2 w-16 shrink-0 rounded" style={{ background: FIRE_HEAT_GRADIENT }} />Fewer → more detections · zoom in to tap one</p></Hud>}
+          {layers.fires && <Hud><label className="flex flex-wrap items-center gap-2 text-xs"><span>FIRES · LAST {fireDays} DAYS</span><input aria-label="Fire detection days" type="range" min="1" max="7" value={fireDays} onChange={(e) => setFireDays(Number(e.target.value))} className="w-24 accent-[var(--color-cyan)]" /></label><p className="flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]"><span className="h-2 w-16 shrink-0 rounded" style={{ background: FIRE_HEAT_GRADIENT }} />Weaker, fewer → hotter, denser fires · zoom in to tap one</p></Hud>}
           {(Object.keys(environment) as (keyof typeof environment)[]).filter((key) => layers[key]).map((key) => <div key={key} role="status" className="text-xs bg-[var(--color-bg-panel)] px-2 py-1 rounded max-w-xs">{key.toUpperCase()}: {environment[key].error ?? (environment[key].data ? key === "rivers" ? `${recentRivers.length} readings · ${recentRivers.filter(r => r.lat !== null && r.lon !== null).length} map locations. See Weather → Rivers & Floods for the list.` : `${key === "fires" ? visibleFireCount : environment[key].data.length} ${key === "fires" ? "regional detections" : "locations"}` : "Loading…")}</div>)}
         </div>
 

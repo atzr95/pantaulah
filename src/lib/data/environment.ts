@@ -35,6 +35,8 @@ export interface FireDetection {
   observedAt: string;
   confidence: string;
   satellite: string;
+  /** Fire radiative power in megawatts: how hot the fire burns. Null when NASA leaves it out. */
+  frp: number | null;
 }
 
 export interface RiverHistory {

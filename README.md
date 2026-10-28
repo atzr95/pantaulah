@@ -27,7 +27,7 @@ An interactive dashboard for Malaysia. Click a state to see how it compares, or 
 
 | Tab | What you can do |
 | --- | --- |
-| **Live map** | Turn on 20 layers in three groups. **Sky:** rain radar, clouds, wind, PM2.5 smog, satellite haze, day and night. **Ground:** aircraft, buses and trains, rail lines, highway CCTV, news pins, earthquakes, rivers, flood shelters, fire detections. **Surface:** 3D buildings, 3D terrain, population, night lights, tree loss. Use a quick view for weather, travel, or environment, or select a bus or train and follow it as it moves. |
+| **Live map** | Turn on 20 layers in three groups. **Sky:** rain radar, clouds, wind, PM2.5 smog, satellite haze, day and night. **Ground:** aircraft, buses and trains, rail lines, highway CCTV, news pins, earthquakes, rivers, flood shelters, fire detections. **Surface:** 3D buildings, 3D terrain, population, night lights, tree loss. Play smog, clouds, and wind through the next 24 hours. Use a quick view for weather, travel, or environment, or select a bus or train and follow it as it moves. |
 | **Economy** | GDP, unemployment, CPI, population, and household income by state, with sector breakdowns and national figures such as trade, inflation, and the EPF dividend. **Food prices** compares 21 everyday items, such as chicken, eggs, fish, vegetables, and fruit, by state, with exact pack sizes, shop counts, and daily trends. |
 | **Crime & safety** | Crime index and rate, homicide rate, drug addicts, and a breakdown by crime type. |
 | **Health** | Doctors and hospital beds per 10,000 people, birth, death, and fertility rates, blood donations, organ pledges, PEKA B40 screenings, and daily hospital bed and ICU use. |

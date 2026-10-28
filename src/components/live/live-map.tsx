@@ -427,17 +427,21 @@ export default function LiveMap(p: Props) {
       map.addImage("live-arrow", arrowIcon());
       const icon = (layout: maplibregl.SymbolLayerSpecification["layout"]): maplibregl.SymbolLayerSpecification["layout"] => ({ "icon-allow-overlap": true, "icon-ignore-placement": true, ...layout });
 
-      // Fires: a heat glow where detections are dense; from z9 it fades into dots you can tap.
+      // Fires: a heat glow where detections are dense and hot; from z9 it fades into dots you can tap.
+      // Fire radiative power (MW) weights the glow; most detections are under 10 MW, big fronts reach hundreds.
+      // A detection without FRP counts like a typical small fire.
+      const frp = ["coalesce", ["get", "frp"], 5] as maplibregl.ExpressionSpecification;
       map.addLayer({
         id: "fires-heat", type: "heatmap", source: "fires", maxzoom: 11,
         paint: {
+          "heatmap-weight": ["interpolate", ["linear"], frp, 0, 0.3, 10, 1, 50, 2, 200, 3],
           "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 9, 14],
           "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.15, 9, 0.8],
           "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.05, `${FIRE_HEAT[0]}80`, 0.35, FIRE_HEAT[1], 0.85, FIRE_HEAT[2]],
           "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.75, 11, 0],
         },
       });
-      map.addLayer({ id: "fires", type: "circle", source: "fires", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3, 14, 6], "circle-color": FIRE_HEAT[1], "circle-stroke-color": FIRE_HEAT[0], "circle-stroke-width": 1, "circle-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.4, 10, 0.95] } });
+      map.addLayer({ id: "fires", type: "circle", source: "fires", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, ["interpolate", ["linear"], frp, 0, 2.5, 50, 5], 14, ["interpolate", ["linear"], frp, 0, 5, 50, 11]], "circle-color": FIRE_HEAT[1], "circle-stroke-color": FIRE_HEAT[0], "circle-stroke-width": 1, "circle-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.4, 10, 0.95] } });
 
       // Wind arrows point where air (and smoke) is going; bigger = stronger. Calm points get none.
       map.addLayer({

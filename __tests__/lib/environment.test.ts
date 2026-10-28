@@ -220,7 +220,17 @@ describe("Malaysia environment sources", () => {
     const fires = parseFires(csv, now);
     expect(fires).toHaveLength(2);
     expect(fires[0].observedAt).toBe("2026-10-20T06:08:00.000Z");
+    expect(fires.every((f) => f.frp === null)).toBe(true);
     expect(() => parseFires("<html>error</html>", now)).toThrow();
+  });
+  it("reads fire radiative power and keeps detections whose power is missing or bad", () => {
+    const csv = [
+      "latitude,longitude,acq_date,acq_time,satellite,confidence,frp",
+      "1.2,111.6,2026-10-20,0608,N20,nominal,12.34",
+      "1.3,111.6,2026-10-20,0608,N20,nominal,",
+      "1.4,111.6,2026-10-20,0608,N20,nominal,n/a",
+    ].join("\n");
+    expect(parseFires(csv, now).map((f) => f.frp)).toEqual([12.34, null, null]);
   });
   it("keeps missing river history as gaps and drops zero warning levels", () => {
     const data = {

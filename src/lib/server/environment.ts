@@ -256,6 +256,8 @@ export function parseFires(csv: string, now = Date.now()): FireDetection[] {
     )
       continue;
     const id = `${row.satellite}:${lat}:${lon}:${date}`;
+    // Optional column: a missing or bad value leaves the detection in, with no intensity.
+    const frp = row.frp ? Number(row.frp) : NaN;
     result.set(id, {
       id,
       lat,
@@ -263,6 +265,7 @@ export function parseFires(csv: string, now = Date.now()): FireDetection[] {
       observedAt: new Date(date).toISOString(),
       confidence: row.confidence,
       satellite: row.satellite,
+      frp: Number.isFinite(frp) && frp >= 0 ? frp : null,
     });
   }
   return [...result.values()];
@@ -270,7 +273,7 @@ export function parseFires(csv: string, now = Date.now()): FireDetection[] {
 
 export function fetchFires() {
   // shortcut: one satellite keeps the shared download small; add more if coverage needs justify it.
-  return cachedSource("environment:fires:v3", 1800, async () =>
+  return cachedSource("environment:fires:v4", 1800, async () =>
     parseFires(
       await (
         await get(

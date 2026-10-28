@@ -283,7 +283,7 @@ export default function EnvironmentView({
             >
               {f.lat.toFixed(3)}, {f.lon.toFixed(3)}
               <p className="mt-1 text-[var(--color-text-muted)]">
-                {observationTime(f.observedAt)} · {f.confidence}
+                {observationTime(f.observedAt)} · {f.confidence}{f.frp !== null && ` · ${Math.round(f.frp)} MW`}
               </p>
             </button>
           ))}
@@ -435,7 +435,7 @@ export default function EnvironmentView({
                     className="h-2 w-16 shrink-0 rounded"
                     style={{ background: FIRE_HEAT_GRADIENT }}
                   />
-                  Fewer → more detections · zoom in to tap one
+                  Weaker, fewer → hotter, denser fires · zoom in to tap one
                 </p>
                 {layers.wind && (
                   <p className="text-[var(--color-text-muted)]">

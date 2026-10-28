@@ -126,6 +126,8 @@ export default function EnvironmentDialog({
               <dd>
                 {selection.data.lat.toFixed(4)}, {selection.data.lon.toFixed(4)}
               </dd>
+              <dt>Intensity</dt>
+              <dd>{selection.data.frp === null ? "Not reported" : `${selection.data.frp.toFixed(1)} MW`}</dd>
               <dt>Confidence</dt>
               <dd>{selection.data.confidence}</dd>
               <dt>Satellite</dt>
@@ -134,7 +136,8 @@ export default function EnvironmentDialog({
             <p className="text-xs text-[var(--color-text-muted)]">
               Source: NASA FIRMS. This is a heat detection, not a confirmed
               fire. Several detections can refer to one fire. Cloud can hide
-              detections.
+              detections. Intensity is fire radiative power; smouldering peat
+              can make heavy smoke at a low value.
             </p>
           </>
         )}

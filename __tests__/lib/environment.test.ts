@@ -105,8 +105,34 @@ describe("Malaysia environment sources", () => {
     vi.stubGlobal("fetch", download);
     try {
       await expect(fetchRivers()).rejects.toThrow("503");
-      expect(download).toHaveBeenCalledTimes(16);
+      // 15 states + token page + one retry for Sabah.
+      expect(download).toHaveBeenCalledTimes(17);
       expect([...edgeCache.keys()]).not.toContain("environment:rivers:v4");
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+      edgeCache.clear();
+    }
+  });
+  it("recovers from one dropped state request and skips unusual rows instead of failing the feed", async () => {
+    edgeCache.clear();
+    vi.useFakeTimers({ now });
+    let dropped = false;
+    const download = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.endsWith("/waterleveldata/Kedah")) return new Response("'Authorization': 'Bearer public-test-token'");
+      const { state } = JSON.parse(options?.body as string);
+      if (state === "Sabah" && !dropped) { dropped = true; throw new TypeError("network"); }
+      return Response.json([
+        { ...station, state, water_level: 21.36, warning: 21.3, alert: 21, danger: 21.6, district: null },
+        { ...station, state, station_id: "bad id with spaces" },
+        { ...station, state, last_update: null },
+      ]);
+    });
+    vi.stubGlobal("fetch", download);
+    try {
+      const source = await fetchRivers();
+      expect(source.data).toHaveLength(15);
+      expect(source.data[0]).toMatchObject({ level: 21.36, status: "Warning", district: "" });
     } finally {
       vi.useRealTimers();
       vi.unstubAllGlobals();

@@ -19,19 +19,22 @@ const coord = {
   lat: z.coerce.number().min(0).max(8),
   lon: z.coerce.number().min(99).max(120),
 };
+// JPS has sent readings as strings; accept numbers too so a format tweak does not blank the feed.
+const jpsValue = z.union([z.string(), z.number()]).nullish().transform(v => v == null ? null : String(v));
+const jpsText = z.string().nullish().transform(v => v ?? null);
 const jpsStation = z.object({
   station_id: z.string().regex(/^[A-Za-z0-9_()-]{1,40}$/),
   station_name: z.string().min(1),
   state: z.string(),
-  district: z.string(),
-  water_level: z.string().nullable(),
-  alert: z.string().nullable(),
-  warning: z.string().nullable(),
-  danger: z.string().nullable(),
-  wl_severity: z.string().nullable(),
+  district: z.string().nullish().transform(v => v ?? ""),
+  water_level: jpsValue,
+  alert: jpsValue,
+  warning: jpsValue,
+  danger: jpsValue,
+  wl_severity: z.string().nullish().transform(v => v?.trim().toUpperCase() ?? null),
   last_update: z.string(),
-  trend: z.string().nullable(),
-  graph_url: z.string().nullable(),
+  trend: jpsText,
+  graph_url: jpsText,
 });
 const shelterSchema = z.object({
   id: z.union([z.number(), z.string()]),
@@ -125,7 +128,7 @@ export function fetchRivers() {
     const states = MALAYSIA_STATES.filter(s => s.topoName !== "Putrajaya");
     const rows = await Promise.all(
       states.map(async (state) => {
-        const res = await fetch("https://publicinfobanjir.water.gov.my/api/detailstation", {
+        const request = () => fetch("https://publicinfobanjir.water.gov.my/api/detailstation", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -138,8 +141,12 @@ export function fetchRivers() {
           }),
           signal: AbortSignal.timeout(15_000),
         });
+        // Retry once after a dropped connection or server error; a second failure is real.
+        let res = await request().catch(() => null);
+        if (!res || res.status >= 500) res = await request();
         if (!res.ok) throw new Error(`JPS ${state.topoName} returned ${res.status}`);
-        return z.array(jpsStation).parse(await res.json());
+        // parseRivers checks rows one by one, so one unusual station cannot hide the rest.
+        return z.array(z.unknown()).parse(await res.json());
       }),
     );
     return parseRivers(rows.flat());

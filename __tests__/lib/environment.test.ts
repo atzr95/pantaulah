@@ -96,6 +96,7 @@ describe("Malaysia environment sources", () => {
     edgeCache.clear();
     vi.useFakeTimers({ now });
     const download = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.includes("/wp-content/")) return new Response("gone", { status: 404 });
       if (url.endsWith("/waterleveldata/Kedah")) return new Response("'Authorization': 'Bearer public-test-token'");
       expect(url).toBe("https://publicinfobanjir.water.gov.my/api/detailstation");
       expect(options?.headers).toMatchObject({ Authorization: "Bearer public-test-token" });
@@ -105,9 +106,9 @@ describe("Malaysia environment sources", () => {
     vi.stubGlobal("fetch", download);
     try {
       await expect(fetchRivers()).rejects.toThrow("503");
-      // 15 states + token page + one retry for Sabah.
-      expect(download).toHaveBeenCalledTimes(17);
-      expect([...edgeCache.keys()]).not.toContain("environment:rivers:v4");
+      // Old file + 15 states + token page + one retry for Sabah.
+      expect(download).toHaveBeenCalledTimes(18);
+      expect([...edgeCache.keys()]).not.toContain("environment:rivers:v5");
     } finally {
       vi.useRealTimers();
       vi.unstubAllGlobals();
@@ -119,6 +120,7 @@ describe("Malaysia environment sources", () => {
     vi.useFakeTimers({ now });
     let dropped = false;
     const download = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.includes("/wp-content/")) return new Response("gone", { status: 404 });
       if (url.endsWith("/waterleveldata/Kedah")) return new Response("'Authorization': 'Bearer public-test-token'");
       const { state } = JSON.parse(options?.body as string);
       if (state === "Sabah" && !dropped) { dropped = true; throw new TypeError("network"); }
@@ -143,6 +145,7 @@ describe("Malaysia environment sources", () => {
     edgeCache.clear();
     vi.useFakeTimers({ now });
     const download = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.includes("/wp-content/")) return new Response("gone", { status: 404 });
       if (url.endsWith("/waterleveldata/Kedah")) return new Response("'Authorization': 'Bearer public-test-token'");
       if (url === "https://telemetry.didkedah.gov.my/WaterLevel/GetWaterLevelGraph/184") return Response.json({
         stationName: station.station_name,
@@ -158,11 +161,39 @@ describe("Malaysia environment sources", () => {
       const source = await fetchRivers();
       expect(source.data).toHaveLength(15);
       await fetchRivers();
-      expect(download).toHaveBeenCalledTimes(16);
+      expect(download).toHaveBeenCalledTimes(17);
       const history = await fetchRiverHistory("Kedah_0020541WL");
       expect(history.data.readings).toEqual([{ time: "2026-10-20T11:15:00.000Z", value: 21.36 }]);
       await expect(fetchRiverHistory("not-a-station")).rejects.toThrow("unavailable");
-      expect(download).toHaveBeenCalledTimes(17);
+      expect(download).toHaveBeenCalledTimes(18);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+      edgeCache.clear();
+    }
+  });
+  it("reads the old JPS file and its history when JPS switches back to the old website", async () => {
+    edgeCache.clear();
+    vi.useFakeTimers({ now });
+    const old = { a: "27547_", b: "Sg. Bentong", c: "3.51", d: "101.91", e: "Bentong", f: "PAHANG", i: "WL", m: "85.03", n: "Alert", o: "85", q: "20/10/2026 19:15", s: "Rising" };
+    const download = vi.fn(async (url: string) =>
+      url.endsWith("latestreadingstrendabc.json")
+        ? Response.json([old, { ...old, a: "1", c: "0", d: "0" }, { ...old, a: "2", q: "19/10/2026 19:00" }, { ...old, a: "3", n: "Danger", o: "0" }])
+        : url.endsWith("getwaterlevellast7dayslead.php?extra=&station=27547_")
+          ? Response.json({ info: { name: "Sg. Bentong", normal: "", alert: "85", warning: "86", danger: "87" }, values: [{ dt: "20/10/2026 19:10", final: "-9999" }, { dt: "20/10/2026 19:15", final: "85.03" }] })
+          : new Response("gone", { status: 404 }),
+    );
+    vi.stubGlobal("fetch", download);
+    try {
+      const { data } = await fetchRivers();
+      expect(data).toEqual([
+        expect.objectContaining({ id: "27547_", state: "Pahang", lat: 3.51, lon: 101.91, graphUrl: null, level: 85.03, status: "Alert" }),
+        expect.objectContaining({ id: "3", status: "Unknown" }),
+      ]);
+      expect(download).toHaveBeenCalledTimes(1);
+      const history = await fetchRiverHistory("27547_");
+      expect(history.data).toEqual({ name: "Sg. Bentong", thresholds: [], readings: [{ time: "2026-10-20T11:15:00.000Z", value: 85.03 }] });
+      await expect(fetchRiverHistory("999")).rejects.toThrow("unavailable");
     } finally {
       vi.useRealTimers();
       vi.unstubAllGlobals();

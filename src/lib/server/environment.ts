@@ -36,6 +36,22 @@ const jpsStation = z.object({
   trend: jpsText,
   graph_url: jpsText,
 });
+// The old JPS WordPress feed: one national file with short keys, and with coordinates.
+const jpsLegacyStation = z.object({
+  a: z.string().min(1),
+  b: z.string().min(1),
+  c: z.string(),
+  d: z.string(),
+  e: z.string(),
+  f: z.string(),
+  i: z.string(),
+  m: z.string(),
+  n: z.string(),
+  o: z.string(),
+  q: z.string(),
+  s: z.string(),
+});
+const JPS_LEGACY = "https://publicinfobanjir.water.gov.my/wp-content/themes/enlighten";
 const shelterSchema = z.object({
   id: z.union([z.number(), z.string()]),
   name: z.string().min(1),
@@ -113,8 +129,53 @@ export function parseRivers(raw: unknown, now = Date.now()): RiverStation[] {
   return rivers;
 }
 
+/** Reads the old JPS national file. Same freshness rule as parseRivers. */
+export function parseLegacyRivers(raw: unknown, now = Date.now()): RiverStation[] {
+  const rows = z.array(z.unknown()).parse(raw);
+  const rivers: RiverStation[] = [];
+  for (const row of rows) {
+    const parsed = jpsLegacyStation.safeParse(row);
+    if (!parsed.success) continue;
+    const s = parsed.data,
+      level = numeric(s.m),
+      observedAt = jpsDate(s.q),
+      state = malaysiaState(s.f);
+    const location = z.object(coord).safeParse({ lat: s.c, lon: s.d });
+    if (!s.i.includes("WL") || level === null || !observedAt || !state || !location.success)
+      continue;
+    const age = now - Date.parse(observedAt);
+    if (age < -300_000 || age > 3_600_000) continue;
+    const status = z.enum(["Normal", "Alert", "Warning", "Danger"]).safeParse(s.n);
+    if (!status.success) continue;
+    const threshold = numeric(s.o);
+    rivers.push({
+      id: s.a,
+      name: s.b,
+      state,
+      district: s.e,
+      ...location.data,
+      graphUrl: null,
+      level,
+      // Some stations report Danger against a missing zero threshold; do not repeat that as a warning.
+      status: status.data !== "Normal" && (threshold === null || threshold === 0) ? "Unknown" : status.data,
+      threshold,
+      trend: s.s,
+      observedAt,
+    });
+  }
+  if (!rivers.length) throw new Error("No recent river readings available");
+  return rivers;
+}
+
 export function fetchRivers() {
-  return cachedSource("environment:rivers:v4", 120, async () => {
+  return cachedSource("environment:rivers:v5", 120, async () => {
+    // JPS has switched between two websites, in both directions. Try the old file first
+    // (one request, has coordinates); if it is gone or stale, read the state tables.
+    try {
+      return parseLegacyRivers(
+        await (await get(`${JPS_LEGACY}/data/latestreadingstrendabc.json`)).json(),
+      );
+    } catch {}
     // Use the same public token as JPS's state selector; do not hard-code a token that can change.
     const token = await cachedJson("environment:jps-token:v1", 300, async () => {
       const html = await (
@@ -286,6 +347,24 @@ export function fetchFires() {
 }
 
 export function parseRiverHistory(raw: unknown): RiverHistory {
+  // The old JPS history shape is converted to the current one, so the rest reads one shape.
+  const legacy = z
+    .object({
+      info: z.object({
+        name: z.string(), normal: z.string(), alert: z.string(), warning: z.string(), danger: z.string(),
+      }),
+      values: z.array(z.object({ dt: z.string(), final: z.string() })),
+    })
+    .transform(({ info, values }) => ({
+      stationName: info.name,
+      normalSetPoint: info.normal,
+      alertSetPoint: info.alert,
+      warningSetPoint: info.warning,
+      dangerSetPoint: info.danger,
+      // The old file has a 5-minute slot list; a 15-minute station fills the unused slots with -9999.
+      // Drop them, or no two readings are adjacent and the chart draws no line. Real gaps still show by time.
+      data: values.filter(v => numeric(v.final) !== null).map(v => ({ timestamp: v.dt, wl: v.final })),
+    }));
   const data = z
     .object({
       stationName: z.string(),
@@ -295,6 +374,7 @@ export function parseRiverHistory(raw: unknown): RiverHistory {
       dangerSetPoint: z.number().nullable(),
       data: z.array(z.object({ timestamp: z.string(), wl: z.number().nullable() })),
     })
+    .or(legacy)
     .parse(raw);
   const thresholds = ([
     ["Normal", data.normalSetPoint],
@@ -319,9 +399,14 @@ export function parseRiverHistory(raw: unknown): RiverHistory {
 }
 
 export function fetchRiverHistory(station: string) {
-  return cachedSource(`environment:history:v3:${station}`, 300, async () => {
+  return cachedSource(`environment:history:v4:${station}`, 300, async () => {
     const { data: rivers } = await fetchRivers();
     const river = rivers.find(r => r.id === station);
+    // Only old-feed stations have coordinates; their history is on the old website.
+    if (river && river.lat !== null)
+      return parseRiverHistory(
+        await (await get(`${JPS_LEGACY}/query/getwaterlevellast7dayslead.php?extra=&station=${encodeURIComponent(station)}`)).json(),
+      );
     const url = river?.graphUrl ? new URL(river.graphUrl) : null;
     if (!url || !/^\/WaterLevel\/Station\/\d+$/.test(url.pathname))
       throw new Error("Station history unavailable");
